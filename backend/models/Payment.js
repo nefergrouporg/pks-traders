@@ -1,0 +1,42 @@
+const { DataTypes } = require('sequelize');
+
+module.exports = (sequelize) => {
+    const Payment = sequelize.define('Payment', {
+      id: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
+        autoIncrement: true,
+      },
+      amount: {
+        type: DataTypes.FLOAT,
+        allowNull: false,
+      },
+      status: {
+        type: DataTypes.ENUM('pending', 'completed', 'failed'),
+        defaultValue: 'pending',
+      },
+      transactionId: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      paymentMethod: {
+        type: DataTypes.ENUM('cash', 'card', 'upi', 'qr'),
+        allowNull: false,
+      },
+      userId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+      },
+      saleId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+      },
+    });
+  
+    Payment.associate = (models) => {
+      Payment.belongsTo(models.User, { foreignKey: 'userId' });
+      Payment.belongsTo(models.Sale, { foreignKey: 'saleId' });
+    };
+  
+    return Payment;
+  };

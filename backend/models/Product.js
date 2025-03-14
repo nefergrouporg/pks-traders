@@ -1,0 +1,52 @@
+const { DataTypes } = require('sequelize');
+
+module.exports = (sequelize) => {
+    const Product = sequelize.define('Product', {
+      id: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
+        autoIncrement: true,
+      },
+      name: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+      description: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
+      price: {
+        type: DataTypes.FLOAT,
+        allowNull: false,
+      },
+      barcode: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique: true,
+      },
+      stock: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+      },
+      category: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+      batchNumber: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      lowStockThreshold: {
+        type: DataTypes.INTEGER,
+        defaultValue: 10,
+      },
+    });
+  
+    Product.associate = (models) => {
+      Product.hasMany(models.Inventory, { foreignKey: 'productId' });
+      Product.hasMany(models.Sale, { foreignKey: 'productId' });
+    };
+  
+    return Product;
+  };
