@@ -6,40 +6,81 @@ const CartItem: React.FC<{
     name: string;
     price: number;
     quantity: number;
+    unitType: "pcs" | "kg";
   };
   onIncrease: (id: number) => void;
   onDecrease: (id: number) => void;
   onRemove: (id: number) => void;
-}> = ({ item, onIncrease, onDecrease, onRemove }) => (
-  <li className="flex justify-between items-center p-2 border-b last:border-b-0">
-    <div className="flex-1">
-      <p className="font-medium">{item.name}</p>
-      <div className="flex items-center space-x-2 mt-1">
+  onUpdateKg: (id: number, newQuantity: number) => void;
+}> = ({ item, onIncrease, onDecrease, onRemove, onUpdateKg }) => (
+  <tr className="border-b">
+    {/* Product Name - Left Aligned */}
+    <td className="p-3 text-left">{item.name}</td>
+
+    {/* Price - Center Aligned */}
+    <td className="p-3">₹{item.price.toFixed(2)}</td>
+
+    {/* Quantity - Center Aligned */}
+    <td className="p-3">
+      <div className="flex items-center justify-center space-x-2">
         <button
           onClick={() => onDecrease(item.id)}
-          className="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200"
+          className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
         >
           -
         </button>
-        <span className="w-8 text-center">{item.quantity}</span>
+        <input
+          type="number"
+          min="0"
+          step={item.unitType === "kg" ? "0.1" : "1"}
+          value={item.quantity.toString()} // Ensure no leading zeros in display
+          onChange={(e) => {
+            let value = e.target.value;
+
+            // If input is empty, set it to "0"
+            if (value === "") {
+              value = "0";
+            }
+
+            // Remove leading zeros (except for single "0")
+            if (value.length > 1 && value.startsWith("0")) {
+              value = value.replace(/^0+/, "");
+            }
+
+            // Convert value based on unit type
+            const parsedValue =
+              item.unitType === "kg" ? parseFloat(value) : parseInt(value, 10);
+
+            onUpdateKg(item.id, isNaN(parsedValue) ? 0 : parsedValue);
+          }}
+          className="w-16 text-center bg-white border rounded p-1"
+        />
+
+        <span className="text-gray-500">{item.unitType}</span>
         <button
           onClick={() => onIncrease(item.id)}
-          className="px-2 py-1 bg-gray-100 rounded hover:bg-gray-200"
+          className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
         >
           +
         </button>
       </div>
-    </div>
-    <div className="flex items-center space-x-4">
-      <p className="font-semibold">${(item.price * item.quantity).toFixed(2)}</p>
+    </td>
+
+    {/* Total Price - Center Aligned */}
+    <td className="p-3 font-semibold">
+      ₹{(item.price * item.quantity).toFixed(2)}
+    </td>
+
+    {/* Remove Button - Center Aligned */}
+    <td className="p-3">
       <button
         onClick={() => onRemove(item.id)}
         className="text-red-500 hover:text-red-700"
       >
-        Remove
+        ✖
       </button>
-    </div>
-  </li>
+    </td>
+  </tr>
 );
 
 export default CartItem;

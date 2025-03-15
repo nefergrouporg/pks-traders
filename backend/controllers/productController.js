@@ -4,16 +4,22 @@ const { generateBarcode } = require('../utils/barcode');
 // Add a new product
 exports.createProduct = async (req, res) => {
   try {
-    const { name, description, price, category, batchNumber, lowStockThreshold, supplierId } = req.body;
+    const { name, description, price, category, batchNumber, lowStockThreshold, stock, supplierId, unitType } = req.body;
+
+    if (!['pcs', 'kg'].includes(unitType)) {
+      return res.status(400).json({ message: "Invalid unit type. Use 'pcs' or 'kg'." });
+    }
 
     // Generate a unique barcode
     const barcode = await generateBarcode();
-
+    console.log(unitType, "unittype")
     // Create the product
     const product = await Product.create({
       name,
       description,
       price,
+      stock,
+      unitType,
       barcode,
       category,
       batchNumber,
@@ -75,18 +81,18 @@ exports.updateStock = async (req, res) => {
     const { id } = req.params;
     const { quantity } = req.body;
 
-    // Find the product
     const product = await Product.findByPk(id);
-    if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
+    if (!product) return res.status(404).json({ message: 'Product not found' });
+
+    if (quantity <= 0) {
+      return res.status(400).json({ message: 'Quantity must be greater than zero' });
     }
 
-    // Update stock
+    if (product.unitType === 'pcs' && !Number.isInteger(quantity)) {
+      return res.status(400).json({ message: 'Quantity must be a whole number for piece-based products' });
+    }
+
     product.stock += quantity;
-
-    if(product.stock < 0){
-      return res.status(404).json({ message: 'Quantity cant be zero' });
-    }
     await product.save();
 
     res.json({ message: 'Stock updated successfully', product });
@@ -94,6 +100,7 @@ exports.updateStock = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
+
 
 // Delete a product
 exports.deleteProduct = async (req, res) => {
@@ -128,5 +135,23 @@ exports.getProductByBarcode = async (req, res) => {
     res.json(product);
   } catch (error) {
     res.status(400).json({ error: error.message });
+  }
+};
+
+// get product details from productIds
+exports.getProductsDetails = async (req, res) => {
+  try {
+    const { productIds } = req.body;
+    if (!productIds || !productIds.length) {
+      return res.status(400).json({ error: "Product IDs are required" });
+    }
+    console.log('kokokkokokoko')
+    const products = await Product.findAll({
+      where: { id: productIds },
+    });
+
+    res.status(200).json(products);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 };

@@ -1,4 +1,11 @@
-const { Sale, Product, User, sequelize, SaleItem } = require("../models/index");
+const {
+  Sale,
+  Product,
+  User,
+  sequelize,
+  SaleItem,
+  Payment,
+} = require("../models/index");
 const { generatePaymentQR } = require("../utils/qrGenerator");
 
 // Create a new sale
@@ -6,17 +13,22 @@ exports.createSale = async (req, res) => {
   try {
     const userId = req.user.id;
     const { items, paymentMethod, customerId } = req.body;
-    console.log(userId)
 
     if (!userId) return res.status(400).json({ error: "User ID is required" });
-    if (!items || !items.length) return res.status(400).json({ error: "At least one item is required" });
+    if (!items || !items.length)
+      return res.status(400).json({ error: "At least one item is required" });
 
     // Validate items array
     for (const item of items) {
-      if (!item.productId) return res.status(400).json({ error: "Product ID is required for each item" });
-      if (!item.quantity) return res.status(400).json({ error: "Quantity is required for each item" });
+      if (!item.productId)
+        return res
+          .status(400)
+          .json({ error: "Product ID is required for each item" });
+      if (!item.quantity)
+        return res
+          .status(400)
+          .json({ error: "Quantity is required for each item" });
     }
-
     const transaction = await sequelize.transaction();
     try {
       const saleItems = [];
@@ -26,7 +38,8 @@ exports.createSale = async (req, res) => {
       for (const item of items) {
         const product = await Product.findByPk(item.productId, { transaction });
         if (!product) throw new Error(`Product ${item.productId} not found`);
-        if (product.stock < item.quantity) throw new Error(`Insufficient stock for ${product.name}`);
+        if (product.stock < item.quantity)
+          throw new Error(`Insufficient stock for ${product.name}`);
 
         product.stock -= item.quantity;
         await product.save({ transaction });
@@ -42,7 +55,7 @@ exports.createSale = async (req, res) => {
       // Create Sale
       const sale = await Sale.create(
         {
-          totalAmount,
+          totalAmount: totalAmount.toFixed(2),
           paymentMethod,
           userId,
           customerId,
@@ -62,14 +75,25 @@ exports.createSale = async (req, res) => {
           )
         )
       );
-
-      // Generate QR Code for payment
-      const paymentQR = await generatePaymentQR(sale.id, totalAmount);
-
       await transaction.commit();
 
+      // Create PENDING payment record
+      const payment = await Payment.create({
+        amount: totalAmount.toFixed(2),
+        status: "pending",
+        paymentMethod,
+        saleId: sale.id,
+        userId: req.user.id,
+      });
+
+      // Generate QR only for UPI
+      const paymentQR =
+        paymentMethod === "upi"
+          ? await generatePaymentQR(sale.id, totalAmount)
+          : null;
+
       res.status(201).json({
-        message: 'Sale created successfully',
+        message: "Sale created successfully",
         sale,
         paymentQR,
       });
@@ -81,7 +105,6 @@ exports.createSale = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
-
 
 // Get all sales
 exports.getAllSales = async (req, res) => {

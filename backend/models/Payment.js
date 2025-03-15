@@ -31,6 +31,14 @@ module.exports = (sequelize) => {
         type: DataTypes.INTEGER,
         allowNull: false,
       },
+      upiTransactionId: {  // Add UPI-specific field
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      cardApprovalCode: {  // Add card-specific field
+        type: DataTypes.STRING,
+        allowNull: true,
+      }
     });
   
     Payment.associate = (models) => {

@@ -25,9 +25,14 @@ module.exports = (sequelize) => {
         unique: true,
       },
       stock: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.FLOAT,  // Change INTEGER to FLOAT for kg support
         allowNull: false,
         defaultValue: 0,
+      },
+      unitType: {
+        type: DataTypes.ENUM('pcs', 'kg'), 
+        allowNull: false,
+        defaultValue: 'pcs',
       },
       category: {
         type: DataTypes.STRING,
