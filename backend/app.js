@@ -11,6 +11,7 @@ const inventoryRoutes = require('./routes/inventoryRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const supplierRoutes = require('./routes/supplierRoutes');
 const usersRoutes = require('./routes/usersRoutes');
+const configRoutes = require('./routes/projectConfigRoutes');
 const models = require('./models');
 // Initialize Express app
 const app = express();
@@ -30,6 +31,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/supplier', supplierRoutes);
+app.use('/api/config', configRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

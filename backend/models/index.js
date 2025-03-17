@@ -8,6 +8,7 @@ const PaymentModel = require('./Payment');
 const SaleModel = require('./Sale');
 const SaleItemModel = require('./SaleItem');
 const SupplierModel = require('./Supplier');
+const ProjectConfigModel = require('./ProjectConfig');
 
 // Initialize models
 const models = {
@@ -19,6 +20,7 @@ const models = {
   Sale:SaleModel(sequelize),
   SaleItem: SaleItemModel(sequelize),
   Supplier:SupplierModel(sequelize),
+  ProjectConfig: ProjectConfigModel(sequelize),
 };
 
 // Setup associations

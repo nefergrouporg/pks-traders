@@ -5,6 +5,7 @@ import SalesChart from "../components/Dashboard/SalesChart";
 import RecentTransactions from "../components/Dashboard/RecentTransactions";
 import DownloadReport from "../components/Dashboard/DownloadReport";
 import { baseUrl } from "../../utils/services";
+import UpiIdComponent from "../components/UpiIdSetup";
 
 interface LowStockProduct {
   name: string;
@@ -101,6 +102,7 @@ const Dashboard: React.FC = () => {
           <RecentTransactions />
         </div>
       </div>
+      <UpiIdComponent></UpiIdComponent>
     </div>
   );
 };
