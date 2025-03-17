@@ -109,12 +109,22 @@ exports.createSale = async (req, res) => {
 // Get all sales
 exports.getAllSales = async (req, res) => {
   try {
+    console.log('Fetching all sales...');
+
     const sales = await Sale.findAll({
-      include: [Product, User],
+      include: [
+        {
+          model: SaleItem,
+          include: [Product],
+        },
+        User,
+        Payment
+      ],
     });
 
     res.json(sales);
   } catch (error) {
+    console.error('Error fetching sales:', error);
     res.status(400).json({ error: error.message });
   }
 };

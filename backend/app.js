@@ -8,6 +8,7 @@ const productRoutes = require('./routes/productRoutes');
 const saleRoutes = require('./routes/saleRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const inventoryRoutes = require('./routes/inventoryRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
 const models = require('./models');
 // Initialize Express app
 const app = express();
@@ -24,6 +25,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/sales', saleRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/inventory', inventoryRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

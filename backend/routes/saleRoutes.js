@@ -4,6 +4,6 @@ const saleController = require('../controllers/saleController');
 const { auth } = require('../middleware/authMiddleware');
 
 router.post('/', auth, saleController.createSale);
-router.get("/getAllSales", saleController.getAllSales);
+router.get("/", saleController.getAllSales);
 
 module.exports = router;
