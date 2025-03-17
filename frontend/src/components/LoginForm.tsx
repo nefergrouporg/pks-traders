@@ -9,13 +9,17 @@ import {
 } from "@fortawesome/free-brands-svg-icons";
 import { Toaster, toast } from "sonner";
 import axios from "axios";
+import { jwtDecode } from "jwt-decode";
 import { useNavigate } from "react-router-dom";
+import { baseUrl } from "../../utils/services";
+import { useAuth } from "../context/AuthContext";
 
 const LoginForm: React.FC = () => {
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const navigate = useNavigate();
+  const { setUsername } = useAuth()
 
   useEffect(() => {
     // If token exists, redirect to dashboard
@@ -28,19 +32,24 @@ const LoginForm: React.FC = () => {
     e.preventDefault();
 
     try {
-      const response = await axios.post(
-        "http://localhost:5000/api/auth/login",
-        {
-          username: email, // Backend expects "username", so we send email as username
-          password,
-        }
-      );
-
-      // Store token in localStorage (or cookies if using HttpOnly)
+      const response = await axios.post(`${baseUrl}/api/auth/login`, {
+        username: email,
+        password,
+      });
+      
       localStorage.setItem("token", response.data.token);
-
-      // Redirect user after login (e.g., to dashboard)
-      window.location.href = "/dashboard";
+      console.log(email, "useranme")
+      setUsername(email)
+      // Decode token to get role
+      const decodedToken = jwtDecode(response.data.token);
+      const userRole = decodedToken.role;
+  
+      // Redirect based on role
+      if (userRole === 'staff') {
+        navigate('/pos')
+      } else {
+        navigate('/dashboard')
+      }
     } catch (err: any) {
       toast.warning(err.response?.data?.message || "Login failed. Try again.");
     }
@@ -54,13 +63,13 @@ const LoginForm: React.FC = () => {
             <div className="text-rose-500 mr-2">
               <FontAwesomeIcon icon={faKeycdn} className="text-sm" />
             </div>
-            <h1 className="text-gray-700 text-xl font-bold">NEFER GROUP</h1>
+            <h1 className="text-gray-700 text-xl font-bold">PKS TRADERS</h1>
           </div>
         </div>
         <p className="text-center text-gray-400 mb-6">
-          Enter your email address and password
+          Enter your username and password
           <br />
-          to access admin panel.
+          to access panel.
         </p>
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
@@ -68,12 +77,12 @@ const LoginForm: React.FC = () => {
               htmlFor="email"
               className="block text-start text-gray-500 mb-2"
             >
-              Email
+              Username
             </label>
             <input
               type="text"
               id="email"
-              placeholder="Enter your email here"
+              placeholder="Enter your username here"
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 text-white"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -153,33 +162,8 @@ const LoginForm: React.FC = () => {
         </form>
 
         <div className="mt-6 text-center">
-          <p className="text-gray-400 mb-4">Sign in with</p>
-          <div className="flex justify-center space-x-4">
-            <a
-              href="#"
-              className="text-blue-500 transition-all duration-200 hover:text-blue-700"
-            >
-              <FontAwesomeIcon icon={faFacebookF} className="text-sm" />
-            </a>
-            <a
-              href="#"
-              className="text-red-500 transition-all duration-200 hover:text-red-700"
-            >
-              <FontAwesomeIcon icon={faGoogle} className="text-sm" />
-            </a>
-            <a
-              href="#"
-              className="text-blue-400 transition-all duration-200 hover:text-blue-600"
-            >
-              <FontAwesomeIcon icon={faTwitter} className="text-sm" />
-            </a>
-            <a
-              href="#"
-              className="text-gray-700 transition-all duration-200 hover:text-gray-900"
-            >
-              <FontAwesomeIcon icon={faGithub} className="text-sm" />
-            </a>
-          </div>
+          <p className="text-gray-400 mb-4"></p>
+          
         </div>
       </div>
     </>

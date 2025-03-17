@@ -1,5 +1,5 @@
 const { Op } = require("sequelize");
-const { sequelize, SaleItem, Payment } = require("../models/index");
+const { sequelize, SaleItem, Payment, Sale } = require("../models/index");
 const { formatISO } = require("date-fns");
 const { toZonedTime, format } = require("date-fns-tz");
 
@@ -173,4 +173,5 @@ exports.getReportDataLogic = async(startDate, endDate) => {
       };
     });
   }
+  
   

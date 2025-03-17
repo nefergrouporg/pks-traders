@@ -9,6 +9,8 @@ const saleRoutes = require('./routes/saleRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const inventoryRoutes = require('./routes/inventoryRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const supplierRoutes = require('./routes/supplierRoutes');
+const usersRoutes = require('./routes/usersRoutes');
 const models = require('./models');
 // Initialize Express app
 const app = express();
@@ -21,11 +23,13 @@ app.use(bodyParser.urlencoded({ extended: true })); // Parse URL-encoded bodies
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/users', usersRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/sales', saleRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/supplier', supplierRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

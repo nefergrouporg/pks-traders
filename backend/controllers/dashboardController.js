@@ -22,25 +22,21 @@ exports.getSalesChartData = async (req, res) => {
   }
 };
 
-// Helper function to get ISO week number
-function getISOWeek(date) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() + 4 - (d.getDay() || 7));
-  const yearStart = new Date(d.getFullYear(), 0, 1);
-  return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
-}
 
 exports.getStats = async (req, res) => {
-  const [totalSales, lowStockCount, pendingPayments] = await Promise.all([
+  const [totalSales, lowStockCount, lowStockProducts, pendingPayments] = await Promise.all([
     Sale.sum("totalAmount"),
     Product.count({
       where: { stock: { [Op.lt]: sequelize.col("lowStockThreshold") } },
     }),
+    Product.findAll({
+        where: { stock: { [Op.lt]: sequelize.col("lowStockThreshold") } },
+        attributes: ["name", "batchNumber", "stock"],
+      }),
     Payment.count({ where: { status: "pending" } }),
   ]);
 
-  res.json({ totalSales, lowStockCount, pendingPayments });
+  res.json({ totalSales, lowStockCount, lowStockProducts, pendingPayments });
 };
 
 exports.getSalesData = async (req, res) => {

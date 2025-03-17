@@ -5,13 +5,18 @@ import SalesChart from "../components/Dashboard/SalesChart";
 import RecentTransactions from "../components/Dashboard/RecentTransactions";
 import DownloadReport from "../components/Dashboard/DownloadReport";
 import { baseUrl } from "../../utils/services";
-import SalesList from "../components/Dashboard/SalesList";
 
-// Define TypeScript types
+interface LowStockProduct {
+  name: string;
+  batchNumber: string;
+  stock: number;
+}
+
 interface Stats {
   totalSales: number;
   lowStockCount: number;
   pendingPayments: number;
+  lowStockProducts: LowStockProduct[];
 }
 
 interface SalesData {
@@ -24,23 +29,21 @@ const Dashboard: React.FC = () => {
     totalSales: 0,
     lowStockCount: 0,
     pendingPayments: 0,
+    lowStockProducts: [],
   });
-  const [salesData, setSalesData] = useState<SalesData[]>([]);
-  const [selectedPeriod, setSelectedPeriod] = useState("daily");
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("all");
-  const [selectedStartDate, setSelectedStartDate] = useState("");
-  const [selectedEndDate, setSelectedEndDate] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const statsRes = await axios.get<Stats>(`${baseUrl}/api/dashboard/stats`);
+        const statsRes = await axios.get<Stats>(
+          `${baseUrl}/api/dashboard/stats`
+        );
         setStats(statsRes.data);
       } catch (error) {
         console.error("Error fetching dashboard stats:", error);
       }
     };
-    
+
     fetchData();
   }, []);
 
@@ -50,16 +53,34 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <Card
           title="Total Sales"
-          value={`$${stats.totalSales.toFixed(2)}`}
+          value={`₹${stats.totalSales.toFixed(2)}`}
           icon={<span>💰</span>}
           bgColor="bg-blue-50"
         />
-        <Card
-          title="Low Stock Items"
-          value={stats.lowStockCount}
-          icon={<span>⚠️</span>}
-          bgColor="bg-yellow-50"
-        />
+
+        {/* Low Stock Items Card with Hover Tooltip */}
+        <div className="relative group">
+          <Card
+            title="Low Stock Items"
+            value={stats.lowStockCount}
+            icon={<span>⚠️</span>}
+            bgColor="bg-yellow-50"
+          />
+          {stats.lowStockProducts.length > 0 && (
+            <div className="absolute left-0 mt-2 hidden group-hover:block bg-white shadow-lg rounded-lg p-4 w-72 border border-gray-200 transition-all duration-200">
+              <h4 className="text-lg font-semibold mb-2">Low Stock Items</h4>
+              <ul className="text-sm">
+                {stats.lowStockProducts.map((product, index) => (
+                  <li key={index} className="mb-1">
+                    <span className="font-semibold">{product.name}</span> -
+                    Batch: {product.batchNumber || "N/A"}, Qty: {product.stock}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
         <Card
           title="Pending Payments"
           value={stats.pendingPayments}
@@ -69,7 +90,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Download Report Section */}
-      <DownloadReport/>
+      <DownloadReport />
 
       {/* Recent Transactions & Sales Chart */}
       <div className="mb-6 grid grid-cols-3 gap-6">
@@ -80,9 +101,6 @@ const Dashboard: React.FC = () => {
           <RecentTransactions />
         </div>
       </div>
-      <SalesList></SalesList>
-
-      
     </div>
   );
 };

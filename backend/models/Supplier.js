@@ -30,6 +30,10 @@ module.exports = (sequelize) => {
         type: DataTypes.TEXT,
         allowNull: true,
       },
+      active: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true,
+      }
     });
   
     Supplier.associate = (models) => {

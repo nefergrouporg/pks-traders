@@ -10,5 +10,6 @@ router.put('/:id', auth, role('admin'), productController.updateProduct);
 router.post('/', auth, role('admin'), productController.createProduct);
 router.post('/details', productController.getProductsDetails);
 router.delete('/:id', auth, role('admin'), productController.deleteProduct);
+router.put('/:id/toggle-product', auth, role('admin'), productController.toggleProduct);
 
 module.exports = router;

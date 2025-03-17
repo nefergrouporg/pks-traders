@@ -1,8 +1,10 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Lottie from "lottie-react";
 import scanningAnimation from "../../assets/lottie/scanner.json"; // Replace with your Lottie JSON file path
 
-const BarcodeScanner: React.FC<{ onScan: (barcode: string) => void }> = ({ onScan }) => {
+const BarcodeScanner: React.FC<{ onScan: (barcode: string) => void }> = ({
+  onScan,
+}) => {
   const [barcode, setBarcode] = useState("");
   const [scanning, setScanning] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -18,18 +20,35 @@ const BarcodeScanner: React.FC<{ onScan: (barcode: string) => void }> = ({ onSca
     }
   };
 
+  useEffect(() => {
+    if (scanning) {
+      inputRef.current?.focus();
+    }
+  }, [scanning]);
+  
+
   return (
-    <div ref={scannerRef} className="scanner-feed p-4 border rounded-md">
+    <div
+      ref={scannerRef}
+      className="scanner-feed p-4 border rounded-md w-full flex flex-col items-center min-h-[200px] transition-all duration-300"
+    >
       <h3 className="text-lg font-bold mb-2">Barcode Scanner</h3>
 
-      {scanning && (
-        <>
-          <div className="w-32 h-32 mx-auto">
-            <Lottie animationData={scanningAnimation} loop autoPlay />
+      {/* Smooth transition area for scanner animation */}
+      <div className="w-32 h-32 mx-auto flex justify-center items-center">
+        {scanning ? (
+          <Lottie
+            animationData={scanningAnimation}
+            loop
+            autoPlay
+            className="w-32 h-32 transition-opacity duration-300 opacity-100"
+          />
+        ) : (
+          <div className="w-32 h-32 bg-gray-100 rounded-md flex items-center justify-center opacity-50 transition-opacity duration-300">
+            <p className="text-gray-500">Idle</p>
           </div>
-          <p className="mb-2">Scanned Code: {barcode}</p>
-        </>
-      )}
+        )}
+      </div>
 
       {/* Hidden input field for barcode scanning */}
       <input
@@ -40,15 +59,25 @@ const BarcodeScanner: React.FC<{ onScan: (barcode: string) => void }> = ({ onSca
         className="absolute opacity-0"
       />
 
+      {/* Show scanned barcode */}
+      <p
+        className={`mb-2 transition-opacity duration-300 ${
+          scanning ? "opacity-100" : "opacity-0"
+        }`}
+      >
+        Scanned Code: {barcode}
+      </p>
+
+      {/* Buttons */}
       <div className="flex gap-2">
         {!scanning ? (
           <button
             onClick={() => {
               setScanning(true);
               setBarcode("");
-              inputRef.current?.focus(); // Focus input when scanning starts
+              inputRef.current?.focus();
             }}
-            className="bg-blue-500 text-white px-4 py-2 rounded-md"
+            className="bg-blue-500 text-white px-4 py-2 rounded-md transition-all duration-300"
           >
             Start Scanning
           </button>
@@ -56,9 +85,9 @@ const BarcodeScanner: React.FC<{ onScan: (barcode: string) => void }> = ({ onSca
           <button
             onClick={() => {
               setScanning(false);
-              setBarcode(""); // Clear barcode when stopping
+              setBarcode("");
             }}
-            className="bg-red-500 text-white px-4 py-2 rounded-md"
+            className="bg-red-500 text-white px-4 py-2 rounded-md transition-all duration-300"
           >
             Stop Scanning
           </button>
@@ -69,8 +98,6 @@ const BarcodeScanner: React.FC<{ onScan: (barcode: string) => void }> = ({ onSca
 };
 
 export default BarcodeScanner;
-
-
 
 // import React, { useState, useEffect, useRef } from "react";
 // import Lottie from "lottie-react";

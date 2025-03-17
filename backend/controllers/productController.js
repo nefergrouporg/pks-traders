@@ -4,15 +4,15 @@ const { generateBarcode } = require('../utils/barcode');
 // Add a new product
 exports.createProduct = async (req, res) => {
   try {
-    const { name, description, price, category, batchNumber, lowStockThreshold, stock, supplierId, unitType } = req.body;
-
+    const { name, price, category, batchNumber, lowStockThreshold, stock, supplierName, unitType, description } = req.body;
     if (!['pcs', 'kg'].includes(unitType)) {
       return res.status(400).json({ message: "Invalid unit type. Use 'pcs' or 'kg'." });
     }
-
+    if(!name || !price || !stock || !supplierName || !batchNumber || !category || !lowStockThreshold || !unitType){
+      return  res.status(400).json({ message: 'All fiels are required'});
+    }
     // Generate a unique barcode
     const barcode = await generateBarcode();
-    console.log(unitType, "unittype")
     // Create the product
     const product = await Product.create({
       name,
@@ -24,11 +24,12 @@ exports.createProduct = async (req, res) => {
       category,
       batchNumber,
       lowStockThreshold,
-      supplierId,
+      supplierId : supplierName,
     });
 
     res.status(201).json({ message: 'Product created successfully', product });
   } catch (error) {
+    console.log(error)
     res.status(400).json({ error: error.message });
   }
 };
@@ -46,6 +47,7 @@ exports.updateProduct = async (req, res) => {
       lowStockThreshold,
       supplierId,
       stock,
+      unitType
     } = req.body;
 
     // Find the product by ID
@@ -65,6 +67,7 @@ exports.updateProduct = async (req, res) => {
       lowStockThreshold: lowStockThreshold || product.lowStockThreshold,
       supplierId: supplierId || product.supplierId,
       stock: stock !== undefined ? stock : product.stock,
+      unitType: unitType !== undefined ? unitType : product.unitType,
     });
 
     res.status(200).json({ message: 'Product updated successfully', product });
@@ -72,6 +75,7 @@ exports.updateProduct = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
+
 
 
 
@@ -119,7 +123,6 @@ exports.deleteProduct = async (req, res) => {
 exports.getAllProducts = async (req, res) => {
   try {
     const products = await Product.findAll();
-
     res.status(200).json({ message: 'Products retrieved successfully', products });
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -153,5 +156,28 @@ exports.getProductsDetails = async (req, res) => {
     res.status(200).json(products);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+exports.toggleProduct = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Find the product
+    const product = await Product.findByPk(id);
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    // Toggle the active status
+    product.active = !product.active;
+    await product.save();
+
+    res.status(200).json({
+      message: `Product ${product.active ? "activated" : "deactivated"} successfully`,
+      product,
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
   }
 };

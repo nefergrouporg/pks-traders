@@ -46,6 +46,10 @@ module.exports = (sequelize) => {
         type: DataTypes.INTEGER,
         defaultValue: 10,
       },
+      active:{
+        type: DataTypes.BOOLEAN,
+        defaultValue:true
+      }
     });
   
     Product.associate = (models) => {

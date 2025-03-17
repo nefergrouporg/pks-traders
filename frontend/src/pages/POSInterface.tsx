@@ -7,7 +7,7 @@ import ShoppingCart from "../components/POSInterface/ShoppingCart";
 import { toast } from "sonner";
 import Stepper, { Step } from "../components/Stepper";
 import { motion, AnimatePresence } from "framer-motion";
-import moneyClipart from '../assets/money_clipart.png';
+import moneyClipart from "../assets/money_clipart.png";
 import cardsClipart from "../assets/cards_clipart.png";
 
 // Reusable Modal Component
@@ -65,9 +65,6 @@ const POSInterface: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "upi">(
     "cash"
   );
-  const [discountCode, setDiscountCode] = useState("");
-  const [isSplitBillingModalOpen, setIsSplitBillingModalOpen] = useState(false);
-  const [loyaltyPoints, setLoyaltyPoints] = useState(150);
   const [paymentQR, setPaymentQR] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [isProductsLoading, setIsProductsLoading] = useState(false);
@@ -176,9 +173,11 @@ const POSInterface: React.FC = () => {
 
   const handleBarcodeScan = async (barcode: string) => {
     try {
+      console.log('heyeyy')
       const response = await axios.get(
         `${baseUrl}/api/products/${barcode.trim()}`
       );
+      console.log(response, "jidjshsdufgsduyfgsdfuysdgf")
       addToCart(response.data);
     } catch (error) {
       console.error("API error:", error);
@@ -220,16 +219,6 @@ const POSInterface: React.FC = () => {
       console.error("Payment failed:", error);
       toast.error(error?.response?.data?.error || "Something went wrong");
     }
-  };
-
-  // Apply discount (placeholder logic)
-  const applyDiscount = () => {
-    alert(`Discount code "${discountCode}" applied!`);
-  };
-
-  // Split billing (placeholder logic)
-  const handleSplitBilling = () => {
-    setIsSplitBillingModalOpen(true);
   };
 
   const confirmPayment = async (
@@ -362,7 +351,7 @@ const POSInterface: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-10"
           >
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
@@ -485,10 +474,10 @@ const POSInterface: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
-
       {/* Top Row */}
-      <div className="flex gap-6 pb-10" style={{ minHeight: "300px" }}>
-        <div className="w-2/3">
+      <div className="flex flex-col md:flex-row gap-6 pb-2">
+        {/* Product List - Takes Full Width on Small Screens, 2/3 on Medium+ */}
+        <div className="w-full md:w-2/3">
           <ProductList
             products={products}
             onAddToCart={addToCart}
@@ -496,92 +485,45 @@ const POSInterface: React.FC = () => {
             isLoading={isProductsLoading}
           />
         </div>
-        <div className="w-1/3 flex flex-col gap-6">
-          <div className="bg-white rounded-lg shadow-md p-4">
+
+        {/* Scanner Section - Full Width on Small Screens, 1/3 on Medium+ */}
+        <div className="w-full md:w-1/3 flex flex-col gap-6">
+          <div className="bg-white rounded-lg shadow-md p-4 min-h-[250px] flex flex-col justify-center items-center transition-all duration-300">
             <BarcodeScanner onScan={handleBarcodeScan} />
           </div>
         </div>
       </div>
 
+      <div className="w-full flex justify-end">
+        <button
+          onClick={handleCreateSale}
+          className="bg-red-900 text-white px-6 py-3 rounded-lg"
+        >
+          Create Sale
+        </button>
+      </div>
+
       {/* Shopping Cart Section */}
-      <ShoppingCart
-        cart={cart}
-        onIncrease={increaseQuantity}
-        onDecrease={decreaseQuantity}
-        onRemove={removeFromCart}
-        onUpdateKg={updateQuantity}
-      />
+      <div className="w-full">
+        <ShoppingCart
+          cart={cart}
+          onIncrease={increaseQuantity}
+          onDecrease={decreaseQuantity}
+          onRemove={removeFromCart}
+          onUpdateKg={updateQuantity}
+        />
+      </div>
 
       {/* Bottom Section */}
-      <div className="flex gap-6">
-        <div className="w-2/3 flex flex-col gap-6">
-          {/* Customer Display */}
-          <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+      <div className="flex flex-col md:flex-col gap-6">
+        {/* Running Total */}
+        <div className="w-full md:w-2/3 flex flex-col gap-6">
+          <div className="bg-white rounded-lg shadow-md p-4">
             <h2 className="text-lg font-semibold mb-2">Running Total</h2>
             <p className="text-2xl font-bold">₹{totalPrice.toFixed(2)}</p>
           </div>
-
-          {/* Special Features */}
-          {/* <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-            <h2 className="text-lg font-semibold mb-2">Special Features</h2>
-            <div className="flex space-x-4">
-              <button
-                onClick={handleSplitBilling}
-                className="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition"
-              >
-                Split Billing
-              </button>
-            </div>
-            </div> */}
         </div>
-
-        {/* Discount Code Input */}
-        {/* <div className="w-1/3">
-          <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-            <h2 className="text-lg font-semibold mb-2">Discount Code</h2>
-            <div className="flex space-x-2">
-              <input
-                type="text"
-                placeholder="Enter discount code"
-                value={discountCode}
-                onChange={(e) => setDiscountCode(e.target.value)}
-                className="p-2 border rounded-lg flex-1"
-              />
-              <button
-                onClick={applyDiscount}
-                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition"
-              >
-                Apply
-              </button>
-            </div>
-          </div>
-        </div> */}
-
-        {/* Loyalty Points Display */}
-        {/* <div className="w-1/3">
-          <div className="bg-white rounded-lg shadow-md p-4">
-          <h2 className="text-lg font-semibold mb-2">Loyalty Points</h2>
-          <p className="text-2xl font-bold">{loyaltyPoints} Points</p>
-          </div>
-          </div> */}
       </div>
-
-      <button
-        onClick={handleCreateSale}
-        className="bg-red-900 text-white self-end px-6 py-3 rounded-lg"
-      >
-        Create Sale
-      </button>
-
-      <Modal
-        isOpen={isSplitBillingModalOpen}
-        onClose={() => setIsSplitBillingModalOpen(false)}
-      >
-        <h2 className="text-lg font-semibold mb-4">Split Billing</h2>
-        <p className="text-gray-500">
-          Split billing functionality placeholder.
-        </p>
-      </Modal>
     </div>
   );
 };

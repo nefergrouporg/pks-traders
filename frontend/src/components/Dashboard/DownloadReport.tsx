@@ -1,13 +1,26 @@
 import axios from "axios";
 import React, { useState } from "react";
 import { baseUrl } from "../../../utils/services";
+import { toast } from "sonner";
 
 const DownloadReportButton = () => {
   const [selectedFormat, setSelectedFormat] = useState("csv");
   const [selectedStartDate, setSelectedStartDate] = useState("");
   const [selectedEndDate, setSelectedEndDate] = useState("");
 
+  // Validation function
+  const validateDates = () => {
+    if (!selectedStartDate || !selectedEndDate) {
+      toast.error("Both Start Date and End Date are required!");
+      return false;
+    }
+    return true;
+  };
+
   const handleDownload = async (format) => {
+    if (!validateDates()) {
+      return;
+    }
     try {
       const response = await axios.get(
         `${baseUrl}/api/dashboard/export-sales-data`,

@@ -19,7 +19,7 @@ const ProductList: React.FC<{
   );
 
   return (
-    <div className="rounded-lg border p-4 w-full h-full">
+    <div className="rounded-lg border bg-white shadow-md p-4 w-full h-full">
       {/* Header Section */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-bold">Available Products</h2>

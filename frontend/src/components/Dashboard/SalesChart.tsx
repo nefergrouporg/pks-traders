@@ -27,7 +27,6 @@ const paymentMethods = [
   { value: "cash", label: "Cash" },
   { value: "card", label: "Card" },
   { value: "upi", label: "UPI" },
-  { value: "qr", label: "QR" },
 ];
 
 const SalesChart: React.FC = () => {

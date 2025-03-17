@@ -120,6 +120,7 @@ exports.getAllSales = async (req, res) => {
         User,
         Payment
       ],
+      order: [["createdAt", "DESC"]],
     });
 
     res.json(sales);

@@ -29,12 +29,7 @@ const LoginPage: React.FC = () => {
         <LoginForm></LoginForm>
 
         <p className="mt-4 text-gray-500">
-          <a
-            href="#"
-            className="text-blue-500 hover:underline transition-all duration-200"
-          >
-            Forgot your password?
-          </a>
+          
         </p>
         <p className="mt-2 text-gray-500">
           Don't have an account?{" "}
