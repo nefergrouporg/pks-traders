@@ -1,3 +1,5 @@
+
+
 const sequelize = require('../config/database'); // Properly import the Sequelize instance
 
 const UserModel = require('./User');
@@ -8,7 +10,10 @@ const PaymentModel = require('./Payment');
 const SaleModel = require('./Sale');
 const SaleItemModel = require('./SaleItem');
 const SupplierModel = require('./Supplier');
+const CustomerModel = require('./customer');
 const ProjectConfigModel = require('./ProjectConfig');
+const BranchModel = require('./branch')
+
 
 // Initialize models
 const models = {
@@ -20,7 +25,9 @@ const models = {
   Sale:SaleModel(sequelize),
   SaleItem: SaleItemModel(sequelize),
   Supplier:SupplierModel(sequelize),
+  Customer:CustomerModel(sequelize),
   ProjectConfig: ProjectConfigModel(sequelize),
+  Branch:BranchModel(sequelize),
 };
 
 // Setup associations

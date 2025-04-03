@@ -81,11 +81,12 @@ export default function Stepper({
       {...rest}
     >
       <div
-        className={`mx-auto w-screen max-w-lg bg-white rounded-4xl shadow-xl ${stepCircleContainerClassName}`}
+        className={`mx-auto w-full max-w-lg bg-white rounded-2xl sm:rounded-4xl shadow-xl ${stepCircleContainerClassName}`}
         style={{ border: "1px solid #222" }}
       >
+        {/* Step Indicators */}
         <div
-          className={`${stepContainerClassName} flex w-full items-center p-8`}
+          className={`${stepContainerClassName} flex w-full items-center p-4 sm:p-8 overflow-x-auto`}
         >
           {stepsArray.map((_, index) => {
             const stepNumber = index + 1;
@@ -112,26 +113,28 @@ export default function Stepper({
           })}
         </div>
 
+        {/* Step Content */}
         <StepContentWrapper
           isCompleted={isCompleted}
           currentStep={currentStep}
           direction={direction}
-          className={`space-y-2 px-8 ${contentClassName}`}
+          className={`space-y-2 px-4 sm:px-8 ${contentClassName}`}
         >
           {stepsArray[currentStep - 1]}
         </StepContentWrapper>
 
+        {/* Footer Buttons */}
         {!isCompleted && (
-          <div className={`px-8 pb-8 ${footerClassName}`}>
+          <div className={`px-4 sm:px-8 pb-4 sm:pb-8 ${footerClassName}`}>
             <div
-              className={`mt-10 flex ${
+              className={`mt-6 sm:mt-10 flex ${
                 currentStep === 1 ? "justify-between" : "justify-end"
               }`}
             >
               {currentStep === 1 && (
                 <button
                   onClick={onClose}
-                  className={`duration-350 rounded px-2 py-1 transition text-neutral-400 hover:text-neutral-700`}
+                  className={`duration-350 rounded px-2 py-1 transition text-neutral-400 hover:text-neutral-700 text-sm sm:text-base`}
                   {...backButtonProps}
                 >
                   Cancel
@@ -140,7 +143,7 @@ export default function Stepper({
 
               <button
                 onClick={isLastStep ? handleComplete : handleNext}
-                className="duration-350 flex items-center justify-center rounded-full bg-green-500 py-1.5 px-3.5 font-medium tracking-tight text-white transition hover:bg-green-600 active:bg-green-700"
+                className="duration-350 flex items-center justify-center rounded-full bg-green-500 py-1.5 px-3.5 font-medium tracking-tight text-white transition hover:bg-green-600 active:bg-green-700 text-sm sm:text-base"
                 {...nextButtonProps}
               >
                 {isLastStep ? "Complete" : nextButtonText}
@@ -267,7 +270,6 @@ function StepIndicator({
       : currentStep < step
       ? "inactive"
       : "complete";
-
 
   return (
     <motion.div

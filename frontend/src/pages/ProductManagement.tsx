@@ -13,6 +13,7 @@ interface Product {
   category: string;
   stock: number;
   batchNumber: string;
+  barcode: string;
   description: string;
   lowStockThreshold: number;
   supplierId: number;
@@ -48,14 +49,26 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   const actionMessage =
     message || `Are you sure you want to ${action.toLowerCase()} this item?`;
   return (
-    <Modal isOpen={isOpen} onClose={onClose} className="max-w-sm">
-      <div className="p-4">
-        <h2 className="text-lg font-semibold mb-4">Confirm {action}</h2>
-        <p className="mb-6">{actionMessage}</p>
-        <div className="flex justify-end space-x-4">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      className="max-w-xs sm:max-w-sm max-h-[90vh] overflow-y-auto"
+    >
+      {/* Modal Content Container */}
+      <div className="p-4 sm:p-6">
+        {/* Modal Title */}
+        <h2 className="text-lg sm:text-xl font-semibold mb-4">
+          Confirm {action}
+        </h2>
+
+        {/* Modal Message */}
+        <p className="mb-6 text-sm sm:text-base">{actionMessage}</p>
+
+        {/* Action Buttons */}
+        <div className="flex justify-end space-x-3 sm:space-x-4">
           <button
             onClick={onClose}
-            className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition"
+            className="bg-gray-300 text-gray-700 px-3 sm:px-4 py-1 sm:py-2 rounded-lg hover:bg-gray-400 transition text-sm sm:text-base"
           >
             Cancel
           </button>
@@ -63,9 +76,9 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
             onClick={onConfirm}
             className={`${
               currentStatus ? "bg-red-500" : "bg-green-500"
-            } text-white px-4 py-2 rounded-lg hover:${
+            } text-white px-3 sm:px-4 py-1 sm:py-2 rounded-lg hover:${
               currentStatus ? "bg-red-600" : "bg-green-600"
-            } transition`}
+            } transition text-sm sm:text-base`}
           >
             {action}
           </button>
@@ -91,6 +104,7 @@ const ProductManagement: React.FC = () => {
     price: "",
     category: "",
     batchNumber: "",
+    barcode: "",
     lowStockThreshold: "",
     stock: "",
     supplierName: "",
@@ -118,7 +132,13 @@ const ProductManagement: React.FC = () => {
     fetchProducts();
   }, []);
 
- 
+  useEffect(() => {
+    const fetchSuppliers = async () => {
+      const response = await axios.get(`${baseUrl}/api/supplier`);
+      setSuppliers(response.data.suppliers);
+    };
+    fetchSuppliers();
+  }, []);
 
   // Filter products based on search and category
   const filteredProducts = products?.filter(
@@ -146,6 +166,14 @@ const ProductManagement: React.FC = () => {
     }));
   };
 
+  const handleBarcodeScan = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault(); // Prevent form submission
+      console.log("Scanned Barcode:", e.target.value);
+      setFormData({ ...formData, barcode: e.target.value });
+    }
+  };
+
   const handleCreateProduct = async (e) => {
     e.preventDefault();
 
@@ -155,6 +183,7 @@ const ProductManagement: React.FC = () => {
         !formData.stock ||
         !formData.supplierName ||
         !formData.batchNumber ||
+        !formData.barcode ||
         !formData.category ||
         !formData.lowStockThreshold ||
         !formData.unitType) &&
@@ -246,6 +275,7 @@ const ProductManagement: React.FC = () => {
       price: "",
       category: "",
       batchNumber: "",
+      barcode: "",
       lowStockThreshold: "",
       stock: "",
       supplierName: "",
@@ -268,6 +298,7 @@ const ProductManagement: React.FC = () => {
       price: product.price,
       category: product.category,
       batchNumber: product.batchNumber,
+      barcode: product.barcode,
       lowStockThreshold: product.lowStockThreshold,
       stock: product.stock,
       supplierName: product.supplierName,
@@ -280,21 +311,25 @@ const ProductManagement: React.FC = () => {
 
   return (
     <>
-      <div className="p-6 bg-gray-100 min-h-screen">
+      <div className="p-4 sm:p-6 bg-gray-100 min-h-screen">
+        {/* Empty div for spacing */}
         <div className="flex justify-end items-center pb-2"></div>
 
+        {/* Product Modal */}
         <Modal isOpen={isProductModalOpen} onClose={closeModal}>
-          <div className="p-4">
-            <h2 className="text-lg font-semibold mb-4">
-              {isEditing ? "Update Product" : "Create New Product"}
-            </h2>
+          <div className="p-6 sm:p-8 max-h-[90vh] overflow-y-auto w-full max-w-2xl mx-auto bg-white rounded-lg shadow-xl">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center mb-5 border-b pb-3">
+              <h2 className="text-xl font-semibold text-gray-800">
+                {isEditing ? "Update Product" : "Create New Product"}
+              </h2>
+            </div>
 
-            <form className="space-y-4" onSubmit={handleCreateProduct}>
-              {/* Two-Column Layout */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <form className="space-y-5" onSubmit={handleCreateProduct}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Product Name */}
                 <div>
-                  <label className="block text-sm font-medium mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Product Name
                   </label>
                   <input
@@ -303,7 +338,7 @@ const ProductManagement: React.FC = () => {
                     value={formData.name}
                     onChange={handleInputChange}
                     list="productNames"
-                    className="w-full border rounded-md px-3 bg-transparent py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className="w-full border rounded-lg px-4 py-2 bg-white text-black focus:ring-2 focus:ring-green-500"
                     placeholder="Enter product name"
                   />
                   <datalist id="productNames">
@@ -317,7 +352,7 @@ const ProductManagement: React.FC = () => {
 
                 {/* Price */}
                 <div>
-                  <label className="block text-sm font-medium mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Price
                   </label>
                   <input
@@ -325,46 +360,63 @@ const ProductManagement: React.FC = () => {
                     name="price"
                     value={formData.price}
                     onChange={handleInputChange}
-                    className="w-full border rounded-md px-3 bg-transparent py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className="w-full border rounded-lg px-4 py-2 bg-white text-black focus:ring-2 focus:ring-green-500"
                     placeholder="Enter price"
                   />
                 </div>
 
                 {/* Category */}
                 <div>
-                  <label className="block text-sm font-medium mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Category
                   </label>
                   <select
-                    className="w-full border rounded-md px-3 bg-transparent py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                     name="category"
                     value={formData.category}
                     onChange={handleInputChange}
+                    className="w-full border rounded-lg px-4 py-2 bg-white text-black focus:ring-2 focus:ring-green-500"
                   >
                     <option value="">Select category</option>
                     <option value="fruits">Fruits</option>
                     <option value="vegetables">Vegetables</option>
+                    <option value="grocery">Grocery</option>
                   </select>
                 </div>
 
                 {/* Batch Number */}
                 <div>
-                  <label className="block text-sm font-medium mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Batch Number
                   </label>
                   <input
                     type="text"
-                    value={formData.batchNumber}
                     name="batchNumber"
+                    value={formData.batchNumber}
                     onChange={handleInputChange}
-                    className="w-full border rounded-md px-3 bg-transparent py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className="w-full border rounded-lg px-4 py-2 bg-white text-black focus:ring-2 focus:ring-green-500"
                     placeholder="Enter batch number"
+                  />
+                </div>
+
+                {/* Barcode */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Barcode
+                  </label>
+                  <input
+                    type="text"
+                    name="barcode"
+                    value={formData.barcode}
+                    onChange={handleInputChange}
+                    onKeyDown={handleBarcodeScan}
+                    className="w-full border rounded-lg px-4 py-2 bg-white text-black focus:ring-2 focus:ring-green-500"
+                    placeholder="Scan or enter barcode"
                   />
                 </div>
 
                 {/* Low Stock Threshold */}
                 <div>
-                  <label className="block text-sm font-medium mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Low Stock Threshold
                   </label>
                   <input
@@ -372,36 +424,36 @@ const ProductManagement: React.FC = () => {
                     name="lowStockThreshold"
                     value={formData.lowStockThreshold}
                     onChange={handleInputChange}
-                    className="w-full border rounded-md px-3 bg-transparent py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className="w-full border rounded-lg px-4 py-2 bg-white text-black focus:ring-2 focus:ring-green-500"
                     placeholder="Enter threshold quantity"
                   />
                 </div>
 
                 {/* Stock */}
                 <div>
-                  <label className="block text-sm font-medium mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Stock
                   </label>
                   <input
                     type="number"
-                    value={formData.stock}
                     name="stock"
+                    value={formData.stock}
                     onChange={handleInputChange}
-                    className="w-full border rounded-md px-3 bg-transparent py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className="w-full border rounded-lg px-4 py-2 bg-white text-black focus:ring-2 focus:ring-green-500"
                     placeholder="Enter stock quantity"
                   />
                 </div>
 
-                {/* Supplier ID */}
+                {/* Supplier */}
                 <div>
-                  <label className="block text-sm font-medium mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Supplier
                   </label>
                   <select
-                    className="w-full border rounded-md px-3 bg-transparent py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                    value={formData.supplierName}
                     name="supplierName"
+                    value={formData.supplierName}
                     onChange={handleInputChange}
+                    className="w-full border rounded-lg px-4 py-2 bg-white text-black focus:ring-2 focus:ring-green-500"
                   >
                     <option value="">Select supplier</option>
                     {suppliers?.map((supplier) => (
@@ -414,14 +466,14 @@ const ProductManagement: React.FC = () => {
 
                 {/* Unit Type */}
                 <div>
-                  <label className="block text-sm font-medium mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Unit Type
                   </label>
                   <select
-                    className="w-full border rounded-md px-3 bg-transparent py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                    value={formData.unitType}
                     name="unitType"
+                    value={formData.unitType}
                     onChange={handleInputChange}
+                    className="w-full border rounded-lg px-4 py-2 bg-white text-black focus:ring-2 focus:ring-green-500"
                   >
                     <option value="">Select unit type</option>
                     <option value="pcs">pcs</option>
@@ -432,61 +484,52 @@ const ProductManagement: React.FC = () => {
 
               {/* Description - Full Width */}
               <div>
-                <label className="block text-sm font-medium mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Description
                 </label>
                 <textarea
-                  className="w-full border rounded-md px-3 bg-transparent py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                  rows={3}
-                  placeholder="Enter description"
                   name="description"
                   value={formData.description}
                   onChange={handleInputChange}
+                  className="w-full border rounded-lg px-4 py-2 bg-white text-black focus:ring-2 focus:ring-green-500"
+                  rows={3}
+                  placeholder="Enter description"
                 />
               </div>
 
               {/* Submit Button */}
-              <div className="flex justify-end">
-                {isEditing ? (
-                  <button
-                    type="submit"
-                    className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition"
-                  >
-                    Update Product
-                  </button>
-                ) : (
-                  <button
-                    type="submit"
-                    className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition"
-                  >
-                    Create Product
-                  </button>
-                )}
+              <div className="flex justify-end mt-5">
+                <button
+                  type="submit"
+                  className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition"
+                >
+                  {isEditing ? "Update Product" : "Create Product"}
+                </button>
               </div>
             </form>
           </div>
         </Modal>
 
         {/* Search and Filter */}
-        <div className="mb-6 flex space-x-4">
+        <div className="mb-6 flex flex-col sm:flex-row gap-4">
           <input
             type="text"
             placeholder="Search products..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="p-2 border border-gray-400 bg-transparent rounded-lg flex-1"
+            className="p-2 border border-gray-400 bg-transparent rounded-lg flex-1 text-sm sm:text-base"
           />
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="p-2 border border-gray-400 bg-transparent rounded-lg"
+            className="p-2 border border-gray-400 bg-transparent rounded-lg text-sm sm:text-base"
           >
             <option value="">All Categories</option>
             <option value="fruits">Fruits</option>
             <option value="vegetables">Vegetables</option>
           </select>
           <button
-            className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition"
+            className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition text-sm sm:text-base"
             onClick={() => setProductModal(true)}
           >
             Add Product
@@ -495,53 +538,66 @@ const ProductManagement: React.FC = () => {
 
         {/* Product Table */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="p-3 text-left">Name</th>
-                <th className="p-3 text-left">Category</th>
-                <th className="p-3 text-left">Stock</th>
-                <th className="p-3 text-left">Batch</th>
-                <th className="p-3 text-left">Actions</th>
-                <th className="p-3 text-left">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentItems?.map((product) => (
-                <tr key={product.id} className="border-t">
-                  <td className="p-3">{product.name}</td>
-                  <td className="p-3">{product.category}</td>
-                  <td className="p-3">{product.stock}</td>
-                  <td className="p-3">{product.batchNumber}</td>
-                  <td>
-                    <button
-                      onClick={() => handleEditClick(product)}
-                      className="bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600 transition"
-                    >
-                      Edit
-                    </button>
-                  </td>
-                  <td>
-                    <button
-                      onClick={() => {
-                        setProductToDelete(product.id.toString()); // Set the product ID
-                        setIsConfirmationModalOpen(true); // Open the confirmation modal
-                      }}
-                    >
-                      <FontAwesomeIcon
-                        icon={product.active ? faToggleOn : faToggleOff}
-                        className={`text-2xl ${
-                          product.active ? "text-green-500" : "text-red-900"
-                        }`}
-                      />
-                    </button>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="p-3 text-left text-sm sm:text-base">Name</th>
+                  <th className="p-3 text-left text-sm sm:text-base">
+                    Category
+                  </th>
+                  <th className="p-3 text-left text-sm sm:text-base">Stock</th>
+                  <th className="p-3 text-left text-sm sm:text-base">Batch</th>
+                  <th className="p-3 text-left text-sm sm:text-base">
+                    Actions
+                  </th>
+                  <th className="p-3 text-left text-sm sm:text-base">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {currentItems?.map((product) => (
+                  <tr key={product.id} className="border-t">
+                    <td className="p-3 text-sm sm:text-base">{product.name}</td>
+                    <td className="p-3 text-sm sm:text-base">
+                      {product.category}
+                    </td>
+                    <td className="p-3 text-sm sm:text-base">
+                      {product.stock}
+                    </td>
+                    <td className="p-3 text-sm sm:text-base">
+                      {product.batchNumber}
+                    </td>
+                    <td>
+                      <button
+                        onClick={() => handleEditClick(product)}
+                        className="bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600 transition text-sm sm:text-base"
+                      >
+                        Edit
+                      </button>
+                    </td>
+                    <td>
+                      <button
+                        onClick={() => {
+                          setProductToDelete(product.id.toString()); // Set the product ID
+                          setIsConfirmationModalOpen(true); // Open the confirmation modal
+                        }}
+                      >
+                        <FontAwesomeIcon
+                          icon={product.active ? faToggleOn : faToggleOff}
+                          className={`text-2xl ${
+                            product.active ? "text-green-500" : "text-red-900"
+                          }`}
+                        />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
+        {/* Confirmation Modal */}
         <ConfirmationModal
           isOpen={isConfirmationModalOpen}
           onClose={() => {
@@ -558,41 +614,47 @@ const ProductManagement: React.FC = () => {
           message="Are you sure you want to proceed?"
         />
 
+        {/* Pagination */}
         <div className="flex justify-center mt-6">
           <button
             onClick={() => paginate(currentPage - 1)}
             disabled={currentPage === 1}
-            className="px-4 py-2 bg-gray-300 rounded-lg disabled:opacity-50 cursor-pointer"
+            className="px-4 py-2 bg-gray-300 rounded-lg disabled:opacity-50 cursor-pointer text-sm sm:text-base"
           >
             Previous
           </button>
-          <span className="mx-2 px-4 py-2 bg-gray-300 rounded-lg text-lg font-medium cursor-pointer">
+          <span className="mx-2 px-4 py-2 bg-gray-300 rounded-lg text-lg font-medium cursor-pointer text-sm sm:text-base">
             {currentPage}
           </span>
           <button
             onClick={() => paginate(currentPage + 1)}
             disabled={indexOfLastItem >= filteredProducts?.length}
-            className="px-4 py-2 bg-gray-300 rounded-lg disabled:opacity-50 cursor-pointer"
+            className="px-4 py-2 bg-gray-300 rounded-lg disabled:opacity-50 cursor-pointer text-sm sm:text-base"
           >
             Next
           </button>
         </div>
 
         {/* Bulk Import CSV */}
-        <div className="mb-6">
-          <button className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition">
+        <div className=" m-2">
+          <button className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition text-sm sm:text-base">
             Bulk Import CSV
           </button>
         </div>
 
         {/* Low Stock Threshold Alerts */}
         <div className="bg-yellow-50 p-4 rounded-lg">
-          <h2 className="text-lg font-semibold mb-2">Low Stock Alerts</h2>
+          <h2 className="text-lg sm:text-xl font-semibold mb-2">
+            Low Stock Alerts
+          </h2>
           <ul>
             {products
               ?.filter((product) => product.stock <= product.lowStockThreshold)
               ?.map((product) => (
-                <li key={product.id} className="text-red-500">
+                <li
+                  key={product.id}
+                  className="text-red-500 text-sm sm:text-base"
+                >
                   {product.name} (Stock: {product.stock})
                 </li>
               ))}

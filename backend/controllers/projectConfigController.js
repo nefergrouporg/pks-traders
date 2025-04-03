@@ -17,6 +17,7 @@ exports.getUpiId = async (req, res) => {
 // Set UPI ID
 exports.setUpiId = async (req, res) => {
   const { upiId } = req.body;
+
   try {
     let config = await ProjectConfig.findOne();
     if (config) {
@@ -27,6 +28,24 @@ exports.setUpiId = async (req, res) => {
     }
     res.json({ message: 'UPI ID updated successfully', config });
   } catch (error) {
-    res.status(500).json({ message: 'Error setting UPI ID', error });
+    console.error('Error saving UPI ID:', error);
+    res.status(500).json({ message: 'Error setting UPI ID', error: error.message });
   }
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

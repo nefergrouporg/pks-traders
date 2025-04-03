@@ -21,9 +21,14 @@ module.exports = (sequelize) => {
       allowNull: false,
     },
     customerId: {
-      type: DataTypes.STRING,
+      type: DataTypes.INTEGER, // ✅ Change this from STRING to INTEGER
       allowNull: true,
+      references: {
+        model: 'Customers', // Ensure this matches the table name
+        key: 'id',
+      },
     },
+    
   });
 
   Sale.associate = (models) => {

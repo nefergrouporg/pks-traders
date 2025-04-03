@@ -1,85 +1,91 @@
-import React, { useEffect, useState } from "react";
-import { getUpiId, setUpiId } from "../../utils/services";
+import React, { useState } from "react";
 import Modal from "./POSInterface/Modal";
 import { toast } from "sonner";
+import { useAuth } from "../context/AuthContext";
+import axios from "axios";
+import { baseUrl } from "../../utils/services";
 
 const UpiIdComponent = () => {
-  const [upiId, setUpiIdState] = useState("");
-  const [isModalOpen, setIsModalOpen] = useState(false); // State to control modal visibility
-  const [newUpiId, setNewUpiId] = useState(""); // State to store the new UPI ID input
+  const { upiId, setUpiId, fetchUpiId } = useAuth();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newUpiId, setNewUpiId] = useState("");
 
-  // Fetch UPI ID on component mount
-  useEffect(() => {
-    const fetchUpiId = async () => {
-      const id = await getUpiId();
-      setUpiIdState(id);
-    };
-    fetchUpiId();
-  }, []);
-
-  // Open the modal
   const openModal = () => {
     setIsModalOpen(true);
+    setNewUpiId(upiId || "");
   };
 
-  // Close the modal
   const closeModal = () => {
     setIsModalOpen(false);
-    setNewUpiId(""); // Reset the input field
+    setNewUpiId("");
   };
 
-  const isValidUpiId = (upiId) => {
+  const isValidUpiId = (upiId: string) => {
     const upiRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
     return upiRegex.test(upiId);
   };
 
-  // Handle setting the UPI ID
+  const token = localStorage.getItem('token')
+
   const handleSetUpiId = async () => {
+  
     if (!isValidUpiId(newUpiId)) {
       toast.error("Invalid UPI ID format");
-      return
+      return;
     }
-    if (newUpiId) {
+    const response = await axios.post(`${baseUrl}/api/config/upi-id`, {upiId: newUpiId},{
+      headers:{
+        Authorization : `Bearer ${token}`
+      }
+    })
+    try {
       await setUpiId(newUpiId);
-      setUpiIdState(newUpiId);
-      closeModal(); // Close the modal after setting the UPI ID
+      toast.success("UPI ID updated successfully");
+      closeModal();
+    } catch (error) {
+      toast.error("Failed to update UPI ID");
+      console.error(error);
     }
   };
 
   return (
     <div>
-      <p className="text-lg font-medium text-gray-700">
+      <p className="text-base sm:text-lg font-medium text-gray-700">
         Current UPI ID:{" "}
-        <span className="font-semibold text-gray-900">{upiId}</span>
+        <span className="font-semibold text-gray-900">
+          {upiId || "Not set"}
+        </span>
       </p>
+
       <button
         onClick={openModal}
-        className="mt-2 px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 font-medium rounded-md shadow-md transition duration-200"
+        className="mt-2 px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 font-medium rounded-md shadow-md transition duration-200 text-sm sm:text-base"
       >
-        Set UPI ID
+        {upiId ? "Update UPI ID" : "Set UPI ID"}
       </button>
 
-      {/* Modal for setting UPI ID */}
       <Modal isOpen={isModalOpen} onClose={closeModal}>
-        <div className="space-y-4">
-          <h2 className="text-xl font-bold">Set UPI ID</h2>
+        <div className="space-y-4 p-4 sm:p-6">
+          <h2 className="text-lg sm:text-xl font-bold">
+            {upiId ? "Update UPI ID" : "Set UPI ID"}
+          </h2>
           <input
             type="text"
             value={newUpiId}
             onChange={(e) => setNewUpiId(e.target.value)}
-            placeholder="Enter new UPI ID"
-            className="w-full p-2 border bg-transparent border-gray-300 rounded-lg"
+            placeholder="Enter UPI ID (e.g., yourname@upi)"
+            className="w-full p-2 border bg-transparent border-gray-300 rounded-lg text-sm sm:text-base"
           />
           <div className="flex justify-end space-x-2">
             <button
               onClick={closeModal}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800"
+              className="px-4 py-2 text-gray-600 hover:text-gray-800 text-sm sm:text-base"
             >
               Cancel
             </button>
             <button
               onClick={handleSetUpiId}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm sm:text-base"
             >
               Save
             </button>

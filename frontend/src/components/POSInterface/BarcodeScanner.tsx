@@ -9,15 +9,27 @@ const BarcodeScanner: React.FC<{ onScan: (barcode: string) => void }> = ({
   const [scanning, setScanning] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const scannerRef = useRef<HTMLDivElement>(null); // To detect outside clicks
+  const scanTimeout = useRef<NodeJS.Timeout | null>(null);
 
   // Handle barcode input from hidden field
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const scannedCode = e.target.value.trim();
-    if (scannedCode) {
-      onScan(scannedCode);
-      setBarcode(scannedCode);
-      e.target.value = ""; // Reset input after scanning
+    const scannedCode = e.target.value;
+    setBarcode(scannedCode);
+
+    // Clear previous timeout
+    if (scanTimeout.current) {
+      clearTimeout(scanTimeout.current);
     }
+
+    // Set new timeout to wait for barcode completion
+    scanTimeout.current = setTimeout(() => {
+      if (scannedCode) {
+        // Process any non-empty value
+        onScan(scannedCode);
+        e.target.value = "";
+        setBarcode("");
+      }
+    }, 100); // 100ms delay to catch the full barcode
   };
 
   useEffect(() => {
@@ -25,27 +37,28 @@ const BarcodeScanner: React.FC<{ onScan: (barcode: string) => void }> = ({
       inputRef.current?.focus();
     }
   }, [scanning]);
-  
 
   return (
     <div
       ref={scannerRef}
       className="scanner-feed p-4 border rounded-md w-full flex flex-col items-center min-h-[200px] transition-all duration-300"
     >
-      <h3 className="text-lg font-bold mb-2">Barcode Scanner</h3>
+      <h3 className="text-lg font-bold mb-2 text-center sm:text-left">
+        Barcode Scanner
+      </h3>
 
       {/* Smooth transition area for scanner animation */}
-      <div className="w-32 h-32 mx-auto flex justify-center items-center">
+      <div className="w-24 h-24 sm:w-32 sm:h-32 mx-auto flex justify-center items-center">
         {scanning ? (
           <Lottie
             animationData={scanningAnimation}
             loop
             autoPlay
-            className="w-32 h-32 transition-opacity duration-300 opacity-100"
+            className="w-24 h-24 sm:w-32 sm:h-32 transition-opacity duration-300 opacity-100"
           />
         ) : (
-          <div className="w-32 h-32 bg-gray-100 rounded-md flex items-center justify-center opacity-50 transition-opacity duration-300">
-            <p className="text-gray-500">Idle</p>
+          <div className="w-24 h-24 sm:w-32 sm:h-32 bg-gray-100 rounded-md flex items-center justify-center opacity-50 transition-opacity duration-300">
+            <p className="text-gray-500 text-sm sm:text-base">Idle</p>
           </div>
         )}
       </div>
@@ -61,7 +74,7 @@ const BarcodeScanner: React.FC<{ onScan: (barcode: string) => void }> = ({
 
       {/* Show scanned barcode */}
       <p
-        className={`mb-2 transition-opacity duration-300 ${
+        className={`mb-2 transition-opacity duration-300 text-sm sm:text-base ${
           scanning ? "opacity-100" : "opacity-0"
         }`}
       >
@@ -69,7 +82,7 @@ const BarcodeScanner: React.FC<{ onScan: (barcode: string) => void }> = ({
       </p>
 
       {/* Buttons */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 w-full sm:w-auto justify-center sm:justify-start">
         {!scanning ? (
           <button
             onClick={() => {
@@ -77,7 +90,7 @@ const BarcodeScanner: React.FC<{ onScan: (barcode: string) => void }> = ({
               setBarcode("");
               inputRef.current?.focus();
             }}
-            className="bg-blue-500 text-white px-4 py-2 rounded-md transition-all duration-300"
+            className="bg-blue-500 text-white px-4 py-2 rounded-md transition-all duration-300 w-full sm:w-auto"
           >
             Start Scanning
           </button>
@@ -87,7 +100,7 @@ const BarcodeScanner: React.FC<{ onScan: (barcode: string) => void }> = ({
               setScanning(false);
               setBarcode("");
             }}
-            className="bg-red-500 text-white px-4 py-2 rounded-md transition-all duration-300"
+            className="bg-red-500 text-white px-4 py-2 rounded-md transition-all duration-300 w-full sm:w-auto"
           >
             Stop Scanning
           </button>

@@ -51,22 +51,24 @@ const DownloadReportButton = () => {
   };
 
   return (
-    <div className="flex justify-end gap-4 mb-6">
-      <input
-        type="date"
-        value={selectedStartDate}
-        onChange={(e) => setSelectedStartDate(e.target.value)}
-        className="p-2 border rounded-lg bg-white"
-      />
-      <input
-        type="date"
-        value={selectedEndDate}
-        onChange={(e) => setSelectedEndDate(e.target.value)}
-        className="p-2 border rounded-lg bg-white"
-      />
+    <div className="flex flex-col sm:flex-row justify-end gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+        <input
+          type="date"
+          value={selectedStartDate}
+          onChange={(e) => setSelectedStartDate(e.target.value)}
+          className="p-2 border rounded-lg bg-white w-full sm:w-auto"
+        />
+        <input
+          type="date"
+          value={selectedEndDate}
+          onChange={(e) => setSelectedEndDate(e.target.value)}
+          className="p-2 border rounded-lg bg-white w-full sm:w-auto"
+        />
+      </div>
 
-      <div className="relative group">
-        <button className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center">
+      <div className="relative group w-full sm:w-auto">
+        <button className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center justify-center w-full sm:w-auto">
           Download Report
           <svg
             className="w-4 h-4 ml-2"
@@ -83,7 +85,7 @@ const DownloadReportButton = () => {
           </svg>
         </button>
 
-        <div className="absolute right-0 hidden group-hover:block bg-white shadow-lg rounded-lg mt-1">
+        <div className="absolute right-0 hidden group-hover:block bg-white shadow-lg rounded-lg mt-1 w-full sm:w-48">
           <button
             onClick={() => handleDownload("csv")}
             className="block w-full px-4 py-2 text-gray-800 hover:bg-gray-100 text-left"

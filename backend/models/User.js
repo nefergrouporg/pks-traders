@@ -32,10 +32,30 @@ module.exports = (sequelize) => {
       type: DataTypes.STRING,
       allowNull: true,
     },
+    isBlocked: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false
+    },
+    salary: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    salaryCredited: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false
+    },
+    branchId: {
+      type: DataTypes.INTEGER,
+      allowNull: true, // or false if every user must belong to a branch
+      references: {
+        model: 'branches', // This is the table name
+        key: 'id'
+      }
+    }
   });
 
-  // Define associations
   User.associate = (models) => {
+    User.belongsTo(models.Branch, { foreignKey: 'branchId' });
     User.hasMany(models.Sale, { foreignKey: 'userId' });
     User.hasMany(models.Payment, { foreignKey: 'userId' });
   };

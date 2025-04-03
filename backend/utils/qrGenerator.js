@@ -3,16 +3,44 @@ const { ProjectConfig } = require("../models");
 
 exports.generatePaymentQR = async (saleId, amount) => {
   try {
-    const config = await ProjectConfig.findOne();
-    if (!config || !config.upiId) {
-      throw new Error("UPI ID not found in the database");
+    console.log(`Starting QR generation for sale ${saleId}`);
+    
+    // Validate amount
+    if (isNaN(amount) || amount <= 0) {
+      throw new Error(`Invalid amount: ${amount}`);
     }
 
-    const upiLink = `upi://pay?pa=${config.upiId}&pn=PKStraders&am=${amount}&cu=INR`;
+    // Get configuration
+    const config = await ProjectConfig.findOne();
+    console.log('Retrieved config:', config);
+    
+    if (!config) {
+      throw new Error("Payment configuration not found in database");
+    }
+    if (!config.upiId) {
+      throw new Error("UPI ID is not configured in system settings");
+    }
+
+    // Construct UPI link
+    const upiLink = `upi://pay?pa=${encodeURIComponent(config.upiId)}&pn=PKStraders&am=${amount.toFixed(2)}&cu=INR&tn=Sale${saleId}`;
+    console.log('Generated UPI link:', upiLink);
 
     // Generate QR code
-    return await QRCode.toDataURL(upiLink);
+    const qrData = await QRCode.toDataURL(upiLink, {
+      errorCorrectionLevel: 'H',
+      margin: 2,
+      scale: 8
+    });
+    
+    console.log('Successfully generated QR code');
+    return qrData;
   } catch (err) {
+    console.error('QR generation error details:', {
+      error: err.message,
+      stack: err.stack,
+      saleId,
+      amount
+    });
     throw new Error("QR generation failed: " + err.message);
   }
 };

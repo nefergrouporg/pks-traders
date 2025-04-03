@@ -19,7 +19,7 @@ const LoginForm: React.FC = () => {
   const [password, setPassword] = useState<string>("");
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const navigate = useNavigate();
-  const { setUsername } = useAuth()
+  const { setUsername } = useAuth();
 
   useEffect(() => {
     // If token exists, redirect to dashboard
@@ -36,19 +36,19 @@ const LoginForm: React.FC = () => {
         username: email,
         password,
       });
-      
+
       localStorage.setItem("token", response.data.token);
-      console.log(email, "useranme")
-      setUsername(email)
+      console.log(email, "useranme");
+      setUsername(email);
       // Decode token to get role
       const decodedToken = jwtDecode(response.data.token);
       const userRole = decodedToken.role;
-  
+
       // Redirect based on role
-      if (userRole === 'staff') {
-        navigate('/pos')
+      if (userRole === "staff") {
+        navigate("/pos");
       } else {
-        navigate('/dashboard')
+        navigate("/dashboard");
       }
     } catch (err: any) {
       toast.warning(err.response?.data?.message || "Login failed. Try again.");
@@ -57,25 +57,33 @@ const LoginForm: React.FC = () => {
 
   return (
     <>
-      <div className="w-full max-w-md p-8 bg-white rounded-lg shadow-md">
+      <div className="w-full max-w-md p-6 sm:p-8 bg-white rounded-lg shadow-md">
+        {/* Logo and Title */}
         <div className="flex justify-center mb-6">
           <div className="flex items-center">
             <div className="text-rose-500 mr-2">
               <FontAwesomeIcon icon={faKeycdn} className="text-sm" />
             </div>
-            <h1 className="text-gray-700 text-xl font-bold">PKS TRADERS</h1>
+            <h1 className="text-gray-700 text-lg sm:text-xl font-bold">
+              PKS TRADERS
+            </h1>
           </div>
         </div>
-        <p className="text-center text-gray-400 mb-6">
+
+        {/* Subtitle */}
+        <p className="text-center text-gray-400 text-sm sm:text-base mb-6">
           Enter your username and password
           <br />
           to access panel.
         </p>
+
+        {/* Login Form */}
         <form onSubmit={handleSubmit}>
+          {/* Username Input */}
           <div className="mb-4">
             <label
               htmlFor="email"
-              className="block text-start text-gray-500 mb-2"
+              className="block text-start text-gray-500 text-sm sm:text-base mb-2"
             >
               Username
             </label>
@@ -83,17 +91,18 @@ const LoginForm: React.FC = () => {
               type="text"
               id="email"
               placeholder="Enter your username here"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 text-white"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm sm:text-base"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
             />
           </div>
 
+          {/* Password Input */}
           <div className="mb-6">
             <label
               htmlFor="password"
-              className="block text-start text-gray-500 mb-2"
+              className="block text-start text-gray-500 text-sm sm:text-base mb-2"
             >
               Password
             </label>
@@ -102,7 +111,7 @@ const LoginForm: React.FC = () => {
                 type={showPassword ? "text" : "password"}
                 id="password"
                 placeholder="Your password"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 text-white"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm sm:text-base"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -153,17 +162,18 @@ const LoginForm: React.FC = () => {
             </div>
           </div>
 
+          {/* Login Button */}
           <button
             type="submit"
-            className="w-full bg-indigo-500 text-white py-2 px-4 rounded-md hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition-all duration-200"
+            className="w-full bg-indigo-500 text-white py-2 px-4 rounded-md hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition-all duration-200 text-sm sm:text-base"
           >
             Log In
           </button>
         </form>
 
+        {/* Additional Content (if any) */}
         <div className="mt-6 text-center">
           <p className="text-gray-400 mb-4"></p>
-          
         </div>
       </div>
     </>

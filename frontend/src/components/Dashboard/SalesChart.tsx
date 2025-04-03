@@ -78,13 +78,16 @@ const SalesChart: React.FC = () => {
 
   return (
     <div className="w-full bg-white shadow-md rounded-lg p-4 pb-2 text-black">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-medium">{getChartTitle()}</h2>
-        <div className="flex gap-4">
+      {/* Header Section */}
+      <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4 sm:gap-0">
+        <h2 className="text-xl font-medium text-center sm:text-left">
+          {getChartTitle()}
+        </h2>
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 w-full sm:w-auto">
           <select
             value={selectedPeriod}
             onChange={(e) => setSelectedPeriod(e.target.value)}
-            className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg p-2.5"
+            className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg p-2.5 w-full sm:w-auto"
           >
             {periods.map((p) => (
               <option key={p.value} value={p.value}>
@@ -95,7 +98,7 @@ const SalesChart: React.FC = () => {
           <select
             value={selectedPayment}
             onChange={(e) => setSelectedPayment(e.target.value)}
-            className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg p-2.5"
+            className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg p-2.5 w-full sm:w-auto"
           >
             {paymentMethods.map((p) => (
               <option key={p.value} value={p.value}>
@@ -106,6 +109,7 @@ const SalesChart: React.FC = () => {
         </div>
       </div>
 
+      {/* Chart Section */}
       {!loading && !error && (
         <ResponsiveContainer width="100%" height={300}>
           <BarChart
@@ -140,7 +144,7 @@ const SalesChart: React.FC = () => {
         </ResponsiveContainer>
       )}
 
-      {/* Loading and error states remain the same */}
+      {/* Loading and Error States */}
       {loading && <div className="text-center py-4">Loading sales data...</div>}
 
       {error && (

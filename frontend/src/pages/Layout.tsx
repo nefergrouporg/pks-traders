@@ -2,23 +2,18 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faArrowLeft,
   faArrowRight,
-  faBell,
-  faCartArrowDown,
-  faCashRegister,
-  faChartLine,
-  faChartPie,
-  faCubes,
-  faListAlt,
+  faBars,
   faSignOutAlt,
-  faSyncAlt,
-  faUser,
+  faChartLine,
+  faCubes,
+  faCashRegister,
   faUsersGear,
+  faListAlt,
 } from "@fortawesome/free-solid-svg-icons";
-import React, { useContext, useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Toaster } from "sonner";
 import { useAuth } from "../context/AuthContext";
-import { faSalesforce } from "@fortawesome/free-brands-svg-icons";
 
 type Tab = {
   id: number;
@@ -32,11 +27,11 @@ type Tab = {
 const Layout: React.FC = () => {
   const { role, setRole, setUsername } = useAuth();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const currentPath = location.pathname;
   const { username } = useAuth();
-  console.log(username, "username");
 
   // Logout function
   const handleLogout = () => {
@@ -102,20 +97,25 @@ const Layout: React.FC = () => {
     filteredTabs.find((tab) => tab.path === "/pos") ||
     filteredTabs[0];
 
+  // Close sidebar on mobile when route changes
+  useEffect(() => {
+    setIsMobileSidebarOpen(false);
+  }, [currentPath]);
+
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-gray-100 overflow-hidden">
       <Toaster richColors position="bottom-right" />
 
-      {/* Sidebar */}
+      {/* Sidebar - Hidden on small screens */}
       <div
-        className={`bg-gray-200 shadow-lg ${
-          isSidebarCollapsed ? "w-16" : "w-64"
-        } transition-all duration-300 ease-in-out flex flex-col`}
+        className={`fixed inset-y-0 left-0 bg-gray-200 shadow-lg z-50 transform transition-transform duration-300 ease-in-out flex flex-col w-64 overflow-y-auto md:overflow-visible ${
+          isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
+        } md:relative md:translate-x-0 ${isSidebarCollapsed ? "md:w-16" : "md:w-64"}`}
       >
         <div className="p-4 flex justify-between items-center">
           <button
             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            className="px-3 rounded-lg border border-gray-600 hover:bg-gray-300 transition-all duration-200 focus:outline-none"
+            className="px-3 rounded-lg border border-gray-600 hover:bg-gray-300 transition-all duration-200 focus:outline-none hidden md:block"
           >
             {isSidebarCollapsed ? (
               <FontAwesomeIcon icon={faArrowRight} />
@@ -123,11 +123,17 @@ const Layout: React.FC = () => {
               <FontAwesomeIcon icon={faArrowLeft} />
             )}
           </button>
+          <button
+            onClick={() => setIsMobileSidebarOpen(false)}
+            className="md:hidden px-3 rounded-lg border border-gray-600 hover:bg-gray-300 transition-all duration-200 focus:outline-none"
+          >
+            Close
+          </button>
         </div>
 
-        <nav className="flex-1">
+        <nav className="flex-1 overflow-y-auto">
           {filteredTabs
-            .filter((tab) => tab.path != "/")
+            .filter((tab) => tab.path !== "/")
             .map((tab) => (
               <Link
                 key={tab.id}
@@ -139,9 +145,7 @@ const Layout: React.FC = () => {
                 }`}
               >
                 <span className="text-xl">{tab.icon}</span>
-                {!isSidebarCollapsed && (
-                  <span className="ml-2">{tab.text}</span>
-                )}
+                {!isSidebarCollapsed && <span className="ml-2">{tab.text}</span>}
               </Link>
             ))}
         </nav>
@@ -149,7 +153,7 @@ const Layout: React.FC = () => {
         {/* Logout Button */}
         <div className="p-4 border-t border-gray-300">
           {filteredTabs
-            .filter((tab) => tab.path == "/")
+            .filter((tab) => tab.path === "/")
             .map((tab) => (
               <button
                 key={tab.id}
@@ -159,63 +163,42 @@ const Layout: React.FC = () => {
                 }`}
               >
                 <span className="text-xl">{tab.icon}</span>
-                {!isSidebarCollapsed && (
-                  <span className="ml-2">{tab.text}</span>
-                )}
+                {!isSidebarCollapsed && <span className="ml-2">{tab.text}</span>}
               </button>
             ))}
         </div>
       </div>
 
       {/* Main Content Area with Navbar */}
-      <div className="flex-1 flex flex-col overflow-y-auto">
+      <div className="flex-1 flex flex-col overflow-y-auto z-40">
         {/* Top Navbar */}
-        <div className="bg-gray-200 shadow-sm px-6 py-1 flex justify-end items-center border-b">
+        <div className="bg-gray-200 shadow-sm px-4 sm:px-6 py-1 flex justify-between items-center border-b">
+          <button
+            onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+            className="md:hidden px-3 rounded-lg border border-gray-600 hover:bg-gray-300 transition-all duration-200 focus:outline-none"
+          >
+            <FontAwesomeIcon icon={faBars} />
+          </button>
+
           <div className="flex items-center space-x-4">
-            {/* Notification Icon */}
-            {/* <button className="relative text-gray-700 hover:text-blue-600">
-              <FontAwesomeIcon icon={faBell} className="text-xl" />
-              <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full px-1">
-                3
-              </span>
-            </button> */}
-
             {/* User Profile */}
-            <div className="relative group">
-              <div className="flex justify-center items-center">
-                {username && (
-                  <button className="flex items-center space-x-2 text-gray-700 hover:text-blue-600">
-                    {/* Circular Avatar with Initial Letter */}
-                    <div className="w-10 h-10 bg-blue-600 text-white flex items-center justify-center rounded-full text-lg font-semibold uppercase">
-                      {username[0]}
-                    </div>
-                    <span className="hidden md:inline-block font-semibold">
-                      {username}
-                    </span>
-                  </button>
-                )}
-              </div>
-
-              {/* Dropdown Menu */}
-              {/* <div className="absolute right-0 mt-2 hidden group-hover:block bg-white shadow-lg rounded-lg w-40 border border-gray-200">
-                <button className="block w-full px-4 py-2 text-gray-800 hover:bg-gray-100 text-left">
-                  Profile
-                </button>
-                <button className="block w-full px-4 py-2 text-gray-800 hover:bg-gray-100 text-left">
-                  Settings
-                </button>
-                <button className="block w-full px-4 py-2 text-gray-800 hover:bg-gray-100 text-left">
-                  Logout
-                </button>
-              </div> */}
-            </div>
+            {username && (
+              <button className="flex items-center space-x-2 text-gray-700 hover:text-blue-600">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-600 text-white flex items-center justify-center rounded-full text-lg font-semibold uppercase">
+                  {username[0]}
+                </div>
+                <span className="hidden md:inline-block font-semibold">{username}</span>
+              </button>
+            )}
           </div>
         </div>
 
         {/* Main Page Content */}
-        <div className="p-8">
-          <h1 className="text-2xl font-bold mb-4">{activeTab.text}</h1>
-          <Outlet />
+        <div className="p-4 sm:p-8 overflow-auto">
+          <h1 className="text-xl sm:text-2xl font-bold mb-4">{activeTab.text}</h1>
+          <div className="overflow-x-auto">
+            <Outlet />
+          </div>
         </div>
       </div>
     </div>

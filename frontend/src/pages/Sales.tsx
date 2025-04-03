@@ -77,39 +77,43 @@ const SalesList = () => {
 
   return (
     <div className="container mx-auto p-4">
+      {/* Search Bar */}
       <div className="mb-6">
         <input
           type="text"
           placeholder="Search sales by ID, customer, user, or product..."
-          className="w-full p-3 border bg-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-400"
+          className="w-full p-2 sm:p-3 border bg-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-400 text-sm sm:text-base"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
 
+      {/* Sales List */}
       <div className="space-y-4">
         {filteredSales.map((sale) => (
           <div key={sale.id} className="bg-white rounded-lg shadow-md p-4">
-            <div className="flex justify-between items-start mb-4">
+            {/* Sale Header */}
+            <div className="flex flex-col sm:flex-row justify-between items-start mb-4">
               <div>
-                <h2 className="text-xl font-semibold text-gray-800">
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-800">
                   Sale # {sale.id}
                 </h2>
                 <p className="text-sm text-gray-600">
                   {new Date(sale.createdAt).toLocaleDateString()}
                 </p>
-                <p className="mt-1 text-gray-600">
+                <p className="mt-1 text-sm sm:text-base text-gray-600">
                   Sold by: {sale.User.username}
                 </p>
                 {sale.customerId && (
-                  <p className="text-gray-600">
+                  <p className="text-sm sm:text-base text-gray-600">
                     Customer ID: {sale.customerId}
                   </p>
                 )}
               </div>
 
-              <div className="text-right">
-                <p className="text-lg font-bold text-blue-600">
+              {/* Sale Amount and Payment Status */}
+              <div className="text-right mt-4 sm:mt-0">
+                <p className="text-lg sm:text-xl font-bold text-blue-600">
                   ₹{sale.totalAmount.toFixed(2)}
                 </p>
                 <p className="text-sm uppercase text-gray-600 mb-2">
@@ -131,8 +135,9 @@ const SalesList = () => {
               </div>
             </div>
 
+            {/* Items Purchased */}
             <div className="border-t pt-4">
-              <h3 className="font-medium mb-2 text-gray-800">
+              <h3 className="font-medium mb-2 text-gray-800 text-sm sm:text-base">
                 Items Purchased:
               </h3>
               <div className="space-y-2">
@@ -142,7 +147,7 @@ const SalesList = () => {
                     className="flex justify-between items-center bg-gray-50 p-2 rounded"
                   >
                     <div>
-                      <p className="font-medium text-gray-800">
+                      <p className="font-medium text-gray-800 text-sm sm:text-base">
                         {item.Product.name}
                       </p>
                       <p className="text-sm text-gray-600">
@@ -150,7 +155,7 @@ const SalesList = () => {
                         {item.price.toFixed(2)}
                       </p>
                     </div>
-                    <p className="font-medium text-gray-700">
+                    <p className="font-medium text-gray-700 text-sm sm:text-base">
                       ₹{(item.quantity * item.price).toFixed(2)}
                     </p>
                   </div>
@@ -158,6 +163,7 @@ const SalesList = () => {
               </div>
             </div>
 
+            {/* Payment Details (Optional) */}
             {/* {sale.Payment && (
               <div className="border-t pt-4 mt-4">
                 <h3 className="font-medium mb-2 text-gray-800">Payment Details:</h3>

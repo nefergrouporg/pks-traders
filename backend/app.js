@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const cron = require('node-cron')
 const morgan = require('morgan');
 const bodyParser = require('body-parser');
 const sequelize = require('./config/database');
@@ -12,6 +13,8 @@ const dashboardRoutes = require('./routes/dashboardRoutes');
 const supplierRoutes = require('./routes/supplierRoutes');
 const usersRoutes = require('./routes/usersRoutes');
 const configRoutes = require('./routes/projectConfigRoutes');
+const customerRoutes = require('./routes/customerRoutes');
+const branchRouter = require('./routes/branchRoutes')
 const models = require('./models');
 // Initialize Express app
 const app = express();
@@ -32,6 +35,22 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/supplier', supplierRoutes);
 app.use('/api/config', configRoutes);
+app.use('/api/customers', customerRoutes);
+app.use('/api/branches', branchRouter);
+
+sequelize.sync().then(() => {
+  console.log('Database connected.');
+
+  // Schedule job to reset salaryCredited on the 1st of every month at midnight
+  cron.schedule('0 0 1 * *', async () => {
+    try {
+      await User.update({ salaryCredited: false }, { where: {} });
+      console.log('✅ Salary credited status reset for all users.');
+    } catch (error) {
+      console.error('❌ Error resetting salary credited status:', error);
+    }
+  });
+});
 
 // Health check endpoint
 app.get('/health', (req, res) => {

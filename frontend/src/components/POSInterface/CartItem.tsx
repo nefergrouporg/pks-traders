@@ -15,17 +15,19 @@ const CartItem: React.FC<{
 }> = ({ item, onIncrease, onDecrease, onRemove, onUpdateKg }) => (
   <tr className="border-b">
     {/* Product Name - Left Aligned */}
-    <td className="p-3 text-left">{item.name}</td>
+    <td className="p-2 sm:p-3 text-left text-sm sm:text-base">{item.name}</td>
 
     {/* Price - Center Aligned */}
-    <td className="p-3">₹{item.price.toFixed(2)}</td>
+    <td className="p-2 sm:p-3 text-sm sm:text-base">
+      ₹{item.price.toFixed(2)}
+    </td>
 
     {/* Quantity - Center Aligned */}
-    <td className="p-3">
-      <div className="flex items-center justify-center space-x-2">
+    <td className="p-2 sm:p-3">
+      <div className="flex items-center justify-center space-x-1 sm:space-x-2">
         <button
           onClick={() => onDecrease(item.id)}
-          className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
+          className="px-2 sm:px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm sm:text-base"
         >
           -
         </button>
@@ -53,13 +55,15 @@ const CartItem: React.FC<{
 
             onUpdateKg(item.id, isNaN(parsedValue) ? 0 : parsedValue);
           }}
-          className="w-16 text-center bg-white border rounded p-1"
+          className="w-12 sm:w-16 text-center bg-white border rounded p-1 text-sm sm:text-base"
         />
 
-        <span className="text-gray-500">{item.unitType}</span>
+        <span className="text-gray-500 text-sm sm:text-base">
+          {item.unitType}
+        </span>
         <button
           onClick={() => onIncrease(item.id)}
-          className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
+          className="px-2 sm:px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm sm:text-base"
         >
           +
         </button>
@@ -67,15 +71,15 @@ const CartItem: React.FC<{
     </td>
 
     {/* Total Price - Center Aligned */}
-    <td className="p-3 font-semibold">
+    <td className="p-2 sm:p-3 font-semibold text-sm sm:text-base">
       ₹{(item.price * item.quantity).toFixed(2)}
     </td>
 
     {/* Remove Button - Center Aligned */}
-    <td className="p-3">
+    <td className="p-2 sm:p-3">
       <button
         onClick={() => onRemove(item.id)}
-        className="text-red-500 hover:text-red-700"
+        className="text-red-500 hover:text-red-700 text-sm sm:text-base"
       >
         ✖
       </button>

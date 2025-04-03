@@ -14,21 +14,26 @@ exports.createSale = async (req, res) => {
     const userId = req.user.id;
     const { items, paymentMethod, customerId } = req.body;
 
+    console.log('Creating sale with:', { items, paymentMethod, customerId });
+
     if (!userId) return res.status(400).json({ error: "User ID is required" });
     if (!items || !items.length)
       return res.status(400).json({ error: "At least one item is required" });
 
+    // Validate payment method
+    const validPaymentMethods = ['cash', 'card', 'upi'];
+    if (!validPaymentMethods.includes(paymentMethod.toLowerCase())) {
+      return res.status(400).json({ error: "Invalid payment method" });
+    }
+
     // Validate items array
     for (const item of items) {
       if (!item.productId)
-        return res
-          .status(400)
-          .json({ error: "Product ID is required for each item" });
+        return res.status(400).json({ error: "Product ID is required for each item" });
       if (!item.quantity)
-        return res
-          .status(400)
-          .json({ error: "Quantity is required for each item" });
+        return res.status(400).json({ error: "Quantity is required for each item" });
     }
+
     const transaction = await sequelize.transaction();
     try {
       const saleItems = [];
@@ -46,7 +51,7 @@ exports.createSale = async (req, res) => {
 
         totalAmount += product.price * item.quantity;
         saleItems.push({
-          productId: product.id, // Ensure productId is included
+          productId: product.id,
           quantity: item.quantity,
           price: product.price,
         });
@@ -56,9 +61,9 @@ exports.createSale = async (req, res) => {
       const sale = await Sale.create(
         {
           totalAmount: totalAmount.toFixed(2),
-          paymentMethod,
+          paymentMethod: paymentMethod.toLowerCase(), // Ensure consistent case
           userId,
-          customerId,
+          customerId: customerId || null,
         },
         { transaction }
       );
@@ -69,39 +74,51 @@ exports.createSale = async (req, res) => {
           SaleItem.create(
             {
               ...item,
-              saleId: sale.id, // Ensure saleId is included
+              saleId: sale.id,
             },
             { transaction }
           )
         )
       );
-      await transaction.commit();
 
-      // Create PENDING payment record
+      // Create Payment record
       const payment = await Payment.create({
         amount: totalAmount.toFixed(2),
         status: "pending",
-        paymentMethod,
+        paymentMethod: paymentMethod.toLowerCase(),
         saleId: sale.id,
-        userId: req.user.id,
-      });
+        userId,
+      }, { transaction });
+      console.log(paymentMethod)
 
-      // Generate QR only for UPI
-      const paymentQR =
-        paymentMethod === "upi"
-          ? await generatePaymentQR(sale.id, totalAmount)
-          : null;
+      let paymentQR = null;
+      if (paymentMethod.toLowerCase() === "upi") {
+        try {
+          console.log(`Generating QR for sale ${sale.id}, amount ${totalAmount}`);
+          paymentQR = await generatePaymentQR(sale.id, totalAmount);
+          console.log('QR generation successful');
+        } catch (qrError) {
+          console.error("QR Generation failed:", qrError);
+          // Continue with sale even if QR generation fails
+        }
+      }
+      console.log('koooooi')
+
+      await transaction.commit();
 
       res.status(201).json({
         message: "Sale created successfully",
         sale,
         paymentQR,
+        paymentId: payment.id // Include payment ID for reference
       });
     } catch (error) {
       await transaction.rollback();
+      console.error('Sale creation failed:', error);
       throw error;
     }
   } catch (error) {
+    console.error('Error in createSale:', error);
     res.status(400).json({ error: error.message });
   }
 };

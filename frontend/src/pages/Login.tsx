@@ -24,14 +24,20 @@ const LoginPage: React.FC = () => {
 
   return (
     <>
-      <div className="flex flex-col items-center justify-center min-h-screen bg-neutral-200">
-        <Toaster richColors position="bottom-right"></Toaster>
-        <LoginForm></LoginForm>
+      <div className="flex flex-col items-center justify-center min-h-screen bg-neutral-200 p-4 sm:p-6">
+        {/* Toast Notifications */}
+        <Toaster richColors position="bottom-right" />
 
-        <p className="mt-4 text-gray-500">
-          
+        {/* Login Form */}
+        <LoginForm />
+
+        {/* Additional Text */}
+        <p className="mt-4 text-gray-500 text-sm sm:text-base text-center">
+          {/* Add any additional text here if needed */}
         </p>
-        <p className="mt-2 text-gray-500">
+
+        {/* Contact Admin Link */}
+        <p className="mt-2 text-gray-500 text-sm sm:text-base text-center">
           Don't have an account?{" "}
           <a
             href="#"

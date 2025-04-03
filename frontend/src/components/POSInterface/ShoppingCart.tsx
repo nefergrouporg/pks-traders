@@ -17,19 +17,21 @@ const ShoppingCart: React.FC<{
   onUpdateKg: (id: number, newQuantity: number) => void;
 }> = ({ cart, onIncrease, onDecrease, onRemove, onUpdateKg }) => (
   <div className="bg-white rounded-lg shadow-md p-4">
-    <h2 className="text-xl font-bold mb-4">Cart</h2>
+    <h2 className="text-lg sm:text-xl font-bold mb-4">Cart</h2>
     {cart.length === 0 ? (
-      <p className="text-gray-500">Current cart is empty.</p>
+      <p className="text-gray-500 text-sm sm:text-base">Current cart is empty.</p>
     ) : (
       <div className="overflow-x-auto">
         <table className="w-full border-collapse border text-center">
           <thead className="bg-gray-100">
             <tr className="border-b">
-              <th className="p-3 w-1/5 text-left">Product</th>
-              <th className="p-3 w-1/5">Price</th>
-              <th className="p-3 w-1/5">Quantity</th>
-              <th className="p-3 w-1/5">Total</th>
-              <th className="p-3 w-1/5">Remove</th>
+              <th className="p-2 sm:p-3 w-1/5 text-left text-sm sm:text-base">
+                Product
+              </th>
+              <th className="p-2 sm:p-3 w-1/5 text-sm sm:text-base">Price</th>
+              <th className="p-2 sm:p-3 w-1/5 text-sm sm:text-base">Quantity</th>
+              <th className="p-2 sm:p-3 w-1/5 text-sm sm:text-base">Total</th>
+              <th className="p-2 sm:p-3 w-1/5 text-sm sm:text-base">Remove</th>
             </tr>
           </thead>
           <tbody>

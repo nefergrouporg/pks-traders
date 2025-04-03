@@ -28,16 +28,16 @@ const RecentTransactions: React.FC = () => {
   }, []);
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md">
+    <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
       <h2 className="text-lg font-semibold mb-4">Recent Transactions</h2>
       <ul>
         {transactions.length > 0 ? (
           transactions.map((transaction) => (
             <li
               key={transaction.id}
-              className="flex justify-between py-2 border-b last:border-b-0"
+              className="flex flex-col sm:flex-row justify-between py-2 border-b last:border-b-0"
             >
-              <div>
+              <div className="mb-2 sm:mb-0">
                 <p className="font-medium">{`Sale #${transaction.id}`}</p>
                 <p className="text-sm text-gray-500">
                   {new Date(transaction.createdAt)
@@ -49,7 +49,7 @@ const RecentTransactions: React.FC = () => {
                     .replace(/\//g, "-")}
                 </p>
               </div>
-              <p className="font-semibold">
+              <p className="font-semibold sm:text-right">
                 ₹{transaction.totalAmount.toFixed(2)}
               </p>
             </li>

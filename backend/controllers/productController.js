@@ -1,18 +1,16 @@
 const { Product } = require('../models/index');
-const { generateBarcode } = require('../utils/barcode');
 
-// Add a new product
+
 exports.createProduct = async (req, res) => {
   try {
-    const { name, price, category, batchNumber, lowStockThreshold, stock, supplierName, unitType, description } = req.body;
+    const { name, price, category, batchNumber, barcode, lowStockThreshold, stock, supplierName, unitType, description } = req.body;
     if (!['pcs', 'kg'].includes(unitType)) {
       return res.status(400).json({ message: "Invalid unit type. Use 'pcs' or 'kg'." });
     }
-    if(!name || !price || !stock || !supplierName || !batchNumber || !category || !lowStockThreshold || !unitType){
+    if(!name || !price || !stock || !supplierName || !barcode || !batchNumber || !category || !lowStockThreshold || !unitType){
       return  res.status(400).json({ message: 'All fiels are required'});
     }
-    // Generate a unique barcode
-    const barcode = await generateBarcode();
+
     // Create the product
     const product = await Product.create({
       name,

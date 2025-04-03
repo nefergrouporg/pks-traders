@@ -53,6 +53,7 @@ module.exports = (sequelize) => {
     });
   
     Product.associate = (models) => {
+      Product.belongsTo(models.Supplier, { foreignKey: 'supplierId', as: 'supplier' });
       Product.hasMany(models.Inventory, { foreignKey: 'productId' });
       Product.hasMany(models.Sale, { foreignKey: 'productId' });
     };

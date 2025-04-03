@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import Card from "../components/Dashboard/card";
+import Card from "../components/Dashboard/Card";
 import SalesChart from "../components/Dashboard/SalesChart";
 import RecentTransactions from "../components/Dashboard/RecentTransactions";
 import DownloadReport from "../components/Dashboard/DownloadReport";
 import { baseUrl } from "../../utils/services";
 import UpiIdComponent from "../components/UpiIdSetup";
+import BranchAddress from "../components/BranchAddress";
 
 interface LowStockProduct {
   name: string;
@@ -49,12 +50,12 @@ const Dashboard: React.FC = () => {
   }, []);
 
   return (
-    <div className="p-6 bg-gray-100 min-h-screen">
+    <div className="p-4 sm:p-6 bg-gray-100 min-h-screen">
       {/* Quick Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 mb-6">
         <Card
           title="Total Sales"
-          value={`₹${stats.totalSales.toFixed(2)}`}
+          value={`₹${stats.totalSales ? stats.totalSales.toFixed(2) : 0}`}
           icon={<span>💰</span>}
           bgColor="bg-blue-50"
         />
@@ -94,15 +95,19 @@ const Dashboard: React.FC = () => {
       <DownloadReport />
 
       {/* Recent Transactions & Sales Chart */}
-      <div className="mb-6 grid grid-cols-3 gap-6">
-        <div className="col-span-2">
+      <div className="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+        <div className="col-span-1 sm:col-span-2">
           <SalesChart />
         </div>
         <div className="col-span-1">
           <RecentTransactions />
         </div>
       </div>
-      <UpiIdComponent></UpiIdComponent>
+
+      <div className="flex justify-between items-center mt-6">
+        <UpiIdComponent />
+        <BranchAddress />
+      </div>
     </div>
   );
 };

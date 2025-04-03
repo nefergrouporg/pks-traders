@@ -1,4 +1,5 @@
 const { Supplier } = require("../models/index");
+const { Product } = require("../models/index");
 
 exports.createSupplier = async (req, res) => {
   console.log("hi");
@@ -31,16 +32,23 @@ exports.createSupplier = async (req, res) => {
 
 exports.getAllSuppliers = async (req, res) => {
   try {
-    const rawSuppliers = await Supplier.findAll();
-    const suppliers = rawSuppliers.map((s) => s.dataValues);
-    res
-      .status(200)
-      .json({ message: "Suppliers retrieved successfully", suppliers });
+    const suppliers = await Supplier.findAll({
+      include: [
+        {
+          model: Product,
+          as: 'products',
+        },
+      ],
+    });
+
+    res.status(200).json({ message: 'Suppliers retrieved successfully', suppliers });
   } catch (error) {
     console.log(error);
     return res.status(500).json({ error: error.message });
   }
 };
+
+
 
 // Toggle block status for a supplier
 exports.toggleBlockSupplier = async (req, res) => {

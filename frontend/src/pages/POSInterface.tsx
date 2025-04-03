@@ -1,16 +1,19 @@
 import axios from "axios";
-import React, { useEffect, useState } from "react";
-import BarcodeScanner from "../components/POSInterface/BarcodeScanner";
+import React, { useEffect, useState, useRef } from "react";
+import { toast } from "sonner";
+import { motion, AnimatePresence } from "framer-motion";
+import { useReactToPrint } from "react-to-print";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 import { baseUrl } from "../../utils/services";
+import Receipt from "../components/POSInterface/Receipt";
+import ReceiptPreviewModal from "../components/POSInterface/ReceiptPreviewModal";
+import CustomerSelectionModal from "../components/POSInterface/CustomerSelectionModal";
+import PaymentStepper from "../components/POSInterface/PaymentStepper";
+import BarcodeScanner from "../components/POSInterface/BarcodeScanner";
 import ProductList from "../components/POSInterface/ProductList";
 import ShoppingCart from "../components/POSInterface/ShoppingCart";
-import { toast } from "sonner";
-import Stepper, { Step } from "../components/Stepper";
-import { motion, AnimatePresence } from "framer-motion";
-import moneyClipart from "../assets/money_clipart.png";
-import cardsClipart from "../assets/cards_clipart.png";
 
-// Reusable Modal Component
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -29,19 +32,19 @@ interface Product {
   batchNumber: string;
   lowStockThreshold: number;
   supplierId: number;
-  createdAt: string; // or Date if you want to parse it
-  updatedAt: string; // or Date if you want to parse it
+  createdAt: string;
+  updatedAt: string;
 }
 
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-xs sm:max-w-sm md:max-w-md">
         <button
           onClick={onClose}
-          className="float-right text-gray-500 hover:text-gray-700"
+          className="float-right text-gray-500 hover:text-gray-700 text-xl sm:text-2xl"
         >
           &times;
         </button>
@@ -51,35 +54,77 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children }) => {
   );
 };
 
-// POS Interface Page
 const POSInterface: React.FC = () => {
+  // State management
   const [cart, setCart] = useState<
-    {
+    Array<{
       id: number;
       name: string;
       price: number;
       quantity: number;
       unitType: "pcs" | "kg";
-    }[]
+    }>
   >([]);
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "upi">(
-    "cash"
-  );
-  const [paymentQR, setPaymentQR] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [isProductsLoading, setIsProductsLoading] = useState(false);
   const [currentSaleId, setCurrentSaleId] = useState(-1);
+  const [isSaleComplete, setIsSaleComplete] = useState(false);
+  const [pendingSale, setPendingSale] = useState(null);
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<
+    "cash" | "card" | "upi" | undefined
+  >(undefined);
+  const [paymentQR, setPaymentQR] = useState<string | null>(null);
+  const [customers, setCustomers] = useState([]);
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [isStepperOpen, setIsStepperOpen] = useState(false);
+  const [currentStepperStep, setCurrentStepperStep] = useState(1);
 
-  // Fetch products on mount
+  const receiptRef = useRef<HTMLDivElement>(null);
+
+  // Helper functions
+  const totalPrice = cart.reduce(
+    (total, item) => total + item.price * item.quantity,
+    0
+  );
+
+  const resetSaleState = () => {
+    setCart([]);
+    setCurrentSaleId(-1);
+    setIsSaleComplete(false);
+    setPendingSale(null);
+    setIsStepperOpen(false);
+    setCurrentStepperStep(1);
+    setSelectedPaymentMethod(undefined);
+    setPaymentQR(null);
+    setShowReceipt(false);
+    setIsPreviewOpen(false);
+    setSelectedCustomer(null);
+  };
+
+  const token = localStorage.getItem("token");
+
+  const fetchCustomers = async () => {
+    try {
+      const response = await axios.get(`${baseUrl}/api/customers`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      console.log(response);
+      setCustomers(response.data.customers);
+    } catch (error) {
+      console.error("Error fetching customers:", error);
+      toast.error("Failed to load customers");
+    }
+  };
+
   const loadProducts = async () => {
     setIsProductsLoading(true);
-
-    const fetchPromise = axios.get(`${baseUrl}/api/products`);
-    const delayPromise = new Promise((resolve) => setTimeout(resolve, 200));
-
     try {
-      const response = await fetchPromise;
-      await delayPromise;
+      const response = await axios.get(`${baseUrl}/api/products`);
       setProducts(response.data.products);
     } catch (error) {
       console.error("Error loading products:", error);
@@ -89,9 +134,11 @@ const POSInterface: React.FC = () => {
   };
 
   useEffect(() => {
+    fetchCustomers();
     loadProducts();
   }, []);
 
+  // Cart operations
   const addToCart = (product: {
     id: number;
     name: string;
@@ -160,64 +207,110 @@ const POSInterface: React.FC = () => {
     );
   };
 
-  // Remove item from cart
   const removeFromCart = (id: number) => {
     setCart((prevCart) => prevCart.filter((item) => item.id !== id));
   };
 
-  // Calculate total price
-  const totalPrice = cart.reduce(
-    (total, item) => total + item.price * item.quantity,
-    0
-  );
-
+  // Barcode scanning
   const handleBarcodeScan = async (barcode: string) => {
     try {
-      console.log('heyeyy')
       const response = await axios.get(
         `${baseUrl}/api/products/${barcode.trim()}`
       );
-      console.log(response, "jidjshsdufgsduyfgsdfuysdgf")
-      addToCart(response.data);
+      if (response.data) {
+        addToCart(response.data);
+      } else {
+        toast.error("Product not found!");
+      }
     } catch (error) {
       console.error("API error:", error);
-      alert("Product not found!");
+      toast.error("Error scanning product");
     }
   };
 
-  // Process payment
-  const processPayment = async (method: "cash" | "card" | "upi") => {
-    try {
-      const validationErrors = await validateSale();
+  // Receipt handling
+  const handlePrint = useReactToPrint({
+    content: () => receiptRef.current,
+    onBeforeGetContent: () => {
+      return new Promise<void>((resolve) => {
+        setShowReceipt(true);
+        setTimeout(() => resolve(), 100);
+      });
+    },
+    removeAfterPrint: false,
+  });
 
-      if (validationErrors.length > 0) {
-        validationErrors.forEach((error) => toast.error(error));
-        return;
-      }
+  const downloadReceiptAsPDF = async () => {
+    if (!receiptRef.current) return;
+
+    try {
+      const tempDiv = document.createElement("div");
+      tempDiv.style.position = "absolute";
+      tempDiv.style.left = "-9999px";
+      tempDiv.appendChild(receiptRef.current.cloneNode(true));
+      document.body.appendChild(tempDiv);
+
+      const canvas = await html2canvas(tempDiv.firstChild as HTMLElement, {
+        scale: 3,
+        backgroundColor: "#ffffff",
+        logging: false,
+      });
+
+      document.body.removeChild(tempDiv);
+
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+      });
+      pdf.addImage(
+        canvas.toDataURL("image/png"),
+        "PNG",
+        0,
+        0,
+        pdf.internal.pageSize.getWidth(),
+        (canvas.height * pdf.internal.pageSize.getWidth()) / canvas.width
+      );
+      pdf.save(`receipt-${currentSaleId}.pdf`);
+    } catch (error) {
+      console.error("Failed to download receipt:", error);
+      toast.error("Failed to download receipt. Please try again.");
+    }
+  };
+
+  // Sale processing
+  const createPendingSale = async (method: "cash" | "card" | "upi") => {
+    try {
       const token = localStorage.getItem("token");
       const saleData = {
         items: cart.map((item) => ({
           productId: item.id,
           quantity: item.quantity,
         })),
-        paymentMethod: method,
-        customerId: "CUST-123",
+        paymentMethod: method.toLowerCase(), // Ensure lowercase
+        customerId: selectedCustomer ? selectedCustomer.id : null,
       };
 
       const response = await axios.post(`${baseUrl}/api/sales`, saleData, {
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
         },
       });
-      setCurrentSaleId(response?.data.sale?.id);
 
-      if (method === "upi") {
-        setPaymentQR(response.data.paymentQR);
+      console.log(response, "askjdfhak;lsh");
+
+      setCurrentSaleId(response?.data.sale?.id);
+      setPendingSale(response?.data.sale);
+
+      if (method === "upi" && response.data.paymentQR) {
+        setPaymentQR(response.data.paymentQR); // ✅ Ensure QR code is set
+        console.log(paymentQR);
       }
+
+      return response?.data.sale;
     } catch (error) {
-      console.error("Payment failed:", error);
-      toast.error(error?.response?.data?.error || "Something went wrong");
+      console.error("Sale creation failed:", error);
+      toast.error(error?.response?.data?.error || "Failed to create sale");
+      return null;
     }
   };
 
@@ -232,251 +325,146 @@ const POSInterface: React.FC = () => {
       });
 
       toast.success("Payment confirmed!");
-      setCart([]);
+      setIsSaleComplete(true);
       setIsStepperOpen(false);
-      setCurrentSaleId(-1);
-      loadProducts();
+      setShowReceipt(true);
+
+      // For cash payments, automatically print and download
+      if (paymentMethod === "cash") {
+        setTimeout(() => {
+          downloadReceiptAsPDF();
+          handlePrint();
+          setTimeout(() => resetSaleState(), 500);
+        }, 300);
+      }
     } catch (error) {
       console.error("Payment confirmation failed:", error);
       toast.error("Failed to confirm payment. Please try again.");
+      setIsStepperOpen(true);
     }
-  };
-
-  const [isStepperOpen, setIsStepperOpen] = useState(false);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<
-    "cash" | "card" | "upi"
-  >();
-  const [currentStepperStep, setCurrentStepperStep] = useState(1);
-
-  useEffect(() => {
-    if (currentStepperStep === 2) {
-      if (selectedPaymentMethod === "upi" && !paymentQR) {
-        processPayment("upi");
-      } else if (selectedPaymentMethod === "card") {
-        processPayment("card");
-      } else {
-        processPayment("cash");
-      }
-    }
-  }, [currentStepperStep, selectedPaymentMethod]);
-
-  const handleSelectPaymentMethod = (method: "cash" | "card" | "upi") => {
-    setSelectedPaymentMethod(method);
-    if (method !== "upi") {
-      setPaymentQR(null);
-    }
-  };
-
-  const fetchProductDetails = async (productIds: number[]) => {
-    try {
-      const response = await axios.post(`${baseUrl}/api/products/details`, {
-        productIds,
-      });
-      return response.data; // Array of product details
-    } catch (error) {
-      console.error("Error fetching product details:", error);
-      throw error;
-    }
-  };
-
-  const validateSale = async () => {
-    const token = localStorage.getItem("token");
-    const errors: string[] = [];
-
-    // Check user is authenticated
-    if (!token) {
-      errors.push("User must be logged in");
-    }
-
-    // Check cart has items
-    if (!cart.length) {
-      errors.push("At least one item is required");
-      return errors; // Early return if cart is empty
-    }
-
-    // Validate individual items
-    const productIds = cart.map((item) => item.id);
-    const products = await fetchProductDetails(productIds);
-
-    cart.forEach((item, index) => {
-      const product = products.find((p) => p.id === item.id);
-
-      // Check if product exists
-      if (!product) {
-        errors.push(`Item ${index + 1}: Product not found`);
-        return;
-      }
-
-      // Check if quantity is valid
-      if (!item.quantity || item.quantity <= 0) {
-        errors.push(`Item ${index + 1}: Quantity must be greater than 0`);
-      }
-
-      // Check stock availability
-      if (product.stock < item.quantity) {
-        errors.push(
-          `Item ${index + 1}: Insufficient stock for ${product.name}`
-        );
-      }
-    });
-
-    return errors;
   };
 
   const handleCreateSale = async () => {
-    try {
-      const validationErrors = await validateSale();
+    if (cart.length === 0) {
+      toast.error("Cannot create sale with empty cart");
+      return;
+    }
 
-      if (validationErrors.length > 0) {
-        validationErrors.forEach((error) => toast.error(error));
-        return;
-      }
+    if (!selectedCustomer) {
+      toast.error("Please select a customer before creating sale");
+      setIsCustomerModalOpen(true); // Automatically open customer modal
+      return;
+    }
 
-      setIsStepperOpen(true);
-      setCurrentStepperStep(1);
-      setSelectedPaymentMethod(undefined);
-      setPaymentQR(null);
-    } catch (error) {
-      console.error("Error during validation:", error);
-      toast.error("Failed to validate sale. Please try again.");
+    setIsStepperOpen(true);
+    setCurrentStepperStep(1);
+    setSelectedPaymentMethod(undefined);
+    setPaymentQR(null);
+    setIsSaleComplete(false);
+    setPendingSale(null);
+
+    // Create the pending sale immediately when the stepper opens
+    // try {
+    //   const sale = await createPendingSale("cash"); // Default to cash, can be changed later
+    //   if (sale) {
+    //     setCurrentSaleId(sale.id);
+    //     setPendingSale(sale);
+    //   }
+    // } catch (error) {
+    //   console.error("Failed to create pending sale:", error);
+    //   toast.error("Failed to initiate sale");
+    //   resetSaleState();
+    // }
+  };
+
+  const handlePreviewClose = () => {
+    setIsPreviewOpen(false);
+    if (isSaleComplete) {
+      resetSaleState();
     }
   };
 
+  const showPreview = () => {
+    setShowReceipt(true);
+    setTimeout(() => setIsPreviewOpen(true), 100);
+  };
+
   return (
-    <div className="p-6 bg-gray-100 min-h-screen flex flex-col space-y-6">
+    <div className="p-4 sm:p-6 bg-gray-100 min-h-screen flex flex-col space-y-4 sm:space-y-6">
+      {/* Hidden receipt for printing */}
+      <div
+        style={{
+          display: showReceipt ? "block" : "none",
+          position: "absolute",
+          left: "-9999px",
+        }}
+      >
+        <div ref={receiptRef}>
+          <Receipt
+            cart={cart}
+            totalPrice={totalPrice}
+            saleId={currentSaleId}
+            paymentMethod={selectedPaymentMethod || ""}
+            customer={selectedCustomer}
+          />
+        </div>
+      </div>
+
+      {/* Modals */}
+      <ReceiptPreviewModal
+        isOpen={isPreviewOpen}
+        onClose={handlePreviewClose}
+        cart={cart}
+        totalPrice={totalPrice}
+        saleId={currentSaleId}
+        paymentMethod={selectedPaymentMethod || ""}
+        onPrint={handlePrint}
+        onDownload={downloadReceiptAsPDF}
+        customer={selectedCustomer}
+      />
+
+      <CustomerSelectionModal
+        isOpen={isCustomerModalOpen}
+        onClose={() => setIsCustomerModalOpen(false)}
+        customers={customers}
+        selectedCustomer={selectedCustomer}
+        onSelectCustomer={setSelectedCustomer}
+        fetchCustomers={fetchCustomers}
+      />
+
       <AnimatePresence>
         {isStepperOpen && (
-          <motion.div
-            key="stepper-modal"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-10"
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="rounded-lg p-6 w-full max-w-md relative"
-            >
-              <Stepper
-                initialStep={1}
-                onClose={() => setIsStepperOpen(false)}
-                onStepChange={(step) => setCurrentStepperStep(step)}
-                onFinalStepCompleted={() => {
-                  {
-                    selectedPaymentMethod &&
-                      confirmPayment(currentSaleId, selectedPaymentMethod);
-                  }
-                }}
-                nextButtonText={
-                  currentStepperStep === 2 && selectedPaymentMethod === "upi"
-                    ? "Verify"
-                    : undefined
-                }
-                nextButtonProps={{
-                  disabled: currentStepperStep === 1 && !selectedPaymentMethod,
-                }}
-              >
-                <Step>
-                  <div className="flex flex-col gap-4">
-                    <h2 className="text-lg font-semibold">
-                      Select Payment Method
-                    </h2>
-                    <button
-                      onClick={() => handleSelectPaymentMethod("cash")}
-                      className={`p-2 rounded ${
-                        selectedPaymentMethod === "cash"
-                          ? "bg-blue-500 text-white"
-                          : "bg-gray-200"
-                      }`}
-                    >
-                      Cash
-                    </button>
-                    <button
-                      onClick={() => handleSelectPaymentMethod("card")}
-                      className={`p-2 rounded ${
-                        selectedPaymentMethod === "card"
-                          ? "bg-blue-500 text-white"
-                          : "bg-gray-200"
-                      }`}
-                    >
-                      Card
-                    </button>
-                    <button
-                      onClick={() => {
-                        handleSelectPaymentMethod("upi");
-                        setPaymentQR(null); // Reset QR when selecting UPI again
-                      }}
-                      className={`p-2 rounded ${
-                        selectedPaymentMethod === "upi"
-                          ? "bg-blue-500 text-white"
-                          : "bg-gray-200"
-                      }`}
-                    >
-                      UPI
-                    </button>
-                  </div>
-                </Step>
-                <Step>
-                  {selectedPaymentMethod === "cash" && (
-                    <div className="text-center">
-                      <img
-                        src={moneyClipart}
-                        alt="Cash"
-                        className="mx-auto h-40 w-40"
-                      />
-                      <button className="border border-blue-600 text-blue-800 focus:outline-none hover:bg-gray-50 transition-all duration-200">
-                        VIEW ORDERS →
-                      </button>
-                      <p className="mt-2">
-                        Order successfully created. Please collect the cash.
-                      </p>
-                    </div>
-                  )}
-                  {selectedPaymentMethod === "card" && (
-                    <div className="text-center">
-                      <img
-                        src={cardsClipart}
-                        alt="Cash"
-                        className="mx-auto h-40 w-40"
-                      />
-                      <button className="border border-blue-600 text-blue-800 focus:outline-none hover:bg-gray-50 transition-all duration-200">
-                        VIEW ORDERS →
-                      </button>
-                      <p className="mt-2">
-                        Order successfully created. Please verify the payment.
-                      </p>
-                    </div>
-                  )}
-                  {selectedPaymentMethod === "upi" && (
-                    <div className="text-center">
-                      {paymentQR ? (
-                        <>
-                          <img
-                            src={paymentQR}
-                            alt="QR Code"
-                            className="mx-auto h-48 w-48"
-                          />
-                          <p className="mt-4">
-                            Order successfully created. Please verify the
-                            payment.
-                          </p>
-                        </>
-                      ) : (
-                        <p>Generating QR code...</p>
-                      )}
-                    </div>
-                  )}
-                </Step>
-              </Stepper>
-            </motion.div>
-          </motion.div>
+          <PaymentStepper
+          isOpen={isStepperOpen}
+          onClose={() => setIsStepperOpen(false)}
+          selectedPaymentMethod={selectedPaymentMethod}
+          setSelectedPaymentMethod={setSelectedPaymentMethod}
+          currentStepperStep={currentStepperStep}
+          setCurrentStepperStep={setCurrentStepperStep}
+          paymentQR={paymentQR}
+          onPaymentConfirm={() => {
+            if (selectedPaymentMethod && currentSaleId > 0) {
+              confirmPayment(currentSaleId, selectedPaymentMethod);
+            }
+          }}
+          showReceiptPreview={showPreview}
+          handleAutomaticPrintAndDownload={() => {
+            setShowReceipt(true);
+            setTimeout(() => {
+              downloadReceiptAsPDF();
+              handlePrint();
+              setTimeout(() => resetSaleState(), 500);
+            }, 300);
+          }}
+          createPendingSale={createPendingSale}
+          setCurrentSaleId={setCurrentSaleId}
+          setPendingSale={setPendingSale}
+        />
         )}
       </AnimatePresence>
-      {/* Top Row */}
-      <div className="flex flex-col md:flex-row gap-6 pb-2">
-        {/* Product List - Takes Full Width on Small Screens, 2/3 on Medium+ */}
+
+      {/* Main interface */}
+      <div className="flex flex-col md:flex-row gap-4 sm:gap-6 pb-2">
         <div className="w-full md:w-2/3">
           <ProductList
             products={products}
@@ -485,25 +473,44 @@ const POSInterface: React.FC = () => {
             isLoading={isProductsLoading}
           />
         </div>
-
-        {/* Scanner Section - Full Width on Small Screens, 1/3 on Medium+ */}
-        <div className="w-full md:w-1/3 flex flex-col gap-6">
-          <div className="bg-white rounded-lg shadow-md p-4 min-h-[250px] flex flex-col justify-center items-center transition-all duration-300">
+        <div className="w-full md:w-1/3 flex flex-col gap-4 sm:gap-6">
+          <div className="bg-white rounded-lg shadow-md p-4 min-h-[200px] sm:min-h-[250px] flex flex-col justify-center items-center">
             <BarcodeScanner onScan={handleBarcodeScan} />
           </div>
         </div>
       </div>
 
+      <div className="w-full bg-white rounded-lg shadow-md p-4 flex justify-between items-center mb-4">
+        <div>
+          <span className="font-medium">Customer: </span>
+          {selectedCustomer ? (
+            <span>
+              {selectedCustomer.name || "No Name"} ({selectedCustomer.phone})
+            </span>
+          ) : (
+            <span className="text-gray-500">Guest Customer</span>
+          )}
+        </div>
+        <button
+          onClick={() => setIsCustomerModalOpen(true)}
+          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+        >
+          {selectedCustomer ? "Change Customer" : "Select Customer"}
+        </button>
+      </div>
+
       <div className="w-full flex justify-end">
         <button
           onClick={handleCreateSale}
-          className="bg-red-900 text-white px-6 py-3 rounded-lg"
+          disabled={cart.length === 0}
+          className={`${
+            cart.length === 0 ? "bg-gray-400" : "bg-red-900 hover:bg-red-800"
+          } text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg text-sm sm:text-base`}
         >
           Create Sale
         </button>
       </div>
 
-      {/* Shopping Cart Section */}
       <div className="w-full">
         <ShoppingCart
           cart={cart}
@@ -514,10 +521,8 @@ const POSInterface: React.FC = () => {
         />
       </div>
 
-      {/* Bottom Section */}
-      <div className="flex flex-col md:flex-col gap-6">
-        {/* Running Total */}
-        <div className="w-full md:w-2/3 flex flex-col gap-6">
+      <div className="flex flex-col md:flex-col gap-4 sm:gap-6">
+        <div className="w-full md:w-2/3 flex flex-col gap-4 sm:gap-6">
           <div className="bg-white rounded-lg shadow-md p-4">
             <h2 className="text-lg font-semibold mb-2">Running Total</h2>
             <p className="text-2xl font-bold">₹{totalPrice.toFixed(2)}</p>
