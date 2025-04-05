@@ -92,7 +92,6 @@ const CustomerSelectionModal: React.FC<CustomerSelectionModalProps> = ({
 
   const updateCustomerDebt = async () => {
     try {
-      console.log(selectedCustomer,newCustomer.debtAmount)
       const response = await axios.put(
         `${baseUrl}/api/customers/debt/${selectedCustomer.id}`,
         { debtAmount: newCustomer.debtAmount },

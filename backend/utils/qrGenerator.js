@@ -3,7 +3,6 @@ const { ProjectConfig } = require("../models");
 
 exports.generatePaymentQR = async (saleId, amount) => {
   try {
-    console.log(`Starting QR generation for sale ${saleId}`);
     
     // Validate amount
     if (isNaN(amount) || amount <= 0) {
@@ -12,7 +11,6 @@ exports.generatePaymentQR = async (saleId, amount) => {
 
     // Get configuration
     const config = await ProjectConfig.findOne();
-    console.log('Retrieved config:', config);
     
     if (!config) {
       throw new Error("Payment configuration not found in database");
@@ -23,7 +21,6 @@ exports.generatePaymentQR = async (saleId, amount) => {
 
     // Construct UPI link
     const upiLink = `upi://pay?pa=${encodeURIComponent(config.upiId)}&pn=PKStraders&am=${amount.toFixed(2)}&cu=INR&tn=Sale${saleId}`;
-    console.log('Generated UPI link:', upiLink);
 
     // Generate QR code
     const qrData = await QRCode.toDataURL(upiLink, {
@@ -32,7 +29,6 @@ exports.generatePaymentQR = async (saleId, amount) => {
       scale: 8
     });
     
-    console.log('Successfully generated QR code');
     return qrData;
   } catch (err) {
     console.error('QR generation error details:', {

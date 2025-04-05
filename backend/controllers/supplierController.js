@@ -2,7 +2,6 @@ const { Supplier } = require("../models/index");
 const { Product } = require("../models/index");
 
 exports.createSupplier = async (req, res) => {
-  console.log("hi");
   try {
     const { name, contactPerson, email, phone, address } = req.body;
 

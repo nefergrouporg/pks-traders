@@ -113,7 +113,6 @@ const POSInterface: React.FC = () => {
           Authorization: `Bearer ${token}`,
         },
       });
-      console.log(response);
       setCustomers(response.data.customers);
     } catch (error) {
       console.error("Error fetching customers:", error);
@@ -277,6 +276,11 @@ const POSInterface: React.FC = () => {
     }
   };
 
+  // const handleCancelOrder = () => {
+  //   resetSaleState();
+  //   toast.success("Order cancelled");
+  // };
+
   // Sale processing
   const createPendingSale = async (method: "cash" | "card" | "upi") => {
     try {
@@ -286,31 +290,41 @@ const POSInterface: React.FC = () => {
           productId: item.id,
           quantity: item.quantity,
         })),
-        paymentMethod: method.toLowerCase(), // Ensure lowercase
-        customerId: selectedCustomer ? selectedCustomer.id : null,
+        paymentMethod: method.toLowerCase(),
+        customerId: selectedCustomer?.id || null,
       };
 
       const response = await axios.post(`${baseUrl}/api/sales`, saleData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
-      console.log(response, "askjdfhak;lsh");
+      if (response.status === 201) {
+        toast.success(response.data.message || "Sale created successfully");
+        setCurrentSaleId(response.data.sale.id);
+        setPendingSale(response.data.sale);
 
-      setCurrentSaleId(response?.data.sale?.id);
-      setPendingSale(response?.data.sale);
+        // For UPI, set the QR code and keep the stepper open
+        if (method === "upi" && response.data.paymentQR) {
+          setPaymentQR(response.data.paymentQR);
+          setIsStepperOpen(true); // Ensure stepper stays open
+          setCurrentStepperStep(2); // Move to QR display step
+        } else {
+          // For non-UPI methods, proceed with confirmation
+          await confirmPayment(response.data.sale.id, method);
+        }
 
-      if (method === "upi" && response.data.paymentQR) {
-        setPaymentQR(response.data.paymentQR); // ✅ Ensure QR code is set
-        console.log(paymentQR);
+        loadProducts();
+        return {
+          sale: response.data.sale,
+          paymentQR: response.data.paymentQR,
+        };
+      } else {
+        toast.error(response.data.message || "Failed to create sale");
       }
-
-      return response?.data.sale;
     } catch (error) {
       console.error("Sale creation failed:", error);
-      toast.error(error?.response?.data?.error || "Failed to create sale");
-      return null;
+      toast.error(error.response?.data?.error || "Failed to create sale");
+      throw error;
     }
   };
 
@@ -319,28 +333,30 @@ const POSInterface: React.FC = () => {
     paymentMethod: "cash" | "card" | "upi"
   ) => {
     try {
-      await axios.post(`${baseUrl}/api/payments/confirm`, {
-        saleId,
-        paymentMethod,
-      });
-
+      await axios.post(`${baseUrl}/api/payments/confirm`, { saleId });
       toast.success("Payment confirmed!");
       setIsSaleComplete(true);
-      setIsStepperOpen(false);
-      setShowReceipt(true);
-
-      // For cash payments, automatically print and download
+  
       if (paymentMethod === "cash") {
         setTimeout(() => {
           downloadReceiptAsPDF();
           handlePrint();
-          setTimeout(() => resetSaleState(), 500);
+          resetSaleState();
         }, 300);
+      } else if (paymentMethod === "upi") {
+        // Keep stepper open to show QR code, don’t reset yet
+        downloadReceiptAsPDF();
+        handlePrint();
+        setIsStepperOpen(true);
+        setCurrentStepperStep(2); // Ensure QR step is shown
+        resetSaleState()
+      } else {
+        showPreview();
       }
     } catch (error) {
       console.error("Payment confirmation failed:", error);
       toast.error("Failed to confirm payment. Please try again.");
-      setIsStepperOpen(true);
+      setIsStepperOpen(true); // Keep stepper open on error
     }
   };
 
@@ -349,32 +365,13 @@ const POSInterface: React.FC = () => {
       toast.error("Cannot create sale with empty cart");
       return;
     }
-
-    if (!selectedCustomer) {
-      toast.error("Please select a customer before creating sale");
-      setIsCustomerModalOpen(true); // Automatically open customer modal
-      return;
-    }
-
+  
     setIsStepperOpen(true);
     setCurrentStepperStep(1);
     setSelectedPaymentMethod(undefined);
     setPaymentQR(null);
     setIsSaleComplete(false);
     setPendingSale(null);
-
-    // Create the pending sale immediately when the stepper opens
-    // try {
-    //   const sale = await createPendingSale("cash"); // Default to cash, can be changed later
-    //   if (sale) {
-    //     setCurrentSaleId(sale.id);
-    //     setPendingSale(sale);
-    //   }
-    // } catch (error) {
-    //   console.error("Failed to create pending sale:", error);
-    //   toast.error("Failed to initiate sale");
-    //   resetSaleState();
-    // }
   };
 
   const handlePreviewClose = () => {
@@ -386,7 +383,7 @@ const POSInterface: React.FC = () => {
 
   const showPreview = () => {
     setShowReceipt(true);
-    setTimeout(() => setIsPreviewOpen(true), 100);
+    setIsPreviewOpen(true);
   };
 
   return (
@@ -435,31 +432,32 @@ const POSInterface: React.FC = () => {
       <AnimatePresence>
         {isStepperOpen && (
           <PaymentStepper
-          isOpen={isStepperOpen}
-          onClose={() => setIsStepperOpen(false)}
-          selectedPaymentMethod={selectedPaymentMethod}
-          setSelectedPaymentMethod={setSelectedPaymentMethod}
-          currentStepperStep={currentStepperStep}
-          setCurrentStepperStep={setCurrentStepperStep}
-          paymentQR={paymentQR}
-          onPaymentConfirm={() => {
-            if (selectedPaymentMethod && currentSaleId > 0) {
-              confirmPayment(currentSaleId, selectedPaymentMethod);
-            }
-          }}
-          showReceiptPreview={showPreview}
-          handleAutomaticPrintAndDownload={() => {
-            setShowReceipt(true);
-            setTimeout(() => {
-              downloadReceiptAsPDF();
-              handlePrint();
-              setTimeout(() => resetSaleState(), 500);
-            }, 300);
-          }}
-          createPendingSale={createPendingSale}
-          setCurrentSaleId={setCurrentSaleId}
-          setPendingSale={setPendingSale}
-        />
+            isOpen={isStepperOpen}
+            onClose={() => setIsStepperOpen(false)}
+            selectedPaymentMethod={selectedPaymentMethod}
+            setSelectedPaymentMethod={setSelectedPaymentMethod}
+            currentStepperStep={currentStepperStep}
+            setCurrentStepperStep={setCurrentStepperStep}
+            paymentQR={paymentQR}
+            onPaymentConfirm={() => {
+              if (selectedPaymentMethod && currentSaleId > 0) {
+                confirmPayment(currentSaleId, selectedPaymentMethod);
+              }
+            }}
+            showReceiptPreview={showPreview}
+            handleAutomaticPrintAndDownload={() => {
+              setShowReceipt(true);
+              setTimeout(() => {
+                downloadReceiptAsPDF();
+                handlePrint();
+                setTimeout(() => resetSaleState(), 500);
+              }, 300);
+            }}
+            createPendingSale={createPendingSale}
+            setCurrentSaleId={setCurrentSaleId}
+            setPendingSale={setPendingSale}
+            // onclose={handleCancelOrder}
+          />
         )}
       </AnimatePresence>
 

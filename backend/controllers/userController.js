@@ -12,7 +12,6 @@ exports.getAllUsers = async (req, res) => {
 };
 
 exports.createUser = async (req, res) => {
-  console.log("Received data:", JSON.stringify(req.body, null, 2));
 
   try {
     const { username, password, email, phone, role, branchId, salary } = req.body;

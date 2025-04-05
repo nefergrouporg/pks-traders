@@ -26,7 +26,15 @@ const Receipt: React.FC<ReceiptProps> = ({
   return (
     <div
       className="p-4"
-      style={{ width: "80mm", fontFamily: "monospace", background: "white" }}
+      style={{ 
+        width: "80mm", 
+        fontFamily: "'Courier New', monospace",
+        fontSize: "12px",
+        lineHeight: "1.2",
+        padding: "2mm",
+        background: "white !important",
+        color: "black !important"
+      }}
     >
       <div className="text-center mb-4">
         <h2 className="text-xl font-bold">PKS store</h2>

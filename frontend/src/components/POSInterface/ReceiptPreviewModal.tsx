@@ -17,6 +17,7 @@ interface ReceiptPreviewModalProps {
   onPrint: () => void;
   onDownload: () => void;
   customer?: any;
+  handleAutomaticPrintAndDownload?: () => void;
 }
 
 const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
@@ -29,11 +30,22 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
   onPrint,
   onDownload,
   customer,
+  handleAutomaticPrintAndDownload,
 }) => {
   if (!isOpen) return null;
 
+  const handlePrint = () => {
+    onPrint();
+    onClose();
+  };
+
+  const handleDownloadAndClose = () => {
+    onDownload();
+    onClose();
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-80">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[100]">
       <div className="bg-white rounded-lg p-6 w-full max-w-md">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold">Receipt Preview</h2>
@@ -57,13 +69,13 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
 
         <div className="flex justify-end space-x-2">
           <button
-            onClick={onDownload}
+            onClick={handleDownloadAndClose}
             className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
           >
             Download PDF
           </button>
           <button
-            onClick={onPrint}
+            onClick={handlePrint}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
           >
             Print

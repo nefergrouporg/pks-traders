@@ -38,7 +38,6 @@ const LoginForm: React.FC = () => {
       });
 
       localStorage.setItem("token", response.data.token);
-      console.log(email, "useranme");
       setUsername(email);
       // Decode token to get role
       const decodedToken = jwtDecode(response.data.token);

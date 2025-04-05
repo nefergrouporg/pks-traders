@@ -14,8 +14,6 @@ exports.createSale = async (req, res) => {
     const userId = req.user.id;
     const { items, paymentMethod, customerId } = req.body;
 
-    console.log('Creating sale with:', { items, paymentMethod, customerId });
-
     if (!userId) return res.status(400).json({ error: "User ID is required" });
     if (!items || !items.length)
       return res.status(400).json({ error: "At least one item is required" });
@@ -89,20 +87,16 @@ exports.createSale = async (req, res) => {
         saleId: sale.id,
         userId,
       }, { transaction });
-      console.log(paymentMethod)
 
       let paymentQR = null;
       if (paymentMethod.toLowerCase() === "upi") {
         try {
-          console.log(`Generating QR for sale ${sale.id}, amount ${totalAmount}`);
           paymentQR = await generatePaymentQR(sale.id, totalAmount);
-          console.log('QR generation successful');
         } catch (qrError) {
           console.error("QR Generation failed:", qrError);
           // Continue with sale even if QR generation fails
         }
       }
-      console.log('koooooi')
 
       await transaction.commit();
 
@@ -126,7 +120,6 @@ exports.createSale = async (req, res) => {
 // Get all sales
 exports.getAllSales = async (req, res) => {
   try {
-    console.log('Fetching all sales...');
 
     const sales = await Sale.findAll({
       include: [

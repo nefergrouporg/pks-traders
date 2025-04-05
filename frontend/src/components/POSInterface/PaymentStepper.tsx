@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import Stepper, { Step } from "../Stepper";
@@ -36,23 +36,64 @@ const PaymentStepper: React.FC<PaymentStepperProps> = ({
   setCurrentSaleId,
   setPendingSale,
 }) => {
-  if (!isOpen) return null;
+  const [tempPaymentMethod, setTempPaymentMethod] = useState<
+    "cash" | "card" | "upi"
+  >();
+  const [isGeneratingQR, setIsGeneratingQR] = useState(false);
 
-  const handlePaymentMethodSelect = async (method: "cash" | "card" | "upi") => {
+  const handlePaymentMethodSelect = (method: "cash" | "card" | "upi") => {
+    setTempPaymentMethod(method);
     setSelectedPaymentMethod(method);
-    
-    try {
-      const sale = await createPendingSale(method);
-      if (sale) {
-        setCurrentSaleId(sale.id);
-        setPendingSale(sale);
+  };
+
+  const handleStepChange = async (newStep: number) => {
+    if (newStep === 2 && selectedPaymentMethod === "upi" && !paymentQR) {
+      try {
+        setIsGeneratingQR(true);
+        const response = await createPendingSale("upi");
+        if (response?.paymentQR) {
+          setCurrentSaleId(response.sale.id);
+          setPendingSale(response.sale);
+          // setCurrent;
+          // StepperStep(2); // Move to QR step
+        } else {
+          toast.error("Failed to generate UPI QR code");
+          setCurrentStepperStep(1);
+        }
+      } catch (error) {
+        toast.error("Failed to generate UPI QR code");
+        setCurrentStepperStep(1);
+      } finally {
+        setIsGeneratingQR(false);
       }
-      setCurrentStepperStep(2); // Move to next step
+    } else {
+      setCurrentStepperStep(newStep);
+    }
+  };
+
+  const handleFinalStep = async () => {
+    if (!selectedPaymentMethod) {
+      toast.error("Please select a payment method first");
+      return;
+    }
+
+    try {
+      if (selectedPaymentMethod !== "upi") {
+        await createPendingSale(selectedPaymentMethod);
+        onPaymentConfirm();
+        onClose();
+      } else {
+        // For UPI, payment confirmation happens after QR scan
+        onPaymentConfirm();
+        // Don’t close yet, let user view receipt
+      }
     } catch (error) {
-      toast.error("Failed to initiate payment");
+      toast.error("Failed to complete payment");
       console.error(error);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <motion.div
@@ -60,7 +101,7 @@ const PaymentStepper: React.FC<PaymentStepperProps> = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-20"
     >
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }}
@@ -68,19 +109,19 @@ const PaymentStepper: React.FC<PaymentStepperProps> = ({
         exit={{ scale: 0.95, opacity: 0 }}
         className="rounded-lg p-4 sm:p-6 w-full max-w-xs sm:max-w-sm md:max-w-md bg-white relative"
       >
+        {/* <button
+          onClick={onClose}
+          className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-xl sm:text-2xl"
+        >
+          ×
+        </button> */}
         <Stepper
-          initialStep={1}
-          onClose={onClose}
-          onStepChange={(step) => setCurrentStepperStep(step)}
-          onFinalStepCompleted={onPaymentConfirm}
+          initialStep={currentStepperStep}
+          onFinalStepCompleted={handleFinalStep}
+          onStepChange={handleStepChange}
           nextButtonText={
-            currentStepperStep === 2 && selectedPaymentMethod === "upi"
-              ? "Verify"
-              : undefined
+            currentStepperStep === 2 ? "Confirm Payment" : undefined
           }
-          nextButtonProps={{
-            disabled: currentStepperStep === 1 && !selectedPaymentMethod,
-          }}
         >
           <Step>
             <div className="flex flex-col gap-4">
@@ -116,7 +157,10 @@ const PaymentStepper: React.FC<PaymentStepperProps> = ({
                 }`}
               >
                 <svg className="h-8 w-8" viewBox="0 0 24 24">
-                  <path fill="currentColor" d="M10.5 15.5v-7h3v7h-3zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+                  <path
+                    fill="currentColor"
+                    d="M10.5 15.5v-7h3v7h-3zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"
+                  />
                 </svg>
                 <span>UPI</span>
               </button>
@@ -132,7 +176,7 @@ const PaymentStepper: React.FC<PaymentStepperProps> = ({
                 />
                 <button
                   className="mt-4 mb-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-                  onClick={handleAutomaticPrintAndDownload}
+                  onClick={showReceiptPreview}
                 >
                   VIEW RECEIPT
                 </button>
@@ -161,25 +205,34 @@ const PaymentStepper: React.FC<PaymentStepperProps> = ({
             )}
             {selectedPaymentMethod === "upi" && (
               <div className="text-center">
-                {paymentQR ? (
+                {isGeneratingQR ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="animate-pulse bg-gray-200 h-40 w-40 rounded-lg" />
+                    <p className="text-sm sm:text-base">
+                      Generating QR code...
+                    </p>
+                  </div>
+                ) : paymentQR ? (
                   <>
                     <img
                       src={paymentQR}
                       alt="QR Code"
-                      className="mx-auto h-40 sm:h-48 w-40 sm:w-48"
+                      className="mx-auto h-40 sm:h-48 w-40 sm:w-48 border-2 border-gray-300 rounded-lg"
                     />
-                    <button
-                      className="mt-4 mb-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-                      onClick={showReceiptPreview}
-                    >
-                      VIEW RECEIPT
-                    </button>
-                    <p className="mt-4 text-sm sm:text-base">
-                      Order successfully created. Please verify the payment.
-                    </p>
+                    <div className="mt-4 space-y-2">
+                      <button
+                        className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 w-full"
+                        onClick={showReceiptPreview}
+                      >
+                        VIEW RECEIPT
+                      </button>
+                      <p className="text-sm text-gray-600">
+                        Scan the QR code to complete payment
+                      </p>
+                    </div>
                   </>
                 ) : (
-                  <p className="text-sm sm:text-base">Generating QR code...</p>
+                  <p className="text-red-500">Failed to generate QR code</p>
                 )}
               </div>
             )}

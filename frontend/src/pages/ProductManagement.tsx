@@ -169,7 +169,6 @@ const ProductManagement: React.FC = () => {
   const handleBarcodeScan = (e) => {
     if (e.key === "Enter") {
       e.preventDefault(); // Prevent form submission
-      console.log("Scanned Barcode:", e.target.value);
       setFormData({ ...formData, barcode: e.target.value });
     }
   };

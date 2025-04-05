@@ -22,9 +22,7 @@ exports.confirmPayment = async (req, res) => {
 // fetch payment status by saleId
 exports.getPaymentBySaleId = async (req, res) => {
   try {
-    console.log('getting payment by Id')
     const payment = await Payment.findOne({ where: { saleId: req.params.saleId } });
-    console.log(payment)
     res.json(payment);
   } catch (error) {
     res.status(400).json({ error: error.message });

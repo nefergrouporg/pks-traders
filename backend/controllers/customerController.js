@@ -42,8 +42,6 @@ exports.updateCustomerDebt = async (req, res) => {
         const { id } = req.params;
         const { debtAmount } = req.body;
 
-        console.log(id, debtAmount, 'Received ID and debtAmount');
-
         const customer = await Customer.findByPk(id);  // Corrected from customerId to id
         if (!customer) {
             return res.status(404).json({ error: "Customer not found" });

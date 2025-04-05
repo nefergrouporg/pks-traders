@@ -146,7 +146,6 @@ exports.getProductsDetails = async (req, res) => {
     if (!productIds || !productIds.length) {
       return res.status(400).json({ error: "Product IDs are required" });
     }
-    console.log('kokokkokokoko')
     const products = await Product.findAll({
       where: { id: productIds },
     });

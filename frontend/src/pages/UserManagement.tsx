@@ -205,8 +205,6 @@ const UserManagement: React.FC = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      console.log("Server response:", response.data); // Log response
-
       if (response.status === 201) {
         toast.success("Staff created successfully");
         setIsAddStaffModalOpen(false);
@@ -300,8 +298,6 @@ const UserManagement: React.FC = () => {
           },
         }
       );
-
-      console.log(response);
 
       if (response.status === 200) {
         // Update local state with new status
