@@ -1,5 +1,8 @@
 const { User } = require("../models/index");
-const bcrypt = require('bcrypt');
+const { SalaryPayment } = require("../models/index");
+const moment = require("moment");
+const bcrypt = require("bcrypt");
+const { Op } = require('sequelize');
 
 exports.getAllUsers = async (req, res) => {
   try {
@@ -12,11 +15,27 @@ exports.getAllUsers = async (req, res) => {
 };
 
 exports.createUser = async (req, res) => {
-
   try {
-    const { username, password, email, phone, role, branchId, salary } = req.body;
+    const {
+      username,
+      password,
+      email,
+      phone,
+      role,
+      branchId,
+      salary,
+      aadharNumber,
+      address,
+      age,
+      gender,
+    } = req.body;
 
-    const existingUser = await User.findOne({ where: { username } });
+    const existingUser = await User.findOne({
+      where: {
+        [Op.or]: [{ username }, { aadharNumber }],
+      },
+    });
+
     if (existingUser) {
       return res.status(400).json({ message: "Username already exists" });
     }
@@ -30,7 +49,11 @@ exports.createUser = async (req, res) => {
       phone,
       role,
       branchId,
-      salary, // Make sure your model includes this field
+      salary,
+      aadharNumber,
+      address,
+      age,
+      gender
     });
 
     res.status(201).json(user);
@@ -40,10 +63,9 @@ exports.createUser = async (req, res) => {
   }
 };
 
-
 exports.toggleUser = async (req, res) => {
   try {
-    const { id } = req.params
+    const { id } = req.params;
     const user = await User.findByPk(id);
     if (!user) {
       return res.status(404).json({ error: "User not found" });
@@ -57,33 +79,68 @@ exports.toggleUser = async (req, res) => {
       active: user.isBlocked,
     });
   } catch (error) {
-    console.log("error from toggling staff", error)
-    res.status(500).json({error: "Server eroor"})
+    console.log("error from toggling staff", error);
+    res.status(500).json({ error: "Server eroor" });
   }
-}
+};
 
-  exports.salaryCredit = async (req, res) => {
-    const { id } = req.body
-    try {
-      const [updatedRowCount, updatedUsers] = await User.update(
-        { salaryCredited: true }, 
-        { 
-          where: { id }, 
-          returning: true // This ensures PostgreSQL returns the updated user
-        }
-      );
-  
-      if (updatedRowCount === 0) {
-        return res.status(404).json({ error: "User not found" });
-      }
-  
-      res.status(200).json({ 
-        message: "✅ Salary marked as paid", 
-        user: updatedUsers[0] // Sending back updated user data
+exports.salaryCredit = async (req, res) => {
+  const { userId, amount, paymentDate, status } = req.body;
+  const currentMonth = moment(paymentDate).format("MMMM YYYY"); // format from frontend date
+
+  try {
+    // 1. Upsert salary payment for this user and month
+    let payment = await SalaryPayment.findOne({
+      where: { userId, month: currentMonth },
+    });
+
+    if (!payment) {
+      payment = await SalaryPayment.create({
+        userId,
+        amount,
+        month: currentMonth,
+        status,
+        paidAt: new Date(paymentDate),
       });
-    } catch (error) {
-      console.log('error from salary credit controller', error)
-      res.status(500).json({error:"Server Error"})
+    } else {
+      await payment.update({
+        amount,
+        status,
+        paidAt: new Date(paymentDate),
+      });
     }
-  }
 
+    // 2. Update the user's salaryCredited flag
+    const [updatedCount] = await User.update(
+      { salaryCredited: true },
+      { where: { id: userId } }
+    );
+
+    if (updatedCount === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    return res.status(201).json({
+      message: "✅ Salary payment recorded and user marked as paid",
+      payment,
+    });
+  } catch (error) {
+    console.error("❌ Error processing salary credit:", error);
+    return res.status(500).json({ error: "Server Error" });
+  }
+};
+
+
+exports.salaryHistory = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const history = await SalaryPayment.findAll({
+      where: { userId: id },
+      order: [["month", "DESC"]],
+    });
+    res.json(history);
+  } catch (err) {
+    console.error("Salary history fetch error", err);
+    res.status(500).json({ error: "Server error" });
+  }
+};

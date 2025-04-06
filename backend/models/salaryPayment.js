@@ -1,0 +1,41 @@
+const { DataTypes } = require('sequelize');
+
+module.exports = (sequelize) => {
+  const SalaryPayment = sequelize.define('SalaryPayment', {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true
+    },
+    userId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'Users',
+        key: 'id'
+      }
+    },
+    amount: {
+      type: DataTypes.INTEGER,
+      allowNull: false
+    },
+    month: {
+      type: DataTypes.STRING, // e.g., "April 2025"
+      allowNull: false
+    },
+    status: {
+      type: DataTypes.ENUM('paid', 'unpaid'),
+      defaultValue: 'unpaid'
+    },
+    paidAt: {
+      type: DataTypes.DATE,
+      allowNull: true
+    }
+  });
+
+  SalaryPayment.associate = (models) => {
+    SalaryPayment.belongsTo(models.User, { foreignKey: 'userId' });
+  };
+
+  return SalaryPayment;
+};

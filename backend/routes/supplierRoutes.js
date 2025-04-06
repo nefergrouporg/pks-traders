@@ -8,4 +8,8 @@ router.post('/', auth, role('admin'),supplierController.createSupplier)
 router.put('/:id/toggle-block', auth, role('admin'),supplierController.toggleBlockSupplier)
 router.get('/', supplierController.getAllSuppliers)
 
+router.get('/:id/history', auth, supplierController.getSupplierHistory);
+
+
+
 module.exports = router;

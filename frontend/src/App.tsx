@@ -12,6 +12,8 @@ import RoleProtectedRoute from "./components/RoleProtectedRoute";
 import RoleBasedRedirect from "./components/RoleBasedRedirect";
 import Unauthorized from "./pages/Unauthorized";
 import SalesList from "./pages/Sales";
+import Suppliers from "./pages/Suppliers";
+import Employees from "./pages/Employees";
 
 const App: React.FC = () => {
   return (
@@ -35,6 +37,16 @@ const App: React.FC = () => {
               <Route path="pos" element={
                 <RoleProtectedRoute allowedRoles={['staff', 'admin', 'manager']}>
                   <POSInterface />
+                </RoleProtectedRoute>
+              } />
+              <Route path="suppliers" element={
+                <RoleProtectedRoute allowedRoles={['admin', 'manager']}>
+                  <Suppliers />
+                </RoleProtectedRoute>
+              } />
+              <Route path="employees" element={
+                <RoleProtectedRoute allowedRoles={['admin']}>
+                  <Employees />
                 </RoleProtectedRoute>
               } />
               <Route path="users" element={

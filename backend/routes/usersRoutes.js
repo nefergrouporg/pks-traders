@@ -6,6 +6,8 @@ const { auth } = require('../middleware/authMiddleware');
 router.get('/', userController.getAllUsers);
 router.post('/', auth, userController.createUser);
 router.put('/toggle-block/:id', auth, userController.toggleUser)
-router.put('/salaryCredit', auth, userController.salaryCredit)
+router.post('/salaryCredit', auth, userController.salaryCredit)
+router.get('/salary-history/:id', auth, userController.salaryHistory);
+
 
 module.exports = router;

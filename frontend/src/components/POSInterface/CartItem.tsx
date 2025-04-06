@@ -19,7 +19,7 @@ const CartItem: React.FC<{
 
     {/* Price - Center Aligned */}
     <td className="p-2 sm:p-3 text-sm sm:text-base">
-      ₹{item.price.toFixed(2)}
+      ₹{item?.price?.toFixed(2)}
     </td>
 
     {/* Quantity - Center Aligned */}
@@ -72,7 +72,7 @@ const CartItem: React.FC<{
 
     {/* Total Price - Center Aligned */}
     <td className="p-2 sm:p-3 font-semibold text-sm sm:text-base">
-      ₹{(item.price * item.quantity).toFixed(2)}
+      ₹{(item?.price * item?.quantity)?.toFixed(2)}
     </td>
 
     {/* Remove Button - Center Aligned */}

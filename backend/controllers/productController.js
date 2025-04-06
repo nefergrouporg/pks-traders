@@ -1,13 +1,14 @@
 const { Product } = require('../models/index');
+const { SupplierHistory } = require('../models/index');
 
 
 exports.createProduct = async (req, res) => {
   try {
-    const { name, price, category, batchNumber, barcode, lowStockThreshold, stock, supplierName, unitType, description } = req.body;
+    const { name, retailPrice, wholeSalePrice, category, batchNumber, barcode, lowStockThreshold, stock, supplierName, unitType, description } = req.body;
     if (!['pcs', 'kg'].includes(unitType)) {
       return res.status(400).json({ message: "Invalid unit type. Use 'pcs' or 'kg'." });
     }
-    if(!name || !price || !stock || !supplierName || !barcode || !batchNumber || !category || !lowStockThreshold || !unitType){
+    if(!name || !stock || !supplierName || !barcode || !batchNumber || !category || !lowStockThreshold || !unitType || (!wholeSalePrice || !retailPrice)){
       return  res.status(400).json({ message: 'All fiels are required'});
     }
 
@@ -15,7 +16,8 @@ exports.createProduct = async (req, res) => {
     const product = await Product.create({
       name,
       description,
-      price,
+      retailPrice,
+      wholeSalePrice,
       stock,
       unitType,
       barcode,
@@ -25,13 +27,23 @@ exports.createProduct = async (req, res) => {
       supplierId : supplierName,
     });
 
+    if (product.stock > 0) {
+      await SupplierHistory.create({
+        supplierId: product.supplierId,
+        productId: product.id,
+        quantity: product.stock,
+        amount: product.wholeSalePrice * product.stock,
+        date: new Date(),
+        paymentStatus: 'Unpaid'
+      });
+    }
+
     res.status(201).json({ message: 'Product created successfully', product });
   } catch (error) {
     console.log(error)
     res.status(400).json({ error: error.message });
   }
 };
-
 
 exports.updateProduct = async (req, res) => {
   try {
@@ -74,9 +86,6 @@ exports.updateProduct = async (req, res) => {
   }
 };
 
-
-
-
 // Update product stock
 exports.updateStock = async (req, res) => {
   try {
@@ -97,12 +106,23 @@ exports.updateStock = async (req, res) => {
     product.stock += quantity;
     await product.save();
 
+    if (quantity > 0) {
+      // Record in supplier history
+      await SupplierHistory.create({
+        supplierId: product.supplierId,
+        productId: product.id,
+        quantity: quantity,
+        amount: product.wholeSalePrice * quantity,
+        date: new Date(),
+        paymentStatus: 'Unpaid'
+      });
+    }
+
     res.json({ message: 'Stock updated successfully', product });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 };
-
 
 // Delete a product
 exports.deleteProduct = async (req, res) => {

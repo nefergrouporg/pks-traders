@@ -96,7 +96,8 @@ const ProductList: React.FC<{
                 {product.unitType === "kg" ? "kg" : "pcs"}
               </p>
               <p className="text-right font-semibold text-sm sm:text-base">
-                ₹{product.price.toFixed(2)}
+              ₹{typeof product.price === 'number' ? product.price.toFixed(2) : 'N/A'}
+
               </p>
             </div>
           ))

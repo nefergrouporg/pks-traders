@@ -13,6 +13,8 @@ const SupplierModel = require('./Supplier');
 const CustomerModel = require('./customer');
 const ProjectConfigModel = require('./ProjectConfig');
 const BranchModel = require('./branch')
+const SupplierHistoryModel = require('./supplierHistory')
+const SalaryPaymentModel = require('./salaryPayment')
 
 
 // Initialize models
@@ -28,6 +30,8 @@ const models = {
   Customer:CustomerModel(sequelize),
   ProjectConfig: ProjectConfigModel(sequelize),
   Branch:BranchModel(sequelize),
+  SupplierHistory:SupplierHistoryModel(sequelize),
+  SalaryPayment : SalaryPaymentModel(sequelize)
 };
 
 // Setup associations

@@ -1,5 +1,6 @@
 const { Supplier } = require("../models/index");
 const { Product } = require("../models/index");
+const { SupplierHistory } = require("../models/index");
 
 exports.createSupplier = async (req, res) => {
   try {
@@ -35,19 +36,19 @@ exports.getAllSuppliers = async (req, res) => {
       include: [
         {
           model: Product,
-          as: 'products',
+          as: "products",
         },
       ],
     });
 
-    res.status(200).json({ message: 'Suppliers retrieved successfully', suppliers });
+    res
+      .status(200)
+      .json({ message: "Suppliers retrieved successfully", suppliers });
   } catch (error) {
     console.log(error);
     return res.status(500).json({ error: error.message });
   }
 };
-
-
 
 // Toggle block status for a supplier
 exports.toggleBlockSupplier = async (req, res) => {
@@ -73,5 +74,27 @@ exports.toggleBlockSupplier = async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: error.message });
+  }
+};
+
+exports.getSupplierHistory = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const history = await SupplierHistory.findAll({
+      where: { supplierId: id },
+      include: [
+        {
+          model: Product,
+          attributes: ["id", "name"],
+        },
+      ],
+      order: [["date", "DESC"]],
+    });
+
+    res.status(200).json({ history });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
   }
 };

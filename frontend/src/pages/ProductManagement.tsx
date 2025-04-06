@@ -9,7 +9,8 @@ import Modal from "../components/POSInterface/Modal";
 interface Product {
   id: number;
   name: string;
-  price: number;
+  retailPrice: number;
+  wholeSalePrice: number;
   category: string;
   stock: number;
   batchNumber: string;
@@ -101,7 +102,8 @@ const ProductManagement: React.FC = () => {
   const [formData, setFormData] = useState({
     id: "",
     name: "",
-    price: "",
+    retailPrice: "",
+    wholeSalePrice: "",
     category: "",
     batchNumber: "",
     barcode: "",
@@ -178,7 +180,8 @@ const ProductManagement: React.FC = () => {
 
     if (
       (!formData.name ||
-        !formData.price ||
+        !formData.retailPrice ||
+        !formData.wholeSalePrice ||
         !formData.stock ||
         !formData.supplierName ||
         !formData.batchNumber ||
@@ -271,7 +274,8 @@ const ProductManagement: React.FC = () => {
     setFormData({
       id: "",
       name: "",
-      price: "",
+      retailPrice: "",
+      wholeSalePrice: "",
       category: "",
       batchNumber: "",
       barcode: "",
@@ -294,7 +298,8 @@ const ProductManagement: React.FC = () => {
     setFormData({
       id: product.id,
       name: product.name,
-      price: product.price,
+      retailPrice: product.retailPrice,
+      wholeSalePrice: product.wholeSalePrice,
       category: product.category,
       batchNumber: product.batchNumber,
       barcode: product.barcode,
@@ -352,15 +357,29 @@ const ProductManagement: React.FC = () => {
                 {/* Price */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Price
+                  Retail Price
                   </label>
                   <input
                     type="number"
-                    name="price"
-                    value={formData.price}
+                    name="retailPrice"
+                    value={formData.retailPrice}
                     onChange={handleInputChange}
                     className="w-full border rounded-lg px-4 py-2 bg-white text-black focus:ring-2 focus:ring-green-500"
-                    placeholder="Enter price"
+                    placeholder="Retail Price"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  WholeSale Price
+                  </label>
+                  <input
+                    type="number"
+                    name="wholeSalePrice"
+                    value={formData.wholeSalePrice}
+                    onChange={handleInputChange}
+                    className="w-full border rounded-lg px-4 py-2 bg-white text-black focus:ring-2 focus:ring-green-500"
+                    placeholder="WholeSale Price"
                   />
                 </div>
 
@@ -542,9 +561,9 @@ const ProductManagement: React.FC = () => {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="p-3 text-left text-sm sm:text-base">Name</th>
-                  <th className="p-3 text-left text-sm sm:text-base">
-                    Category
-                  </th>
+                  <th className="p-3 text-left text-sm sm:text-base">Category</th>
+                  <th className="p-3 text-left text-sm sm:text-base">WholeSale </th>
+                  <th className="p-3 text-left text-sm sm:text-base">Retail</th>
                   <th className="p-3 text-left text-sm sm:text-base">Stock</th>
                   <th className="p-3 text-left text-sm sm:text-base">Batch</th>
                   <th className="p-3 text-left text-sm sm:text-base">
@@ -557,23 +576,16 @@ const ProductManagement: React.FC = () => {
                 {currentItems?.map((product) => (
                   <tr key={product.id} className="border-t">
                     <td className="p-3 text-sm sm:text-base">{product.name}</td>
-                    <td className="p-3 text-sm sm:text-base">
-                      {product.category}
-                    </td>
-                    <td className="p-3 text-sm sm:text-base">
-                      {product.stock}
-                    </td>
-                    <td className="p-3 text-sm sm:text-base">
-                      {product.batchNumber}
-                    </td>
-                    <td>
-                      <button
-                        onClick={() => handleEditClick(product)}
+                    <td className="p-3 text-sm sm:text-base">{product.category}</td>
+                    <td className="p-3 text-sm sm:text-base">{product.wholeSalePrice}</td>
+                    <td className="p-3 text-sm sm:text-base">{product.retailPrice}</td>
+                    <td className="p-3 text-sm sm:text-base">{product.stock}</td>
+                    <td className="p-3 text-sm sm:text-base">{product.batchNumber}</td>
+                    <td><button onClick={() => handleEditClick(product)}
                         className="bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600 transition text-sm sm:text-base"
                       >
                         Edit
-                      </button>
-                    </td>
+                      </button></td>
                     <td>
                       <button
                         onClick={() => {

@@ -67,7 +67,7 @@ const Receipt: React.FC<ReceiptProps> = ({
             <span>
               {item.quantity} {item.unitType}
             </span>
-            <span>₹{item.price.toFixed(2)}</span>
+            <span>₹{item?.price?.toFixed(2)}</span>
             <span>₹{(item.price * item.quantity).toFixed(2)}</span>
           </div>
         ))}
