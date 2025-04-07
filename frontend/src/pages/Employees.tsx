@@ -206,6 +206,7 @@ const Employees: React.FC = () => {
 
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
+
   return (
     <div className="p-4 sm:p-6 bg-gray-100 min-h-screen">
       <div className="flex justify-between items-center mb-6">
@@ -250,7 +251,7 @@ const Employees: React.FC = () => {
                   <td className="p-3">{staff.username}</td>
                   <td className="p-3">{staff.email}</td>
                   <td className="p-3">{staff.phone || "N/A"}</td>
-                  <td className="p-3">{staff.branch?.name || "N/A"}</td>
+                  <td className="p-3">{staff?.Branch?.name || "N/A"}</td>
                   <td className="p-3">₹{staff.salary}</td>
                   <td className="p-3">
                     <span

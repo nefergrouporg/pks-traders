@@ -55,7 +55,7 @@ module.exports = (sequelize) => {
     salary: {
       type: DataTypes.INTEGER,
       allowNull: true
-    },
+    },  
     salaryCredited: {
       type: DataTypes.BOOLEAN,
       defaultValue: false

@@ -24,7 +24,8 @@ interface Product {
   id: number;
   name: string;
   description: string;
-  price: number;
+  retailPrice: number;
+  wholeSalePrice?: number; // Add wholesalePrice field
   barcode: string;
   stock: number;
   unitType: "pcs" | "kg";
@@ -60,7 +61,8 @@ const POSInterface: React.FC = () => {
     Array<{
       id: number;
       name: string;
-      price: number;
+      retailPrice: number;
+      wholeSalePrice: number;
       quantity: number;
       unitType: "pcs" | "kg";
     }>
@@ -81,12 +83,15 @@ const POSInterface: React.FC = () => {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [isStepperOpen, setIsStepperOpen] = useState(false);
   const [currentStepperStep, setCurrentStepperStep] = useState(1);
+  
+  // New state for wholesale/retail selection
+  const [saleType, setSaleType] = useState<"retail" | "wholesale">("retail");
 
   const receiptRef = useRef<HTMLDivElement>(null);
 
   // Helper functions
   const totalPrice = cart.reduce(
-    (total, item) => total + item.price * item.quantity,
+    (total, item) => total + (saleType === 'wholesale' ? item?.wholeSalePrice : item?.retailPrice) * item.quantity,
     0
   );
 
@@ -102,6 +107,7 @@ const POSInterface: React.FC = () => {
     setShowReceipt(false);
     setIsPreviewOpen(false);
     setSelectedCustomer(null);
+    setSaleType("retail"); // Reset to retail by default
   };
 
   const token = localStorage.getItem("token");
@@ -137,18 +143,47 @@ const POSInterface: React.FC = () => {
     loadProducts();
   }, []);
 
+  // Update cart when sale type changes
+  useEffect(() => {
+    if (cart.length > 0 && products.length > 0) {
+      // Update prices in cart based on current sale type
+      const updatedCart = cart?.map(item => {
+        const product = products?.find(p => p?.id === item.id);
+        if (product) {
+          const newPrice = saleType === "wholesale" && product?.wholeSalePrice 
+            ? product?.wholeSalePrice 
+            : product?.retailPrice;
+          
+          return {
+            ...item,
+            price: newPrice
+          };
+        }
+        return item;
+      });
+      
+      setCart(updatedCart);
+    }
+  }, [saleType, products]);
+
   // Cart operations
   const addToCart = (product: {
     id: number;
     name: string;
-    price: number;
+    retailPrice: number;
+    wholeSalePrice?: number;
     unitType: "pcs" | "kg";
   }) => {
+    // Determine price based on sale type
+    const priceToUse = saleType === "wholesale" && product.wholeSalePrice 
+      ? product.wholeSalePrice 
+      : product.retailPrice;
+      
     setCart((prevCart) => {
-      const existingItem = prevCart.find((item) => item.id === product.id);
+      const existingItem = prevCart?.find((item) => item?.id === product?.id);
       return existingItem
         ? prevCart.map((item) =>
-            item.id === product.id
+            item.id === product?.id
               ? {
                   ...item,
                   quantity:
@@ -158,7 +193,11 @@ const POSInterface: React.FC = () => {
           )
         : [
             ...prevCart,
-            { ...product, quantity: product.unitType === "pcs" ? 1 : 0 },
+            { 
+              ...product, 
+              price: priceToUse,
+              quantity: product.unitType === "pcs" ? 1 : 0 
+            },
           ];
     });
   };
@@ -217,7 +256,12 @@ const POSInterface: React.FC = () => {
         `${baseUrl}/api/products/${barcode.trim()}`
       );
       if (response.data) {
-        addToCart(response.data);
+        const product = response.data;
+        // Apply wholesale price if applicable
+        // if (saleType === "wholesale" && product.wholeSalePrice) {
+        //   product.price = product.wholeSalePrice;
+        // }
+        addToCart(product);
       } else {
         toast.error("Product not found!");
       }
@@ -276,11 +320,6 @@ const POSInterface: React.FC = () => {
     }
   };
 
-  // const handleCancelOrder = () => {
-  //   resetSaleState();
-  //   toast.success("Order cancelled");
-  // };
-
   // Sale processing
   const createPendingSale = async (method: "cash" | "card" | "upi") => {
     try {
@@ -292,8 +331,8 @@ const POSInterface: React.FC = () => {
         })),
         paymentMethod: method.toLowerCase(),
         customerId: selectedCustomer?.id || null,
+        saleType: saleType, // Add sale type to the request
       };
-
       const response = await axios.post(`${baseUrl}/api/sales`, saleData, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -344,7 +383,7 @@ const POSInterface: React.FC = () => {
           resetSaleState();
         }, 300);
       } else if (paymentMethod === "upi") {
-        // Keep stepper open to show QR code, don’t reset yet
+        // Keep stepper open to show QR code, don't reset yet
         downloadReceiptAsPDF();
         handlePrint();
         setIsStepperOpen(true);
@@ -386,6 +425,11 @@ const POSInterface: React.FC = () => {
     setIsPreviewOpen(true);
   };
 
+  // Toggle sale type function
+  const toggleSaleType = () => {
+    setSaleType(currentType => currentType === "retail" ? "wholesale" : "retail");
+  };
+
   return (
     <div className="p-4 sm:p-6 bg-gray-100 min-h-screen flex flex-col space-y-4 sm:space-y-6">
       {/* Hidden receipt for printing */}
@@ -403,6 +447,7 @@ const POSInterface: React.FC = () => {
             saleId={currentSaleId}
             paymentMethod={selectedPaymentMethod || ""}
             customer={selectedCustomer}
+            saleType={saleType} // Pass sale type to receipt
           />
         </div>
       </div>
@@ -418,6 +463,7 @@ const POSInterface: React.FC = () => {
         onPrint={handlePrint}
         onDownload={downloadReceiptAsPDF}
         customer={selectedCustomer}
+        saleType={saleType} // Pass sale type to modal
       />
 
       <CustomerSelectionModal
@@ -461,6 +507,38 @@ const POSInterface: React.FC = () => {
         )}
       </AnimatePresence>
 
+      {/* Sale Type Toggle */}
+      <div className="flex justify-between items-center bg-white rounded-lg shadow-md p-4">
+        <div className="flex items-center gap-2">
+          <span className="font-medium">Sale Type:</span>
+          <div className="relative inline-block w-16 align-middle select-none">
+            <input 
+              type="checkbox" 
+              name="saleType" 
+              id="saleType" 
+              className="sr-only"
+              checked={saleType === "wholesale"}
+              onChange={toggleSaleType}
+            />
+            <label 
+              htmlFor="saleType" 
+              className={`block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer ${
+                saleType === "wholesale" ? "bg-blue-500" : ""
+              }`}
+            >
+              <span 
+                className={`block h-6 w-6 rounded-full bg-white transform transition-transform duration-200 ease-in ${
+                  saleType === "wholesale" ? "translate-x-10" : "translate-x-0"
+                }`} 
+              />
+            </label>
+          </div>
+          <span className={`font-bold ${saleType === "wholesale" ? "text-blue-600" : "text-gray-600"}`}>
+            {saleType === "retail" ? "Retail" : "Wholesale"}
+          </span>
+        </div>
+      </div>
+
       {/* Main interface */}
       <div className="flex flex-col md:flex-row gap-4 sm:gap-6 pb-2">
         <div className="w-full md:w-2/3">
@@ -469,6 +547,7 @@ const POSInterface: React.FC = () => {
             onAddToCart={addToCart}
             onRefresh={loadProducts}
             isLoading={isProductsLoading}
+            saleType={saleType} // Pass sale type to product list
           />
         </div>
         <div className="w-full md:w-1/3 flex flex-col gap-4 sm:gap-6">
@@ -483,7 +562,7 @@ const POSInterface: React.FC = () => {
           <span className="font-medium">Customer: </span>
           {selectedCustomer ? (
             <span>
-              {selectedCustomer.name || "No Name"} ({selectedCustomer.phone})
+              {selectedCustomer?.name || "No Name"} ({selectedCustomer?.phone})
             </span>
           ) : (
             <span className="text-gray-500">Guest Customer</span>
@@ -516,6 +595,7 @@ const POSInterface: React.FC = () => {
           onDecrease={decreaseQuantity}
           onRemove={removeFromCart}
           onUpdateKg={updateQuantity}
+          saleType={saleType} // Pass sale type to shopping cart
         />
       </div>
 
@@ -523,7 +603,10 @@ const POSInterface: React.FC = () => {
         <div className="w-full md:w-2/3 flex flex-col gap-4 sm:gap-6">
           <div className="bg-white rounded-lg shadow-md p-4">
             <h2 className="text-lg font-semibold mb-2">Running Total</h2>
-            <p className="text-2xl font-bold">₹{totalPrice.toFixed(2)}</p>
+            <p className="text-2xl font-bold">₹{totalPrice?.toFixed(2)}</p>
+            <p className="text-sm text-gray-500">
+              {saleType === "wholesale" ? "Wholesale Pricing" : "Retail Pricing"}
+            </p>
           </div>
         </div>
       </div>

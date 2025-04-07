@@ -5,6 +5,7 @@ const {
   sequelize,
   SaleItem,
   Payment,
+  Customer
 } = require("../models/index");
 const { generatePaymentQR } = require("../utils/qrGenerator");
 
@@ -12,24 +13,31 @@ const { generatePaymentQR } = require("../utils/qrGenerator");
 exports.createSale = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { items, paymentMethod, customerId } = req.body;
+    const { items, paymentMethod, customerId, saleType } = req.body;
 
     if (!userId) return res.status(400).json({ error: "User ID is required" });
     if (!items || !items.length)
       return res.status(400).json({ error: "At least one item is required" });
 
-    // Validate payment method
-    const validPaymentMethods = ['cash', 'card', 'upi'];
+    const validPaymentMethods = ["cash", "card", "upi"];
     if (!validPaymentMethods.includes(paymentMethod.toLowerCase())) {
       return res.status(400).json({ error: "Invalid payment method" });
     }
 
-    // Validate items array
+    const validSaleTypes = ["wholeSale", "retail"];
+    if (saleType && !validSaleTypes.includes(saleType)) {
+      return res.status(400).json({ error: "Invalid sale type" });
+    }
+
     for (const item of items) {
       if (!item.productId)
-        return res.status(400).json({ error: "Product ID is required for each item" });
+        return res
+          .status(400)
+          .json({ error: "Product ID is required for each item" });
       if (!item.quantity)
-        return res.status(400).json({ error: "Quantity is required for each item" });
+        return res
+          .status(400)
+          .json({ error: "Quantity is required for each item" });
     }
 
     const transaction = await sequelize.transaction();
@@ -37,36 +45,61 @@ exports.createSale = async (req, res) => {
       const saleItems = [];
       let totalAmount = 0;
 
-      // Process each item
       for (const item of items) {
-        const product = await Product.findByPk(item.productId, { transaction });
+        const product = await Product.findByPk(item.productId, {
+          transaction,
+          attributes: ["id", "name", 'wholeSalePrice', 'retailPrice', "stock"], // ensure price is fetched
+        });
+
         if (!product) throw new Error(`Product ${item.productId} not found`);
         if (product.stock < item.quantity)
           throw new Error(`Insufficient stock for ${product.name}`);
 
+        if (product.wholeSalePrice == null || product.retailPrice == null)
+          throw new Error(`Price is missing for product ${product.name}`);
+
         product.stock -= item.quantity;
         await product.save({ transaction });
+        
+        let itemTotal;
+        if(saleType === "wholeSale"){
+          itemTotal = product.wholeSalePrice * item.quantity;
+        }else{
+          itemTotal = product.retailPrice * item.quantity;
+        }
+        totalAmount += itemTotal;
 
-        totalAmount += product.price * item.quantity;
         saleItems.push({
           productId: product.id,
           quantity: item.quantity,
-          price: product.price,
+          price: saleType === "wholeSale" ? product.wholeSalePrice : product.retailPrice
         });
       }
 
-      // Create Sale
+      if (customerId) {
+        await Customer.update(
+          {
+            lastPurchaseDate: new Date(),
+            lastPurchaseAmount: parseFloat(totalAmount.toFixed(2)),
+          },
+          {
+            where: { id: customerId },
+            transaction,
+          }
+        );
+      }
+
       const sale = await Sale.create(
         {
-          totalAmount: totalAmount.toFixed(2),
-          paymentMethod: paymentMethod.toLowerCase(), // Ensure consistent case
+          totalAmount: totalAmount?.toFixed(2),
+          paymentMethod: paymentMethod.toLowerCase(),
           userId,
           customerId: customerId || null,
+          saleType: saleType || "retail", // default to "retail"
         },
         { transaction }
       );
 
-      // Create SaleItems
       await Promise.all(
         saleItems.map((item) =>
           SaleItem.create(
@@ -79,14 +112,16 @@ exports.createSale = async (req, res) => {
         )
       );
 
-      // Create Payment record
-      const payment = await Payment.create({
-        amount: totalAmount.toFixed(2),
-        status: "pending",
-        paymentMethod: paymentMethod.toLowerCase(),
-        saleId: sale.id,
-        userId,
-      }, { transaction });
+      const payment = await Payment.create(
+        {
+          amount: totalAmount.toFixed(2),
+          status: "pending",
+          paymentMethod: paymentMethod.toLowerCase(),
+          saleId: sale.id,
+          userId,
+        },
+        { transaction }
+      );
 
       let paymentQR = null;
       if (paymentMethod.toLowerCase() === "upi") {
@@ -94,7 +129,7 @@ exports.createSale = async (req, res) => {
           paymentQR = await generatePaymentQR(sale.id, totalAmount);
         } catch (qrError) {
           console.error("QR Generation failed:", qrError);
-          // Continue with sale even if QR generation fails
+          // Continue without blocking sale creation
         }
       }
 
@@ -104,15 +139,15 @@ exports.createSale = async (req, res) => {
         message: "Sale created successfully",
         sale,
         paymentQR,
-        paymentId: payment.id // Include payment ID for reference
+        paymentId: payment.id,
       });
     } catch (error) {
       await transaction.rollback();
-      console.error('Sale creation failed:', error);
-      throw error;
+      console.error("Sale creation failed:", error);
+      res.status(400).json({ error: error.message });
     }
   } catch (error) {
-    console.error('Error in createSale:', error);
+    console.error("Error in createSale:", error);
     res.status(400).json({ error: error.message });
   }
 };
@@ -120,7 +155,6 @@ exports.createSale = async (req, res) => {
 // Get all sales
 exports.getAllSales = async (req, res) => {
   try {
-
     const sales = await Sale.findAll({
       include: [
         {
@@ -128,14 +162,24 @@ exports.getAllSales = async (req, res) => {
           include: [Product],
         },
         User,
-        Payment
+        Payment,
       ],
       order: [["createdAt", "DESC"]],
     });
 
     res.json(sales);
   } catch (error) {
-    console.error('Error fetching sales:', error);
+    console.error("Error fetching sales:", error);
     res.status(400).json({ error: error.message });
   }
 };
+
+
+exports.getHistory = async (req, res) => {
+  try {
+    
+  } catch (error) {
+    console.log("error from get history", error)
+    res.status(500).json({error: error.message || "Server error"})
+  }
+}

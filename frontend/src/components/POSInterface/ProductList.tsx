@@ -11,23 +11,34 @@ const ProductList: React.FC<{
     id: number;
     name: string;
     stock: number;
-    price: number;
+    retailPrice: number;
+    wholeSalePrice?: number;
     unitType: "pcs" | "kg";
   }>;
   onAddToCart: (product: {
     id: number;
     name: string;
-    price: number;
+    retialPrice: number;
+    wholeSalePrice?: number;
     unitType: "pcs" | "kg";
   }) => void;
-  onRefresh: () => Promise<void>; // Ensure the refresh function supports async
+  onRefresh: () => Promise<void>;
   isLoading: boolean;
-}> = ({ products, onAddToCart, onRefresh, isLoading }) => {
+  saleType: "retail" | "wholesale"; 
+}> = ({ products, onAddToCart, onRefresh, isLoading, saleType }) => {
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredProducts = products.filter((product) =>
     product.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+  // Get the appropriate price based on sale type
+  const getDisplayPrice = (product) => {
+    if (saleType === "wholesale") {
+      return product?.wholeSalePrice;
+    }else{
+      return product?.retailPrice;
+    }
+  };
 
   return (
     <div className="rounded-lg border bg-white shadow-md p-4 w-full h-full">
@@ -56,8 +67,6 @@ const ProductList: React.FC<{
 
       {/* Search Bar */}
       <div className="relative mb-4">
-        {" "}
-        {/* Removed z-0 */}
         <FontAwesomeIcon
           icon={faSearch}
           className="absolute left-3 top-2.5 text-gray-400 w-4 h-4 sm:w-5 sm:h-5"
@@ -77,27 +86,28 @@ const ProductList: React.FC<{
         <div className="grid grid-cols-3 gap-2 mb-2 text-sm sm:text-base font-semibold">
           <p className="truncate">Product Name</p>
           <p className="text-center">Stock</p>
-          <p className="text-right">Price</p>
+          <p className="text-right">Price ({saleType})</p>
         </div>
 
         {/* Product Items */}
         {filteredProducts.length > 0 ? (
-          filteredProducts.map((product) => (
+          filteredProducts?.map((product) => (
             <div
-              key={product.id}
+              key={product?.id}
               className="grid grid-cols-3 gap-2 items-center p-2 hover:bg-gray-50 cursor-pointer rounded"
               onClick={() => onAddToCart(product)}
             >
               <p className="truncate text-sm sm:text-base">{product.name}</p>
               <p className="text-center text-sm sm:text-base">
                 {product.unitType === "kg"
-                  ? product.stock?.toFixed(2)
-                  : product.stock}{" "}
-                {product.unitType === "kg" ? "kg" : "pcs"}
+                  ? product?.stock?.toFixed(2)
+                  : product?.stock}{" "}
+                {product?.unitType === "kg" ? "kg" : "pcs"}
               </p>
               <p className="text-right font-semibold text-sm sm:text-base">
-              ₹{typeof product.price === 'number' ? product.price.toFixed(2) : 'N/A'}
-
+                ₹{typeof getDisplayPrice(product) === 'number' 
+                  ? getDisplayPrice(product)?.toFixed(2) 
+                  : 'N/A'}
               </p>
             </div>
           ))

@@ -1,16 +1,29 @@
-const { User } = require("../models/index");
+const { User, Branch } = require("../models/index");
 const { SalaryPayment } = require("../models/index");
 const moment = require("moment");
 const bcrypt = require("bcrypt");
-const { Op } = require('sequelize');
+const { Op } = require("sequelize");
 
 exports.getAllUsers = async (req, res) => {
   try {
     const { role } = req.query;
-    const users = await User.findAll({ where: { role } });
+    const users = await User.findAll({
+      where: { role },
+      attributes: {
+        exclude: ["password"],
+      },
+      include: [
+        {
+          model: Branch, // 👈 Now properly imported
+          as: "Branch",
+          attributes: ["name"],
+        },
+      ],
+    });
     res.json({ users });
   } catch (error) {
-    console.log(error);
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -53,7 +66,7 @@ exports.createUser = async (req, res) => {
       aadharNumber,
       address,
       age,
-      gender
+      gender,
     });
 
     res.status(201).json(user);
@@ -85,7 +98,7 @@ exports.toggleUser = async (req, res) => {
 };
 
 exports.salaryCredit = async (req, res) => {
-  const { userId, amount, paymentDate, status } = req.body;
+  const { userId, incentive, cutOff, paid, amount, paymentDate, status } = req.body;
   const currentMonth = moment(paymentDate).format("MMMM YYYY"); // format from frontend date
 
   try {
@@ -100,13 +113,19 @@ exports.salaryCredit = async (req, res) => {
         amount,
         month: currentMonth,
         status,
-        paidAt: new Date(paymentDate),
+        paidAt: new Date(),
+        incentive: incentive,
+        cutOff :cutOff,
+        paid: paid
       });
     } else {
       await payment.update({
         amount,
         status,
-        paidAt: new Date(paymentDate),
+        paidAt: new Date(),
+        incentive: incentive,
+        cutOff :cutOff,
+        paid: paid
       });
     }
 
@@ -129,7 +148,6 @@ exports.salaryCredit = async (req, res) => {
     return res.status(500).json({ error: "Server Error" });
   }
 };
-
 
 exports.salaryHistory = async (req, res) => {
   const { id } = req.params;

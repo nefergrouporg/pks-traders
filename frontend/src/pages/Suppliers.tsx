@@ -752,10 +752,10 @@ const Suppliers: React.FC = () => {
                             <td className="p-3 text-sm">{product.name}</td>
                             <td className="p-3 text-sm">{product.category}</td>
                             <td className="p-3 text-sm">
-                              ₹{product.wholeSalePrice.toFixed(2)}
+                              ₹{product?.wholeSalePrice?.toFixed(2)}
                             </td>
                             <td className="p-3 text-sm">
-                              ₹{product.retailPrice.toFixed(2)}
+                              ₹{product?.retailPrice?.toFixed(2)}
                             </td>
                             <td className="p-3 text-sm">{product.stock}</td>
                             <td className="p-3 text-sm">

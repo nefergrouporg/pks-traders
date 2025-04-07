@@ -1,4 +1,4 @@
-const { DataTypes } = require('sequelize');
+const { DataTypes, INTEGER } = require('sequelize');
 
 module.exports = (sequelize) => {
   const SalaryPayment = sequelize.define('SalaryPayment', {
@@ -30,6 +30,20 @@ module.exports = (sequelize) => {
     paidAt: {
       type: DataTypes.DATE,
       allowNull: true
+    },
+    incentive: {
+      type: DataTypes.INTEGER,
+      allowNull : true,
+      default: 0
+    },
+    cutOff :{
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      default: 0
+    },
+    paid:{
+      type: DataTypes.INTEGER,
+      allowNull :true,
     }
   });
 

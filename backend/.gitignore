@@ -4,5 +4,4 @@ config/paymentConfig.js
 tests
 node_modules
 utils/notifications.js
-migrations
 seeders

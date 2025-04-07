@@ -5,7 +5,8 @@ const { auth } = require('../middleware/authMiddleware');
 
 router.post('/', auth, customerController.createCustomer)
 router.get('/', auth, customerController.getCustomers)
-router.put('/debt/:id', auth, customerController.updateCustomerDebt)
+router.put('/debt/:id', auth, customerController.updateCustomer)
+// router.put('/details', auth, customerController.getCustomerById)
 
 
 module.exports = router;

@@ -15,9 +15,15 @@ module.exports = (sequelize) => {
         type: DataTypes.TEXT,
         allowNull: true,
       },
-      price: {
+      retailPrice: {
         type: DataTypes.FLOAT,
         allowNull: false,
+        default : 0
+      },
+      wholeSalePrice :{
+        type: DataTypes.FLOAT,
+        allowNull : false,
+        default: 0
       },
       barcode: {
         type: DataTypes.STRING,

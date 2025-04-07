@@ -1,10 +1,12 @@
 import React from "react";
+import moment from 'moment';
 
 interface ReceiptProps {
   cart: Array<{
     id: number;
     name: string;
-    price: number;
+    retailPrice: number;
+    wholeSalePrice?: number;
     quantity: number;
     unitType: "pcs" | "kg";
   }>;
@@ -12,73 +14,88 @@ interface ReceiptProps {
   saleId: number;
   paymentMethod: string;
   customer?: any;
+  saleType: "retail" | "wholesale";
 }
 
-const Receipt: React.FC<ReceiptProps> = ({ 
-  cart, 
-  totalPrice, 
-  saleId, 
-  paymentMethod, 
-  customer 
+const Receipt: React.FC<ReceiptProps> = ({
+  cart,
+  totalPrice,
+  saleId,
+  paymentMethod,
+  customer,
+  saleType = "retail",
 }) => {
-  const currentDate = new Date().toLocaleString();
+  // Get the price based on sale type for each item
+  const getItemPrice = (item) => {
+    return saleType === "wholesale" && item.wholeSalePrice 
+      ? item.wholeSalePrice 
+      : item.retailPrice;
+  };
 
   return (
-    <div
-      className="p-4"
-      style={{ 
-        width: "80mm", 
-        fontFamily: "'Courier New', monospace",
-        fontSize: "12px",
-        lineHeight: "1.2",
-        padding: "2mm",
-        background: "white !important",
-        color: "black !important"
-      }}
-    >
+    <div className="min-w-[300px] max-w-[400px] mx-auto p-4 bg-white text-black">
       <div className="text-center mb-4">
-        <h2 className="text-xl font-bold">PKS store</h2>
-        <p></p>
-        <p></p>
-        {/* <p>123 Store Address</p>
-        <p>Phone: 123-456-7890</p> */}
-        <p>--------------------------------</p>
-        <p>RECEIPT</p>
-        <p>--------------------------------</p>
-        <p>Date: {currentDate}</p>
-        <p>Sale ID: {saleId}</p>
-        <p>Payment: {paymentMethod.toUpperCase()}</p>
-        {customer && customer.name && <p>Customer: {customer.name}</p>}
-        {customer && customer.phone && <p>Phone: {customer.phone}</p>}
-        <p>--------------------------------</p>
+        <h1 className="text-xl font-bold">PKS Traders</h1>
+        <p className="text-sm">Phone: +91 1234567890</p>
+      </div>
+      
+      <div className="flex justify-between mb-4">
+        <div>
+          <p><strong>Invoice #:</strong> {saleId}</p>
+          <p><strong>Date:</strong> {moment().format('YYYY-MM-DD')}</p>
+        </div>
+        <div className="text-right">
+          <p className="font-bold text-lg">
+            {saleType === "wholesale" ? "WHOLESALE INVOICE" : "RETAIL INVOICE"}
+          </p>
+        </div>
       </div>
 
-      <div>
-        <div className="flex justify-between mb-2">
-          <span className="font-bold">Item</span>
-          <span className="font-bold">Qty</span>
-          <span className="font-bold">Price</span>
-          <span className="font-bold">Total</span>
+      {customer && (
+        <div className="mb-4 border-t border-b py-2">
+          <p><strong>Customer:</strong> {customer.name || "No Name"}</p>
+          <p><strong>Phone:</strong> {customer.phone}</p>
+          {customer.address && <p><strong>Address:</strong> {customer.address}</p>}
         </div>
+      )}
 
-        {cart.map((item) => (
-          <div key={item.id} className="flex justify-between mb-1">
-            <span>{item.name.substring(0, 12)}</span>
-            <span>
-              {item.quantity} {item.unitType}
-            </span>
-            <span>₹{item?.price?.toFixed(2)}</span>
-            <span>₹{(item.price * item.quantity).toFixed(2)}</span>
-          </div>
-        ))}
+      <table className="w-full mb-4">
+        <thead>
+          <tr className="border-b">
+            <th className="text-left py-2">Item</th>
+            <th className="text-center">Qty</th>
+            <th className="text-right">Rate</th>
+            <th className="text-right">Amt</th>
+          </tr>
+        </thead>
+        <tbody>
+          {cart.map((item) => {
+            const price = getItemPrice(item);
+            return (
+              <tr key={item.id} className="border-b text-sm">
+                <td className="py-1">{item.name}</td>
+                <td className="text-center">{item.quantity} {item.unitType}</td>
+                <td className="text-right">₹{price.toFixed(2)}</td>
+                <td className="text-right">₹{(price * item.quantity).toFixed(2)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
 
-        <p>--------------------------------</p>
-        <div className="flex justify-between font-bold">
-          <span>TOTAL:</span>
-          <span>₹{totalPrice.toFixed(2)}</span>
-        </div>
-        <p>--------------------------------</p>
-        <p className="text-center mt-4">Thank you for shopping with us!</p>
+      <div className="flex justify-between font-bold border-t pt-2 mb-4">
+        <div>Total</div>
+        <div>₹{totalPrice.toFixed(2)}</div>
+      </div>
+
+      <div className="flex justify-between border-t pt-2 mb-4">
+        <div>Payment Method</div>
+        <div className="uppercase">{paymentMethod}</div>
+      </div>
+
+      <div className="text-center text-sm mt-6">
+        <p>Thank you for your business!</p>
+        <p>Visit us again soon.</p>
       </div>
     </div>
   );

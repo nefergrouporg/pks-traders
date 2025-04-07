@@ -25,6 +25,7 @@ const CustomerSelectionModal: React.FC<CustomerSelectionModalProps> = ({
   const [isNewCustomerMode, setIsNewCustomerMode] = React.useState(false);
   const [isEditMode, setIsEditMode] = React.useState(false);
   const [newCustomer, setNewCustomer] = React.useState({
+    id: "",
     name: "",
     phone: "",
     address: "",
@@ -81,7 +82,7 @@ const CustomerSelectionModal: React.FC<CustomerSelectionModalProps> = ({
         toast.error(response.data.message || "There is problem while creating customer");
       }
 
-      setNewCustomer({ name: "", phone: "", address: "", debtAmount: 0 });
+      setNewCustomer({ id: '', name: "", phone: "", address: "", debtAmount: 0 });
       setIsNewCustomerMode(false);
       onClose();
     } catch (error) {
@@ -92,9 +93,10 @@ const CustomerSelectionModal: React.FC<CustomerSelectionModalProps> = ({
 
   const updateCustomerDebt = async () => {
     try {
+
       const response = await axios.put(
-        `${baseUrl}/api/customers/debt/${selectedCustomer.id}`,
-        { debtAmount: newCustomer.debtAmount },
+        `${baseUrl}/api/customers/debt/${newCustomer.id}`,
+        { debtAmount: newCustomer?.debtAmount },
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -105,7 +107,7 @@ const CustomerSelectionModal: React.FC<CustomerSelectionModalProps> = ({
       if(response.status === 200){
         toast.success("Customer debt updated successfully");
         fetchCustomers();
-        onSelectCustomer(response.data.customer);
+        onSelectCustomer(response?.data?.customer);
         setIsEditMode(false);
         onClose();
       }
@@ -117,6 +119,7 @@ const CustomerSelectionModal: React.FC<CustomerSelectionModalProps> = ({
 
   const handleEditCustomer = (customer) => {
     setNewCustomer({
+      id: customer.id || '',
       name: customer.name || "",
       phone: customer.phone,
       address: customer.address || "",
@@ -167,7 +170,7 @@ const CustomerSelectionModal: React.FC<CustomerSelectionModalProps> = ({
                 <ul className="divide-y divide-gray-200">
                   {searchResults.map((customer) => (
                     <li
-                      key={customer.id}
+                      key={customer?.id}
                       className="py-2 px-1 hover:bg-gray-100 cursor-pointer group"
                     >
                       <div className="flex justify-between items-center">
@@ -181,14 +184,14 @@ const CustomerSelectionModal: React.FC<CustomerSelectionModalProps> = ({
                           className="flex-1"
                         >
                           <div className="font-medium">
-                            {customer.name || "No Name"}
+                            {customer?.name || "No Name"}
                           </div>
                           <div className="text-sm text-gray-600">
-                            {customer.phone}
+                            {customer?.phone}
                           </div>
-                          {customer.debtAmount > 0 && (
+                          {customer?.debtAmount > 0 && (
                             <div className="text-sm text-red-600">
-                              Debt: ₹{customer.debtAmount.toFixed(2)}
+                              Debt: ₹{customer?.debtAmount?.toFixed(2)}
                             </div>
                           )}
                         </div>

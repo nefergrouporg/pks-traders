@@ -13,7 +13,7 @@ interface Staff {
   salary: number;
   salaryCredited: boolean;
   isBlocked: boolean;
-  branch?: { name: string; id: number };
+  Branch?: { name: string; id: number };
   role: "staff" | "admin" | "manager";
   age?: number;
   gender?: string;
@@ -28,6 +28,9 @@ interface SalaryPayment {
   month: string;
   status: "paid" | "unpaid";
   paidAt: string | null;
+  incentive: number;
+  cutOff : number;
+  paid: number;
 }
 
 interface StaffDetailsModalProps {
@@ -36,7 +39,11 @@ interface StaffDetailsModalProps {
   staff: Staff | null;
 }
 
-const StaffDetailsModal: React.FC<StaffDetailsModalProps> = ({ isOpen, onClose, staff }) => {
+const StaffDetailsModal: React.FC<StaffDetailsModalProps> = ({
+  isOpen,
+  onClose,
+  staff,
+}) => {
   const [activeTab, setActiveTab] = useState("info");
   const [salaryHistory, setSalaryHistory] = useState<SalaryPayment[]>([]);
   const [loading, setLoading] = useState(false);
@@ -50,7 +57,7 @@ const StaffDetailsModal: React.FC<StaffDetailsModalProps> = ({ isOpen, onClose, 
 
   const fetchSalaryHistory = async () => {
     if (!staff) return;
-    
+
     setLoading(true);
     try {
       const response = await axios.get(
@@ -65,19 +72,27 @@ const StaffDetailsModal: React.FC<StaffDetailsModalProps> = ({ isOpen, onClose, 
       setLoading(false);
     }
   };
-
+  console.log(salaryHistory);
   if (!staff) return null;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} className="max-w-2xl max-h-[90vh] overflow-y-auto">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      className="max-w-2xl max-h-[90vh] overflow-y-auto"
+    >
       <div className="p-6">
-        <h2 className="text-xl font-semibold mb-5">{staff.username}'s Profile</h2>
-        
+        <h2 className="text-xl font-semibold mb-5">
+          {staff.username}'s Profile
+        </h2>
+
         {/* Tabs */}
         <div className="flex border-b mb-6">
           <button
             className={`px-4 py-2 ${
-              activeTab === "info" ? "border-b-2 border-blue-500 text-blue-500" : "text-gray-500"
+              activeTab === "info"
+                ? "border-b-2 border-blue-500 text-blue-500"
+                : "text-gray-500"
             }`}
             onClick={() => setActiveTab("info")}
           >
@@ -85,7 +100,9 @@ const StaffDetailsModal: React.FC<StaffDetailsModalProps> = ({ isOpen, onClose, 
           </button>
           <button
             className={`px-4 py-2 ${
-              activeTab === "salary" ? "border-b-2 border-blue-500 text-blue-500" : "text-gray-500"
+              activeTab === "salary"
+                ? "border-b-2 border-blue-500 text-blue-500"
+                : "text-gray-500"
             }`}
             onClick={() => setActiveTab("salary")}
           >
@@ -106,11 +123,15 @@ const StaffDetailsModal: React.FC<StaffDetailsModalProps> = ({ isOpen, onClose, 
             </div>
             <div>
               <h3 className="text-sm font-medium text-gray-500">Phone</h3>
-              <p className="text-base text-black">{staff.phone || "Not provided"}</p>
+              <p className="text-base text-black">
+                {staff.phone || "Not provided"}
+              </p>
             </div>
             <div>
               <h3 className="text-sm font-medium text-gray-500">Branch</h3>
-              <p className="text-base text-black">{staff.branch?.name || "Not assigned"}</p>
+              <p className="text-base text-black">
+                {staff.Branch?.name || "Not assigned"}
+              </p>
             </div>
             <div>
               <h3 className="text-sm font-medium text-gray-500">Role</h3>
@@ -122,19 +143,29 @@ const StaffDetailsModal: React.FC<StaffDetailsModalProps> = ({ isOpen, onClose, 
             </div>
             <div>
               <h3 className="text-sm font-medium text-gray-500">Age</h3>
-              <p className="text-base text-black">{staff.age || "Not provided"}</p>
+              <p className="text-base text-black">
+                {staff.age || "Not provided"}
+              </p>
             </div>
             <div>
               <h3 className="text-sm font-medium text-gray-500">Gender</h3>
-              <p className="text-base text-black">{staff.gender || "Not provided"}</p>
+              <p className="text-base text-black">
+                {staff.gender || "Not provided"}
+              </p>
             </div>
             <div>
-              <h3 className="text-sm font-medium text-gray-500">Aadhar Number</h3>
-              <p className="text-base text-black">{staff.aadharNumber || "Not provided"}</p>
+              <h3 className="text-sm font-medium text-gray-500">
+                Aadhar Number
+              </h3>
+              <p className="text-base text-black">
+                {staff.aadharNumber || "Not provided"}
+              </p>
             </div>
             <div className="md:col-span-2">
               <h3 className="text-sm font-medium text-gray-500">Address</h3>
-              <p className="text-base text-black">{staff.address || "Not provided"}</p>
+              <p className="text-base text-black">
+                {staff.address || "Not provided"}
+              </p>
             </div>
           </div>
         )}
@@ -148,39 +179,45 @@ const StaffDetailsModal: React.FC<StaffDetailsModalProps> = ({ isOpen, onClose, 
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="bg-gray-50">
-                    <th className="p-2 text-left">Month</th>
+                    <th className="p-2 text-left">Paid Date</th>
                     <th className="p-2 text-left">Amount</th>
                     <th className="p-2 text-left">Status</th>
-                    <th className="p-2 text-left">Paid Date</th>
+                    <th className="p-2 text-left">Incentive</th>
+                    <th className="p-2 text-left">Cut Off</th>
+                    <th className="p-2 text-left">Paid</th>
                   </tr>
                 </thead>
                 <tbody className="text-black">
                   {salaryHistory.map((payment) => (
                     <tr key={payment.id} className="border-t">
-                      <td className="p-2">{payment.month}</td>
+                      <td className="p-2">
+                        {payment.paidAt
+                          ? new Date(payment.paidAt).toLocaleDateString()
+                          : "N/A"}
+                      </td>
                       <td className="p-2">₹{payment.amount}</td>
                       <td className="p-2">
                         <span
                           className={`px-2 py-1 rounded-full text-xs ${
-                            payment.status === "paid" 
-                              ? "bg-green-100 text-green-800" 
+                            payment.status === "paid"
+                              ? "bg-green-100 text-green-800"
                               : "bg-red-100 text-red-800"
                           }`}
                         >
                           {payment.status}
                         </span>
                       </td>
-                      <td className="p-2">
-                        {payment.paidAt 
-                          ? new Date(payment.paidAt).toLocaleDateString() 
-                          : "N/A"}
-                      </td>
+                      <td className="p-2">₹{payment.incentive}</td>
+                      <td className="p-2">₹{payment.cutOff}</td>
+                      <td className="p-2">₹{payment.paid}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             ) : (
-              <div className="text-center py-4 text-gray-500">No salary payment records found</div>
+              <div className="text-center py-4 text-gray-500">
+                No salary payment records found
+              </div>
             )}
           </div>
         )}
