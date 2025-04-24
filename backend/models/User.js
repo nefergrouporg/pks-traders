@@ -67,6 +67,10 @@ module.exports = (sequelize) => {
         model: 'branches', // This is the table name
         key: 'id'
       }
+    },
+    isDeleted : {
+      type: DataTypes.BOOLEAN,
+      defaultValue:false
     }
   });
 

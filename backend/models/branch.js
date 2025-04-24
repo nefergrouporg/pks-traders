@@ -23,6 +23,14 @@ module.exports = (sequelize) => {
     phone: {
       type: DataTypes.STRING,
       allowNull: false
+    },
+    isBlocked:{
+      type: DataTypes.BOOLEAN,
+      defaultValue: false
+    },
+    isDeleted : {
+      type: DataTypes.BOOLEAN,
+      defaultValue:false
     }
   }, {
     tableName: 'branches',

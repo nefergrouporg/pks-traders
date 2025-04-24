@@ -27,11 +27,11 @@ module.exports = (sequelize) => {
       },
       barcode: {
         type: DataTypes.STRING,
-        allowNull: false,
+        allowNull: true,
         unique: true,
       },
       stock: {
-        type: DataTypes.FLOAT,  // Change INTEGER to FLOAT for kg support
+        type: DataTypes.FLOAT,  
         allowNull: false,
         defaultValue: 0,
       },
@@ -55,6 +55,10 @@ module.exports = (sequelize) => {
       active:{
         type: DataTypes.BOOLEAN,
         defaultValue:true
+      },
+      isDeleted : {
+        type: DataTypes.BOOLEAN,
+        defaultValue:false
       }
     });
   

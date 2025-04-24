@@ -3,11 +3,10 @@ const { DataTypes } = require('sequelize');
 module.exports = (sequelize) => {
   const Customer = sequelize.define('Customer', {
     id: {
-      type: DataTypes.INTEGER, // ✅ Correct type
+      type: DataTypes.INTEGER, 
       primaryKey: true,
       autoIncrement: true,
     },
-    
     name: {
       type: DataTypes.STRING,
       allowNull: true,
@@ -33,6 +32,14 @@ module.exports = (sequelize) => {
       defaultValue: 0.0,
       allowNull: false,
     },
+    isBlocked:{
+      type: DataTypes.BOOLEAN,
+      defaultValue: false
+    },
+    isDeleted : {
+      type: DataTypes.BOOLEAN,
+      defaultValue:false
+    }
   });
 
   Customer.associate = (models) => {
