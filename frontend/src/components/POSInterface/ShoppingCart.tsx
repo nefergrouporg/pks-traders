@@ -14,7 +14,7 @@ interface ShoppingCartProps {
   onDecrease: (id: number) => void;
   onRemove: (id: number) => void;
   onUpdateKg: (id: number, newQuantity: number) => void;
-  saleType: "retail" | "wholesale";
+  saleType: "retail" | "wholeSale";
 }
 
 const ShoppingCart: React.FC<ShoppingCartProps> = ({
@@ -30,7 +30,7 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
   
   // Calculate total amount based on sale type
   const totalAmount = cart.reduce((total, item) => {
-    const price = saleType === "wholesale" && item.wholeSalePrice 
+    const price = saleType === "wholeSale" && item.wholeSalePrice 
       ? item.wholeSalePrice 
       : item.retailPrice;
     return total + price * item.quantity;
@@ -41,7 +41,7 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg sm:text-xl font-bold">Shopping Cart</h2>
         <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">
-          {saleType === "wholesale" ? "Wholesale Pricing" : "Retail Pricing"}
+          {saleType === "wholeSale" ? "Wholesale Pricing" : "Retail Pricing"}
         </span>
       </div>
 

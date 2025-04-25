@@ -55,6 +55,7 @@ const BranchAddress: React.FC = () => {
   const createBranch = async () => {
     try {
       const token = localStorage.getItem('token');
+      console.log(newBranch)
       await axios.post(`${baseUrl}/api/branches`, newBranch, {
         headers: { Authorization: `Bearer ${token}` }
       });

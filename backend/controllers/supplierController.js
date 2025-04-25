@@ -60,7 +60,7 @@ exports.toggleBlockSupplier = async (req, res) => {
       return res.status(404).json({ error: "Supplier not found" });
     }
 
-    supplier.active = !supplier.active; // Toggle the `active` field
+    supplier.active = !supplier.active;
     await supplier.save();
     if (supplier.active) {
       return res
@@ -96,5 +96,25 @@ exports.getSupplierHistory = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });
+  }
+};
+
+exports.deleteSupplier = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const supplier = await Supplier.findByPk(id);
+    if (!supplier) {
+      return res.status(404).json({ error: "Supplier not found" });
+    }
+
+    supplier.isDeleted = !supplier.isDeleted; // Toggle the `active` field
+    await supplier.save();
+    return res
+      .status(200)
+      .json({ message: "Supplier Deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: error.message });
   }
 };

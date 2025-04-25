@@ -15,6 +15,7 @@ const ProjectConfigModel = require('./ProjectConfig');
 const BranchModel = require('./branch')
 const SupplierHistoryModel = require('./supplierHistory')
 const SalaryPaymentModel = require('./salaryPayment')
+const StockEntry = require('./StockEntry')
 
 
 // Initialize models
@@ -31,7 +32,8 @@ const models = {
   ProjectConfig: ProjectConfigModel(sequelize),
   Branch:BranchModel(sequelize),
   SupplierHistory:SupplierHistoryModel(sequelize),
-  SalaryPayment : SalaryPaymentModel(sequelize)
+  SalaryPayment : SalaryPaymentModel(sequelize),
+  StockEntry : StockEntry(sequelize)
 };
 
 // Setup associations

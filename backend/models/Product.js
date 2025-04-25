@@ -44,10 +44,6 @@ module.exports = (sequelize) => {
         type: DataTypes.STRING,
         allowNull: false,
       },
-      batchNumber: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
       lowStockThreshold: {
         type: DataTypes.INTEGER,
         defaultValue: 10,
@@ -63,7 +59,7 @@ module.exports = (sequelize) => {
     });
   
     Product.associate = (models) => {
-      Product.belongsTo(models.Supplier, { foreignKey: 'supplierId', as: 'supplier' });
+      Product.belongsTo(models.Supplier, { foreignKey: 'supplierId', as: 'supplier' })
       Product.hasMany(models.Inventory, { foreignKey: 'productId' });
       Product.hasMany(models.Sale, { foreignKey: 'productId' });
     };

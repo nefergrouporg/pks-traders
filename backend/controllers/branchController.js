@@ -4,9 +4,11 @@ const { Branch } = require("../models");
 exports.getBranches = async (req, res) => {
   try {
     const branches = await Branch.findAll();
+    console.log(branches,'kjasdfljkasd')
     // Return the branches in a consistent format
     res.json({ branches: branches });
   } catch (error) {
+    console.log(error )
     res.status(500).json({ error: "Error fetching branches" });
   }
 };
@@ -40,3 +42,17 @@ exports.blockBranch = async (req, res) => {
     res.status(500).json({ error: "Error blocking branch" });
   }
 };
+
+exports.deleteBranch = async (req,res) =>{
+  try {
+    const {id} = req.params
+    const branch = await Branch.findByPk(id)
+    if (!branch) return res.status(404).json({error: "Branch not fond"})
+
+      branch.isDeleted = !branch.isDeleted
+      await branch.save()
+      return res.json({message: "Branch Deleted successfully"})
+  } catch (error) {
+    res.status(500).json({error: "Server Error"})
+  }
+}

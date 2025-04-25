@@ -19,8 +19,8 @@ exports.createSale = async (req, res) => {
     if (!items || !items.length)
       return res.status(400).json({ error: "At least one item is required" });
 
-    const validPaymentMethods = ["cash", "card", "upi"];
-    if (!validPaymentMethods.includes(paymentMethod.toLowerCase())) {
+    const validPaymentMethods = ["cash", "card", "upi", 'debit'];
+    if (!validPaymentMethods.includes(paymentMethod?.toLowerCase())) {
       return res.status(400).json({ error: "Invalid payment method" });
     }
 
@@ -89,13 +89,30 @@ exports.createSale = async (req, res) => {
         );
       }
 
+      const user = await User.findByPk(userId)
+
+      if(paymentMethod === 'debit'){
+        if(customerId === null){
+          return res.status(400).json({
+            error: "Please select customer for Debit"
+          })
+        }
+
+        const customer = await Customer.findByPk(customerId)
+
+        customer.debtAmount += totalAmount
+        customer.save()
+
+      }
+
       const sale = await Sale.create(
         {
           totalAmount: totalAmount?.toFixed(2),
           paymentMethod: paymentMethod.toLowerCase(),
           userId,
+          branchId : user.branchId,
           customerId: customerId || null,
-          saleType: saleType || "retail", // default to "retail"
+          saleType: saleType || "retail",
         },
         { transaction }
       );
@@ -175,11 +192,11 @@ exports.getAllSales = async (req, res) => {
 };
 
 
-exports.getHistory = async (req, res) => {
-  try {
+// exports.getHistory = async (req, res) => {
+//   try {
     
-  } catch (error) {
-    console.log("error from get history", error)
-    res.status(500).json({error: error.message || "Server error"})
-  }
-}
+//   } catch (error) {
+//     console.log("error from get history", error)
+//     res.status(500).json({error: error.message || "Server error"})
+//   }
+// }

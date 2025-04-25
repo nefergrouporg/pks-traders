@@ -13,7 +13,7 @@ interface CartItemProps {
   onDecrease: (id: number) => void;
   onRemove: (id: number) => void;
   onUpdateKg: (id: number, newQuantity: number) => void;
-  saleType: "retail" | "wholesale";
+  saleType: "retail" | "wholeSale";
 }
 
 const CartItem: React.FC<CartItemProps> = ({
@@ -25,7 +25,7 @@ const CartItem: React.FC<CartItemProps> = ({
   saleType
 }) => {
   // Get the correct price based on sale type
-  const price = saleType === "wholesale" && item.wholeSalePrice 
+  const price = saleType === "wholeSale" && item.wholeSalePrice 
     ? item.wholeSalePrice 
     : item.retailPrice;
 
@@ -43,7 +43,7 @@ const CartItem: React.FC<CartItemProps> = ({
       <div className="text-center">
         <div className="text-sm">₹{price.toFixed(2)}</div>
         <div className="text-xs text-gray-500">
-          {saleType === "wholesale" ? "Wholesale" : "Retail"}
+          {saleType === "wholeSale" ? "WholeSale" : "Retail"}
         </div>
       </div>
       

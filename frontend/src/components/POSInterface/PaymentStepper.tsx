@@ -122,6 +122,7 @@ const PaymentStepper: React.FC<PaymentStepperProps> = ({
           nextButtonText={
             currentStepperStep === 2 ? "Confirm Payment" : undefined
           }
+          onClose={onClose}
         >
           <Step>
             <div className="flex flex-col gap-4">

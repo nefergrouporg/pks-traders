@@ -4,11 +4,11 @@ const { SupplierHistory } = require('../models/index');
 
 exports.createProduct = async (req, res) => {
   try {
-    const { name, retailPrice, wholeSalePrice, category, batchNumber, barcode, lowStockThreshold, stock, supplierName, unitType, description } = req.body;
+    const { name, retailPrice, wholeSalePrice, category, barcode, lowStockThreshold, unitType, description } = req.body;
     if (!['pcs', 'kg'].includes(unitType)) {
       return res.status(400).json({ message: "Invalid unit type. Use 'pcs' or 'kg'." });
     }
-    if(!name || !stock || !supplierName || !barcode || !batchNumber || !category || !lowStockThreshold || !unitType || (!wholeSalePrice || !retailPrice)){
+    if(!name || !category || !lowStockThreshold || !unitType || (!wholeSalePrice || !retailPrice)){
       return  res.status(400).json({ message: 'All fiels are required'});
     }
 
@@ -18,13 +18,10 @@ exports.createProduct = async (req, res) => {
       description,
       retailPrice,
       wholeSalePrice,
-      stock,
       unitType,
       barcode,
       category,
-      batchNumber,
       lowStockThreshold,
-      supplierId : supplierName,
     });
 
     if (product.stock > 0) {
@@ -51,12 +48,10 @@ exports.updateProduct = async (req, res) => {
     const {
       name,
       description,
-      price,
+      retailPrice,
+      wholeSalePrice,
       category,
-      batchNumber,
       lowStockThreshold,
-      supplierId,
-      stock,
       unitType
     } = req.body;
 
@@ -71,12 +66,10 @@ exports.updateProduct = async (req, res) => {
     await product.update({
       name: name || product.name,
       description: description || product.description,
-      price: price || product.price,
+      retailPrice: retailPrice || product.retailPrice,
+      wholeSalePrice: wholeSalePrice || product.wholeSalePrice,
       category: category || product.category,
-      batchNumber: batchNumber || product.batchNumber,
       lowStockThreshold: lowStockThreshold || product.lowStockThreshold,
-      supplierId: supplierId || product.supplierId,
-      stock: stock !== undefined ? stock : product.stock,
       unitType: unitType !== undefined ? unitType : product.unitType,
     });
 
@@ -87,42 +80,42 @@ exports.updateProduct = async (req, res) => {
 };
 
 // Update product stock
-exports.updateStock = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { quantity } = req.body;
+// exports.updateStock = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const { quantity } = req.body;
 
-    const product = await Product.findByPk(id);
-    if (!product) return res.status(404).json({ message: 'Product not found' });
+//     const product = await Product.findByPk(id);
+//     if (!product) return res.status(404).json({ message: 'Product not found' });
 
-    if (quantity <= 0) {
-      return res.status(400).json({ message: 'Quantity must be greater than zero' });
-    }
+//     if (quantity <= 0) {
+//       return res.status(400).json({ message: 'Quantity must be greater than zero' });
+//     }
 
-    if (product.unitType === 'pcs' && !Number.isInteger(quantity)) {
-      return res.status(400).json({ message: 'Quantity must be a whole number for piece-based products' });
-    }
+//     if (product.unitType === 'pcs' && !Number.isInteger(quantity)) {
+//       return res.status(400).json({ message: 'Quantity must be a whole number for piece-based products' });
+//     }
 
-    product.stock += quantity;
-    await product.save();
+//     product.stock += quantity;
+//     await product.save();
 
-    if (quantity > 0) {
-      // Record in supplier history
-      await SupplierHistory.create({
-        supplierId: product.supplierId,
-        productId: product.id,
-        quantity: quantity,
-        amount: product.wholeSalePrice * quantity,
-        date: new Date(),
-        paymentStatus: 'Unpaid'
-      });
-    }
+//     if (quantity > 0) {
+//       // Record in supplier history
+//       await SupplierHistory.create({
+//         supplierId: product.supplierId,
+//         productId: product.id,
+//         quantity: quantity,
+//         amount: product.wholeSalePrice * quantity,
+//         date: new Date(),
+//         paymentStatus: 'Unpaid'
+//       });
+//     }
 
-    res.json({ message: 'Stock updated successfully', product });
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-};
+//     res.json({ message: 'Stock updated successfully', product });
+//   } catch (error) {
+//     res.status(400).json({ error: error.message });
+//   }
+// };
 
 // Delete a product
 exports.deleteProduct = async (req, res) => {

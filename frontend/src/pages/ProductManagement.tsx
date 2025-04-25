@@ -105,11 +105,8 @@ const ProductManagement: React.FC = () => {
     retailPrice: "",
     wholeSalePrice: "",
     category: "",
-    batchNumber: "",
     barcode: "",
     lowStockThreshold: "",
-    stock: "",
-    supplierName: "",
     unitType: "",
     description: "",
   });
@@ -182,10 +179,6 @@ const ProductManagement: React.FC = () => {
       (!formData.name ||
         !formData.retailPrice ||
         !formData.wholeSalePrice ||
-        !formData.stock ||
-        !formData.supplierName ||
-        !formData.batchNumber ||
-        !formData.barcode ||
         !formData.category ||
         !formData.lowStockThreshold ||
         !formData.unitType) &&
@@ -205,7 +198,7 @@ const ProductManagement: React.FC = () => {
           Authorization: `Bearer ${token}`,
         },
       });
-
+      console.log(response)
       if (response.status === 201 || response.status === 200) {
         toast.success(
           isEditing
@@ -277,11 +270,8 @@ const ProductManagement: React.FC = () => {
       retailPrice: "",
       wholeSalePrice: "",
       category: "",
-      batchNumber: "",
       barcode: "",
       lowStockThreshold: "",
-      stock: "",
-      supplierName: "",
       unitType: "",
       description: "",
     });
@@ -301,11 +291,8 @@ const ProductManagement: React.FC = () => {
       retailPrice: product.retailPrice,
       wholeSalePrice: product.wholeSalePrice,
       category: product.category,
-      batchNumber: product.batchNumber,
       barcode: product.barcode,
       lowStockThreshold: product.lowStockThreshold,
-      stock: product.stock,
-      supplierName: product.supplierName,
       unitType: product.unitType,
       description: product.description,
     });
@@ -401,21 +388,6 @@ const ProductManagement: React.FC = () => {
                   </select>
                 </div>
 
-                {/* Batch Number */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Batch Number
-                  </label>
-                  <input
-                    type="text"
-                    name="batchNumber"
-                    value={formData.batchNumber}
-                    onChange={handleInputChange}
-                    className="w-full border rounded-lg px-4 py-2 bg-white text-black focus:ring-2 focus:ring-green-500"
-                    placeholder="Enter batch number"
-                  />
-                </div>
-
                 {/* Barcode */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -429,6 +401,7 @@ const ProductManagement: React.FC = () => {
                     onKeyDown={handleBarcodeScan}
                     className="w-full border rounded-lg px-4 py-2 bg-white text-black focus:ring-2 focus:ring-green-500"
                     placeholder="Scan or enter barcode"
+                    disabled={isEditing}
                   />
                 </div>
 
@@ -445,41 +418,6 @@ const ProductManagement: React.FC = () => {
                     className="w-full border rounded-lg px-4 py-2 bg-white text-black focus:ring-2 focus:ring-green-500"
                     placeholder="Enter threshold quantity"
                   />
-                </div>
-
-                {/* Stock */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Stock
-                  </label>
-                  <input
-                    type="number"
-                    name="stock"
-                    value={formData.stock}
-                    onChange={handleInputChange}
-                    className="w-full border rounded-lg px-4 py-2 bg-white text-black focus:ring-2 focus:ring-green-500"
-                    placeholder="Enter stock quantity"
-                  />
-                </div>
-
-                {/* Supplier */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Supplier
-                  </label>
-                  <select
-                    name="supplierName"
-                    value={formData.supplierName}
-                    onChange={handleInputChange}
-                    className="w-full border rounded-lg px-4 py-2 bg-white text-black focus:ring-2 focus:ring-green-500"
-                  >
-                    <option value="">Select supplier</option>
-                    {suppliers?.map((supplier) => (
-                      <option key={supplier.id} value={supplier.id}>
-                        {supplier.name}
-                      </option>
-                    ))}
-                  </select>
                 </div>
 
                 {/* Unit Type */}

@@ -72,7 +72,6 @@ const StaffDetailsModal: React.FC<StaffDetailsModalProps> = ({
       setLoading(false);
     }
   };
-  console.log(salaryHistory);
   if (!staff) return null;
 
   return (

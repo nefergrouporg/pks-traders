@@ -5,7 +5,7 @@ const { auth, role } = require('../middleware/authMiddleware');
 
 router.get('/', productController.getAllProducts);
 router.get('/:barcode', productController.getProductByBarcode)
-router.put('/stock/:id', auth, productController.updateStock);
+// router.put('/stock/:id', auth, productController.updateStock);
 router.put('/:id', auth, role('admin'), productController.updateProduct);
 router.post('/', auth, role('admin'), productController.createProduct);
 router.post('/details', productController.getProductsDetails);

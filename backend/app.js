@@ -15,6 +15,7 @@ const usersRoutes = require("./routes/usersRoutes");
 const configRoutes = require("./routes/projectConfigRoutes");
 const customerRoutes = require("./routes/customerRoutes");
 const branchRouter = require("./routes/branchRoutes");
+const StockEntry = require("./routes/entryStockRouter")
 const models = require("./models");
 // Initialize Express app
 const app = express();
@@ -37,6 +38,7 @@ app.use("/api/supplier", supplierRoutes);
 app.use("/api/config", configRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/branches", branchRouter);
+app.use("/api/entryStock", StockEntry);
 
 sequelize.sync().then(() => {
   cron.schedule("0 0 1 * *", async () => {

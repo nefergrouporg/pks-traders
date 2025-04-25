@@ -24,7 +24,7 @@ const ProductList: React.FC<{
   }) => void;
   onRefresh: () => Promise<void>;
   isLoading: boolean;
-  saleType: "retail" | "wholesale"; 
+  saleType: "retail" | "wholeSale"; 
 }> = ({ products, onAddToCart, onRefresh, isLoading, saleType }) => {
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -33,7 +33,7 @@ const ProductList: React.FC<{
   );
   // Get the appropriate price based on sale type
   const getDisplayPrice = (product) => {
-    if (saleType === "wholesale") {
+    if (saleType === "wholeSale") {
       return product?.wholeSalePrice;
     }else{
       return product?.retailPrice;

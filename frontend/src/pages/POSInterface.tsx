@@ -85,13 +85,13 @@ const POSInterface: React.FC = () => {
   const [currentStepperStep, setCurrentStepperStep] = useState(1);
   
   // New state for wholesale/retail selection
-  const [saleType, setSaleType] = useState<"retail" | "wholesale">("retail");
+  const [saleType, setSaleType] = useState<"retail" | "wholeSale">("retail");
 
   const receiptRef = useRef<HTMLDivElement>(null);
 
   // Helper functions
   const totalPrice = cart.reduce(
-    (total, item) => total + (saleType === 'wholesale' ? item?.wholeSalePrice : item?.retailPrice) * item.quantity,
+    (total, item) => total + (saleType === 'wholeSale' ? item?.wholeSalePrice : item?.retailPrice) * item.quantity,
     0
   );
 
@@ -150,7 +150,7 @@ const POSInterface: React.FC = () => {
       const updatedCart = cart?.map(item => {
         const product = products?.find(p => p?.id === item.id);
         if (product) {
-          const newPrice = saleType === "wholesale" && product?.wholeSalePrice 
+          const newPrice = saleType === "wholeSale" && product?.wholeSalePrice 
             ? product?.wholeSalePrice 
             : product?.retailPrice;
           
@@ -175,7 +175,7 @@ const POSInterface: React.FC = () => {
     unitType: "pcs" | "kg";
   }) => {
     // Determine price based on sale type
-    const priceToUse = saleType === "wholesale" && product.wholeSalePrice 
+    const priceToUse = saleType === "wholeSale" && product.wholeSalePrice 
       ? product.wholeSalePrice 
       : product.retailPrice;
       
@@ -427,8 +427,12 @@ const POSInterface: React.FC = () => {
 
   // Toggle sale type function
   const toggleSaleType = () => {
-    setSaleType(currentType => currentType === "retail" ? "wholesale" : "retail");
+    setSaleType(currentType => currentType === "retail" ? "wholeSale" : "retail");
   };
+
+  const handleCancelOrder = () => {
+    setIsStepperOpen(false)
+  }
 
   return (
     <div className="p-4 sm:p-6 bg-gray-100 min-h-screen flex flex-col space-y-4 sm:space-y-6">
@@ -479,7 +483,7 @@ const POSInterface: React.FC = () => {
         {isStepperOpen && (
           <PaymentStepper
             isOpen={isStepperOpen}
-            onClose={() => setIsStepperOpen(false)}
+            onClose={handleCancelOrder}
             selectedPaymentMethod={selectedPaymentMethod}
             setSelectedPaymentMethod={setSelectedPaymentMethod}
             currentStepperStep={currentStepperStep}
@@ -517,23 +521,23 @@ const POSInterface: React.FC = () => {
               name="saleType" 
               id="saleType" 
               className="sr-only"
-              checked={saleType === "wholesale"}
+              checked={saleType === "wholeSale"}
               onChange={toggleSaleType}
             />
             <label 
               htmlFor="saleType" 
               className={`block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer ${
-                saleType === "wholesale" ? "bg-blue-500" : ""
+                saleType === "wholeSale" ? "bg-blue-500" : ""
               }`}
             >
               <span 
                 className={`block h-6 w-6 rounded-full bg-white transform transition-transform duration-200 ease-in ${
-                  saleType === "wholesale" ? "translate-x-10" : "translate-x-0"
+                  saleType === "wholeSale" ? "translate-x-10" : "translate-x-0"
                 }`} 
               />
             </label>
           </div>
-          <span className={`font-bold ${saleType === "wholesale" ? "text-blue-600" : "text-gray-600"}`}>
+          <span className={`font-bold ${saleType === "wholeSale" ? "text-blue-600" : "text-gray-600"}`}>
             {saleType === "retail" ? "Retail" : "Wholesale"}
           </span>
         </div>
@@ -605,7 +609,7 @@ const POSInterface: React.FC = () => {
             <h2 className="text-lg font-semibold mb-2">Running Total</h2>
             <p className="text-2xl font-bold">₹{totalPrice?.toFixed(2)}</p>
             <p className="text-sm text-gray-500">
-              {saleType === "wholesale" ? "Wholesale Pricing" : "Retail Pricing"}
+              {saleType === "wholeSale" ? "Wholesale Pricing" : "Retail Pricing"}
             </p>
           </div>
         </div>

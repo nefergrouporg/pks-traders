@@ -115,6 +115,34 @@ exports.getCustomers = async (req, res) => {
 };
 
 
+exports.editCustomer = async (req,res) => {
+  try {
+    const {id, name, phone, address, debtAmount } = req.body;
+
+    if(!id){
+      return res.status(400).json({
+        error:"Id required"
+      })
+    }
+
+    const customer = await Customer.findByPk(id)
+    if(!customer){
+      return res.status(404).json({error: "Customer not found"})
+    }
+
+    await Customer.update({ 
+      name : name,
+      phone: phone,
+      address:address,
+      debtAmount: debtAmount }, { where: { id } });
+
+      return res.status(200).json({error: "Customer updated successfully"})
+  } catch (error) {
+   res.status(500).json({error: "Server error"}) 
+  }
+}
+
+
 
 // GET /api/customers/:id
 // exports.getCustomerById = async (req, res) => {

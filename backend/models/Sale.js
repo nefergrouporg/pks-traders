@@ -15,7 +15,7 @@ module.exports = (sequelize) => {
         allowNull: false,
       },
       paymentMethod: {
-        type: DataTypes.ENUM("cash", "card", "upi", "qr"),
+        type: DataTypes.ENUM("cash", "card", "upi", "debit"),
         allowNull: false,
       },
       purchaseDate: {
@@ -40,6 +40,10 @@ module.exports = (sequelize) => {
           key: "id",
         },
       },
+      branchId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      }
     },
     {
       freezeTableName: true,
