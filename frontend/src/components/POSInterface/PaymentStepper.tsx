@@ -107,7 +107,7 @@ const PaymentStepper: React.FC<PaymentStepperProps> = ({
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
-        className="rounded-lg p-4 sm:p-6 w-full max-w-xs sm:max-w-sm md:max-w-md bg-white relative"
+        className="rounded-lg p-4 sm:p-6 w-full max-w-xs sm:max-w-sm md:max-w-md  relative"
       >
         {/* <button
           onClick={onClose}

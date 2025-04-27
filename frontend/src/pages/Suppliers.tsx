@@ -5,7 +5,6 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faToggleOff,
   faToggleOn,
-  faList,
   faEye,
   faEdit,
 } from "@fortawesome/free-solid-svg-icons";
@@ -35,7 +34,7 @@ interface Supplier {
   phone: string;
   address: string;
   active: boolean;
-  products?: Product[]; // Added products property
+  products?: Product[];
 }
 
 interface SupplierHistory {
@@ -65,7 +64,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   message,
   currentStatus,
 }) => {
-  const action = currentStatus ? "Block" : "Unblock"; // Determine the action
+  const action = currentStatus ? "Block" : "Unblock";
   const actionMessage =
     message ||
     `Are you sure you want to ${action.toLowerCase()} this supplier?`;
@@ -75,17 +74,11 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
       onClose={onClose}
       className="max-w-xs sm:max-w-sm max-h-[90vh] overflow-y-auto"
     >
-      {/* Modal Content Container */}
       <div className="p-4 sm:p-6">
-        {/* Modal Title */}
         <h2 className="text-lg sm:text-xl font-semibold mb-4">
           Confirm {action}
         </h2>
-
-        {/* Modal Message */}
         <p className="mb-6 text-sm sm:text-base">{actionMessage}</p>
-
-        {/* Action Buttons */}
         <div className="flex justify-end space-x-3 sm:space-x-4">
           <button
             onClick={onClose}
@@ -109,7 +102,6 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   );
 };
 
-// Supplier Management Page
 const Suppliers: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -118,17 +110,14 @@ const Suppliers: React.FC = () => {
   const [isSupplierModalOpen, setSupplierModalOpen] = useState(false);
   const [isDetailsModalOpen, setDetailsModalOpen] = useState(false);
   const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState(false);
-  const [isPaymentStatusModalOpen, setIsPaymentStatusModalOpen] =
-    useState(false);
-  const [currentHistoryItem, setCurrentHistoryItem] =
-    useState<SupplierHistory | null>(null);
   const [supplierToToggle, setSupplierToToggle] = useState<number | null>(null);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(
     null
   );
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(8);
-  const [activeTab, setActiveTab] = useState("info"); // For tab navigation in details modal
+  const [activeTab, setActiveTab] = useState("info");
+  const [modalMode, setModalMode] = useState<"create" | "edit">("create");
 
   const [formData, setFormData] = useState({
     id: "",
@@ -172,11 +161,10 @@ const Suppliers: React.FC = () => {
       setSupplierHistory(response.data.history);
     } catch (error) {
       console.error("Error fetching supplier history:", error);
-      setSupplierHistory([]); // Fallback to empty array if endpoint doesn't exist yet
+      setSupplierHistory([]);
     }
   };
 
-  // Filter suppliers based on search query
   const filteredSuppliers = suppliers.filter(
     (supplier) =>
       supplier.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -218,9 +206,10 @@ const Suppliers: React.FC = () => {
     }
 
     try {
-      const url = `${baseUrl}/api/supplier`;
-
-      const method = "post";
+      const url = formData.id
+        ? `${baseUrl}/api/supplier/${formData.id}`
+        : `${baseUrl}/api/supplier`;
+      const method = formData.id ? "put" : "post";
       const response = await axios[method](url, formData, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -228,7 +217,9 @@ const Suppliers: React.FC = () => {
       });
 
       if (response.status === 201 || response.status === 200) {
-        toast.success("Supplier created successfully");
+        toast.success(
+          formData.id ? "Supplier updated successfully" : "Supplier created successfully"
+        );
         setSupplierModalOpen(false);
         resetFormData();
         fetchSuppliers();
@@ -256,8 +247,6 @@ const Suppliers: React.FC = () => {
 
       if (response.status === 200) {
         toast.success("Supplier status toggled successfully");
-
-        // Update the local state to reflect the change
         setSuppliers((prevSuppliers) =>
           prevSuppliers.map((supplier) =>
             supplier.id === supplierToToggle
@@ -281,10 +270,9 @@ const Suppliers: React.FC = () => {
     setSelectedSupplier(supplier);
     fetchSupplierHistory(supplier.id);
     setDetailsModalOpen(true);
-    setActiveTab("info"); // Reset to info tab when opening
+    setActiveTab("info");
   };
 
-  // Reset form data to initial state
   const resetFormData = () => {
     setFormData({
       id: "",
@@ -296,67 +284,20 @@ const Suppliers: React.FC = () => {
     });
   };
 
-  // Close modal and reset form data
   const closeModal = () => {
     setSupplierModalOpen(false);
     resetFormData();
   };
 
-  // Open payment status modal
-  const openPaymentStatusModal = (historyItem: SupplierHistory) => {
-    setCurrentHistoryItem(historyItem);
-    setIsPaymentStatusModalOpen(true);
-  };
-
-  // Update payment status
-//   const updatePaymentStatus = async (newStatus: string) => {
-//     if (!currentHistoryItem) return;
-
-//     try {
-//       const response = await axios.put(
-//         `${baseUrl}/api/supplier/history/${currentHistoryItem.id}/payment-status`,
-//         { paymentStatus: newStatus },
-//         {
-//           headers: {
-//             Authorization: `Bearer ${token}`,
-//           },
-//         }
-//       );
-
-//       if (response.status === 200) {
-//         toast.success("Payment status updated successfully");
-
-//         // Update local state
-//         setSupplierHistory((prev) =>
-//           prev.map((item) =>
-//             item.id === currentHistoryItem.id
-//               ? { ...item, paymentStatus: newStatus }
-//               : item
-//           )
-//         );
-//       } else {
-//         toast.error("Failed to update payment status");
-//       }
-//     } catch (error) {
-//       console.error("Error updating payment status:", error);
-//       toast.error("Error updating payment status");
-//     } finally {
-//       setIsPaymentStatusModalOpen(false);
-//       setCurrentHistoryItem(null);
-//     }
-//   };
-
   return (
     <>
       <div className="p-4 sm:p-6 bg-gray-100 min-h-screen">
-        {/* Page title and top actions */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-gray-800">
             Supplier Management
           </h1>
         </div>
 
-        {/* Search and Add button */}
         <div className="mb-6 flex flex-col sm:flex-row gap-4">
           <input
             type="text"
@@ -367,13 +308,16 @@ const Suppliers: React.FC = () => {
           />
           <button
             className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition text-sm sm:text-base"
-            onClick={() => setSupplierModalOpen(true)}
+            onClick={() => {
+              setModalMode("create");
+              resetFormData();
+              setSupplierModalOpen(true);
+            }}
           >
             Add Supplier
           </button>
         </div>
 
-        {/* Supplier Table */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -421,6 +365,24 @@ const Suppliers: React.FC = () => {
                           <FontAwesomeIcon icon={faEye} className="mr-1" />
                           Details
                         </button>
+                        <button
+                          onClick={() => {
+                            setModalMode("edit");
+                            setFormData({
+                              id: supplier.id.toString(),
+                              name: supplier.name,
+                              contactPerson: supplier.contactPerson,
+                              email: supplier.email,
+                              phone: supplier.phone,
+                              address: supplier.address,
+                            });
+                            setSupplierModalOpen(true);
+                          }}
+                          className="bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600 transition text-sm sm:text-base flex items-center"
+                        >
+                          <FontAwesomeIcon icon={faEdit} className="mr-1" />
+                          Edit
+                        </button>
                       </div>
                     </td>
                     <td className="p-3 text-sm sm:text-base">
@@ -445,7 +407,6 @@ const Suppliers: React.FC = () => {
           </div>
         </div>
 
-        {/* Pagination */}
         <div className="flex justify-center mt-6">
           <button
             onClick={() => paginate(currentPage - 1)}
@@ -466,19 +427,16 @@ const Suppliers: React.FC = () => {
           </button>
         </div>
 
-        {/* Supplier Creation Modal - FIXED TO REMOVE DOUBLE MODAL APPEARANCE */}
         <Modal isOpen={isSupplierModalOpen} onClose={closeModal}>
           <div className="p-6 sm:p-8 max-h-[90vh] overflow-y-auto w-full max-w-2xl mx-auto">
-            {/* Modal Header */}
             <div className="flex justify-between items-center mb-5 border-b pb-3">
               <h2 className="text-xl font-semibold text-gray-800">
-                Create New Supplier
+                {modalMode === "create" ? "Create New Supplier" : "Edit Supplier"}
               </h2>
             </div>
 
             <form className="space-y-5" onSubmit={handleSupplierSubmit}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Supplier Name */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Supplier Name*
@@ -493,8 +451,6 @@ const Suppliers: React.FC = () => {
                     required
                   />
                 </div>
-
-                {/* Contact Person */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Contact Person*
@@ -509,8 +465,6 @@ const Suppliers: React.FC = () => {
                     required
                   />
                 </div>
-
-                {/* Email */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Email Address*
@@ -525,8 +479,6 @@ const Suppliers: React.FC = () => {
                     required
                   />
                 </div>
-
-                {/* Phone */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Phone Number*
@@ -542,8 +494,6 @@ const Suppliers: React.FC = () => {
                   />
                 </div>
               </div>
-
-              {/* Address - Full Width */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Address
@@ -557,8 +507,6 @@ const Suppliers: React.FC = () => {
                   placeholder="Enter complete address"
                 />
               </div>
-
-              {/* Submit Button */}
               <div className="flex justify-end mt-5 space-x-3">
                 <button
                   type="button"
@@ -571,27 +519,23 @@ const Suppliers: React.FC = () => {
                   type="submit"
                   className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition"
                 >
-                  Create Supplier
+                  {modalMode === "create" ? "Create Supplier" : "Update Supplier"}
                 </button>
               </div>
             </form>
           </div>
         </Modal>
 
-        {/* Supplier Details Modal */}
         <Modal
           isOpen={isDetailsModalOpen}
           onClose={() => setDetailsModalOpen(false)}
         >
           <div className="p-6 sm:p-8 max-h-[90vh] overflow-y-auto w-full max-w-4xl mx-auto">
-            {/* Modal Header */}
             <div className="flex justify-between items-center mb-5 border-b pb-3">
               <h2 className="text-xl font-semibold text-gray-800">
                 Supplier Details: {selectedSupplier?.name}
               </h2>
             </div>
-
-            {/* Tabs */}
             <div className="mb-6 border-b">
               <div className="flex space-x-6">
                 <button
@@ -626,8 +570,6 @@ const Suppliers: React.FC = () => {
                 </button>
               </div>
             </div>
-
-            {/* Information Tab */}
             {activeTab === "info" && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-gray-50 p-4 rounded-lg">
@@ -675,7 +617,6 @@ const Suppliers: React.FC = () => {
                     </div>
                   </div>
                 </div>
-
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <h3 className="text-lg font-medium mb-4 text-gray-800">
                     Supply Summary
@@ -712,14 +653,11 @@ const Suppliers: React.FC = () => {
                 </div>
               </div>
             )}
-
-            {/* Products Tab */}
             {activeTab === "products" && (
               <div>
                 <h3 className="text-lg font-medium mb-4 text-gray-800">
                   Products from this Supplier
                 </h3>
-
                 {selectedSupplier?.products &&
                 selectedSupplier.products.length > 0 ? (
                   <div className="overflow-x-auto bg-white rounded-lg shadow">
@@ -783,14 +721,11 @@ const Suppliers: React.FC = () => {
                 )}
               </div>
             )}
-
-            {/* History Tab */}
             {activeTab === "history" && (
               <div>
                 <h3 className="text-lg font-medium mb-4 text-gray-800">
                   Supply History
                 </h3>
-
                 {supplierHistory.length > 0 ? (
                   <div className="overflow-x-auto bg-white rounded-lg shadow">
                     <table className="w-full">
@@ -808,9 +743,6 @@ const Suppliers: React.FC = () => {
                           <th className="p-3 text-left text-sm font-medium text-gray-600">
                             Amount
                           </th>
-                          {/* <th className="p-3 text-left text-sm font-medium text-gray-600">
-                            Payment Status
-                          </th> */}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
@@ -826,19 +758,6 @@ const Suppliers: React.FC = () => {
                             <td className="p-3 text-sm">
                               ₹{item.amount.toFixed(2)}
                             </td>
-                            {/* <td className="p-3 text-sm">
-                              <span
-                                className={`px-2 py-1 rounded-full text-xs ${
-                                  item.paymentStatus === "Paid"
-                                    ? "bg-green-100 text-green-800"
-                                    : item.paymentStatus === "Partial"
-                                    ? "bg-yellow-100 text-yellow-800"
-                                    : "bg-red-100 text-red-800"
-                                }`}
-                              >
-                                {item.paymentStatus}
-                              </span>
-                            </td> */}
                           </tr>
                         ))}
                       </tbody>
@@ -851,8 +770,6 @@ const Suppliers: React.FC = () => {
                 )}
               </div>
             )}
-
-            {/* Close Button */}
             <div className="flex justify-end mt-6">
               <button
                 onClick={() => setDetailsModalOpen(false)}
@@ -864,7 +781,6 @@ const Suppliers: React.FC = () => {
           </div>
         </Modal>
 
-        {/* Confirmation Modal */}
         <ConfirmationModal
           isOpen={isConfirmationModalOpen}
           onClose={() => {
