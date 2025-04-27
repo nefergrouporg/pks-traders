@@ -5,7 +5,8 @@ const {
   sequelize,
   SaleItem,
   Payment,
-  Customer
+  Customer,
+  branch,
 } = require("../models/index");
 const { generatePaymentQR } = require("../utils/qrGenerator");
 
@@ -19,7 +20,7 @@ exports.createSale = async (req, res) => {
     if (!items || !items.length)
       return res.status(400).json({ error: "At least one item is required" });
 
-    const validPaymentMethods = ["cash", "card", "upi", 'debit'];
+    const validPaymentMethods = ["cash", "card", "upi", "debit"];
     if (!validPaymentMethods.includes(paymentMethod?.toLowerCase())) {
       return res.status(400).json({ error: "Invalid payment method" });
     }
@@ -48,7 +49,7 @@ exports.createSale = async (req, res) => {
       for (const item of items) {
         const product = await Product.findByPk(item.productId, {
           transaction,
-          attributes: ["id", "name", 'wholeSalePrice', 'retailPrice', "stock"], // ensure price is fetched
+          attributes: ["id", "name", "wholeSalePrice", "retailPrice", "stock"], // ensure price is fetched
         });
 
         if (!product) throw new Error(`Product ${item.productId} not found`);
@@ -60,11 +61,11 @@ exports.createSale = async (req, res) => {
 
         product.stock -= item.quantity;
         await product.save({ transaction });
-        
+
         let itemTotal;
-        if(saleType === "wholeSale"){
+        if (saleType === "wholeSale") {
           itemTotal = product.wholeSalePrice * item.quantity;
-        }else{
+        } else {
           itemTotal = product.retailPrice * item.quantity;
         }
         totalAmount += itemTotal;
@@ -72,7 +73,10 @@ exports.createSale = async (req, res) => {
         saleItems.push({
           productId: product.id,
           quantity: item.quantity,
-          price: saleType === "wholeSale" ? product.wholeSalePrice : product.retailPrice
+          price:
+            saleType === "wholeSale"
+              ? product.wholeSalePrice
+              : product.retailPrice,
         });
       }
 
@@ -89,20 +93,19 @@ exports.createSale = async (req, res) => {
         );
       }
 
-      const user = await User.findByPk(userId)
+      const user = await User.findByPk(userId);
 
-      if(paymentMethod === 'debit'){
-        if(customerId === null){
+      if (paymentMethod === "debit") {
+        if (customerId === null) {
           return res.status(400).json({
-            error: "Please select customer for Debit"
-          })
+            error: "Please select customer for Debit",
+          });
         }
 
-        const customer = await Customer.findByPk(customerId)
+        const customer = await Customer.findByPk(customerId);
 
-        customer.debtAmount += totalAmount
-        customer.save()
-
+        customer.debtAmount += totalAmount;
+        customer.save();
       }
 
       const sale = await Sale.create(
@@ -110,7 +113,7 @@ exports.createSale = async (req, res) => {
           totalAmount: totalAmount?.toFixed(2),
           paymentMethod: paymentMethod.toLowerCase(),
           userId,
-          branchId : user.branchId,
+          branchId: user.branchId,
           customerId: customerId || null,
           saleType: saleType || "retail",
         },
@@ -178,8 +181,18 @@ exports.getAllSales = async (req, res) => {
           model: SaleItem,
           include: [Product],
         },
-        User,
-        Payment,
+        {
+          model: Branch,
+          as: "branch", // match the alias you used in the association
+        },
+        {
+          model: User,
+          as: "user", // if you aliased User in your Sale model
+        },
+        {
+          model: Payment,
+          as: "payment", // likewise for Payment
+        },
       ],
       order: [["createdAt", "DESC"]],
     });
@@ -191,10 +204,9 @@ exports.getAllSales = async (req, res) => {
   }
 };
 
-
 // exports.getHistory = async (req, res) => {
 //   try {
-    
+
 //   } catch (error) {
 //     console.log("error from get history", error)
 //     res.status(500).json({error: error.message || "Server error"})

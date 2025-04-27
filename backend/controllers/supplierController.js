@@ -110,11 +110,41 @@ exports.deleteSupplier = async (req, res) => {
 
     supplier.isDeleted = !supplier.isDeleted; // Toggle the `active` field
     await supplier.save();
-    return res
-      .status(200)
-      .json({ message: "Supplier Deleted successfully" });
+    return res.status(200).json({ message: "Supplier Deleted successfully" });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: error.message });
+  }
+};
+
+exports.editSupplier = async (req, res) => {
+  try {
+    const { id, name, phone, address, contactPerson, email } = req.body;
+
+    if (!id) {
+      return res.status(400).json({
+        error: "Id required",
+      });
+    }
+
+    const supplier = await Supplier.findByPk(id);
+    if (!supplier) {
+      return res.status(404).json({ error: "Supplier not found" });
+    }
+
+    await Supplier.update(
+      {
+        name: name,
+        phone: phone,
+        address: address,
+        contactPerson: contactPerson,
+        email: email,
+      },
+      { where: { id } }
+    );
+
+    return res.status(200).json({ error: "Supplier updated successfully" });
+  } catch (error) {
+    res.status(500).json({ error: "Server error" });
   }
 };
