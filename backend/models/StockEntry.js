@@ -51,7 +51,7 @@ module.exports = (sequelize) => {
   });
 
   StockEntry.associate = (models) => {
-    StockEntry.belongsTo(models.Product, { foreignKey: 'productId' });
+    StockEntry.belongsTo(models.Product, { foreignKey: 'productId', as:'product' });
     StockEntry.belongsTo(models.Supplier, { foreignKey: 'supplierId' });
   };
 

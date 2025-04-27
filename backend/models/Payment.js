@@ -43,7 +43,7 @@ module.exports = (sequelize) => {
   
     Payment.associate = (models) => {
       Payment.belongsTo(models.User, { foreignKey: 'userId' });
-      Payment.belongsTo(models.Sale, { foreignKey: 'saleId' });
+      Payment.belongsTo(models.Sale, { foreignKey: 'saleId', as: 'sale' });
     };
   
     return Payment;

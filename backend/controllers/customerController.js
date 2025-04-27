@@ -70,22 +70,26 @@ exports.getCustomers = async (req, res) => {
       include: [
         {
           model: Sale,
+          as: "Sales", // Alias for Sale
           include: [
             {
               model: SaleItem,
+              as: "items", // Alias for SaleItem
               include: [
                 {
                   model: Product,
-                  attributes: ['id', 'name', "retailPrice", 'wholeSalePrice']
-                }
-              ]
+                  as: "product", // Alias for Product
+                  attributes: ["id", "name", "retailPrice", "wholeSalePrice"],
+                },
+              ],
             },
             {
               model: Payment,
-              attributes: ['paymentMethod']
-            }
+              as: "payment", // Alias for Payment
+              attributes: ["paymentMethod"],
+            },
           ],
-          order: [['createdAt', 'DESC']],
+          order: [["createdAt", "DESC"]],
         },
       ],
     });
@@ -93,13 +97,14 @@ exports.getCustomers = async (req, res) => {
     const transformed = customers.map((customer) => ({
       ...customer.toJSON(),
       Sales: customer.Sales.map((sale) => ({
+        // Notice: sales, not Sale
         id: sale.id,
         date: sale.createdAt,
         totalAmount: parseFloat(sale.totalAmount),
-        paymentMethod: sale.Payment?.paymentMethod || sale.paymentMethod,
-        products: sale.SaleItems.map((item) => ({
+        paymentMethod: sale.payment?.paymentMethod || sale.paymentMethod,
+        products: sale.items.map((item) => ({
           id: item.productId,
-          name: item.Product.name,
+          name: item.product.name, // Access via alias 'product'
           quantity: item.quantity,
           price: parseFloat(item.price),
           subtotal: item.quantity * item.price,
@@ -114,89 +119,33 @@ exports.getCustomers = async (req, res) => {
   }
 };
 
-
-exports.editCustomer = async (req,res) => {
+exports.editCustomer = async (req, res) => {
   try {
-    const {id, name, phone, address, debtAmount } = req.body;
+    const { id, name, phone, address, debtAmount } = req.body;
 
-    if(!id){
+    if (!id) {
       return res.status(400).json({
-        error:"Id required"
-      })
+        error: "Id required",
+      });
     }
 
-    const customer = await Customer.findByPk(id)
-    if(!customer){
-      return res.status(404).json({error: "Customer not found"})
+    const customer = await Customer.findByPk(id);
+    if (!customer) {
+      return res.status(404).json({ error: "Customer not found" });
     }
 
-    await Customer.update({ 
-      name : name,
-      phone: phone,
-      address:address,
-      debtAmount: debtAmount }, { where: { id } });
+    await Customer.update(
+      {
+        name: name,
+        phone: phone,
+        address: address,
+        debtAmount: debtAmount,
+      },
+      { where: { id } }
+    );
 
-      return res.status(200).json({error: "Customer updated successfully"})
+    return res.status(200).json({ error: "Customer updated successfully" });
   } catch (error) {
-   res.status(500).json({error: "Server error"}) 
+    res.status(500).json({ error: "Server error" });
   }
-}
-
-
-
-// GET /api/customers/:id
-// exports.getCustomerById = async (req, res) => {
-//   try {
-//     const customerId = req.params.id;
-
-//     const customer = await Customer.findByPk(customerId, {
-//       include: [
-//         {
-//           model: Sale,
-//           include: [
-//             {
-//               model: SaleItem,
-//               include: [
-//                 {
-//                   model: Product,
-//                   attributes: ['id', 'name']
-//                 }
-//               ]
-//             },
-//             {
-//               model: Payment,
-//               attributes: ['paymentMethod']
-//             }
-//           ],
-//           order: [['createdAt', 'DESC']],
-//         },
-//       ],
-//     });
-
-//     if (!customer) return res.status(404).json({ error: "Customer not found" });
-
-//     // Transform sale data for frontend
-//     const transformed = {
-//       ...customer.toJSON(),
-//       Sales: customer.Sales.map((sale) => ({
-//         id: sale.id,
-//         date: sale.createdAt,
-//         totalAmount: parseFloat(sale.totalAmount),
-//         paymentMethod: sale.Payment?.paymentMethod || sale.paymentMethod,
-//         products: sale.SaleItems.map((item) => ({
-//           id: item.productId,
-//           name: item.Product.name,
-//           quantity: item.quantity,
-//           price: parseFloat(item.price),
-//           subtotal: item.quantity * item.price,
-//         })),
-//       })),
-//     };
-
-//     res.json(transformed);
-//   } catch (error) {
-//     console.error("Error fetching customer:", error);
-//     res.status(500).json({ error: "Server error" });
-//   }
-// };
-
+};

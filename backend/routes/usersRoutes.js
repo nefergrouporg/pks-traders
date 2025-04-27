@@ -7,6 +7,7 @@ router.get('/', userController.getAllUsers);
 router.post('/', auth, userController.createUser);
 router.put('/toggle-block/:id', auth, userController.toggleUser)
 router.post('/salaryCredit', auth, userController.salaryCredit)
+router.delete('/:id', auth, userController.deleteUser)
 router.get('/salary-history/:id', auth, userController.salaryHistory);
 
 

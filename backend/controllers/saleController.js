@@ -6,7 +6,7 @@ const {
   SaleItem,
   Payment,
   Customer,
-  branch,
+  Branch,
 } = require("../models/index");
 const { generatePaymentQR } = require("../utils/qrGenerator");
 
@@ -94,7 +94,6 @@ exports.createSale = async (req, res) => {
       }
 
       const user = await User.findByPk(userId);
-
       if (paymentMethod === "debit") {
         if (customerId === null) {
           return res.status(400).json({
@@ -113,9 +112,9 @@ exports.createSale = async (req, res) => {
           totalAmount: totalAmount?.toFixed(2),
           paymentMethod: paymentMethod.toLowerCase(),
           userId,
-          branchId: user.branchId,
-          customerId: customerId || null,
           saleType: saleType || "retail",
+          customerId: customerId || null,
+          branchId: user.branchId,
         },
         { transaction }
       );
@@ -176,27 +175,41 @@ exports.createSale = async (req, res) => {
 exports.getAllSales = async (req, res) => {
   try {
     const sales = await Sale.findAll({
+      order: [["createdAt", "DESC"]],
       include: [
         {
           model: SaleItem,
-          include: [Product],
+          as: "items",
+          include: [
+            {
+              model: Product,
+              as:'product',
+              attributes: ['name'], // Only fetch the product name
+            },
+          ],
         },
         {
-          model: Branch,
-          as: "branch", // match the alias you used in the association
+          model: Branch, 
+          as: 'branch',
+          attributes: ['name'],
         },
         {
           model: User,
-          as: "user", // if you aliased User in your Sale model
+          as: "user", // Fetch only staff name (username or any relevant field)
+          attributes: ['username'],
+        },
+        {
+          model: Customer,
+          as:'customer',
+          attributes: ['name'],
         },
         {
           model: Payment,
-          as: "payment", // likewise for Payment
+          as: "payment",
         },
       ],
-      order: [["createdAt", "DESC"]],
     });
-
+    // Send the response with the relevant fields
     res.json(sales);
   } catch (error) {
     console.error("Error fetching sales:", error);
@@ -204,11 +217,4 @@ exports.getAllSales = async (req, res) => {
   }
 };
 
-// exports.getHistory = async (req, res) => {
-//   try {
 
-//   } catch (error) {
-//     console.log("error from get history", error)
-//     res.status(500).json({error: error.message || "Server error"})
-//   }
-// }

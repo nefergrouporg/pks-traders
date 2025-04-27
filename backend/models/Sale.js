@@ -27,10 +27,10 @@ module.exports = (sequelize) => {
         type: DataTypes.INTEGER,
         allowNull: false,
       },
-      saleType:{
+      saleType: {
         type: DataTypes.ENUM("wholeSale", "retail"),
-        allowNull : false,
-        defaultValue: "retail"
+        allowNull: false,
+        defaultValue: "retail",
       },
       customerId: {
         type: DataTypes.INTEGER,
@@ -43,7 +43,7 @@ module.exports = (sequelize) => {
       branchId: {
         type: DataTypes.INTEGER,
         allowNull: true,
-      }
+      },
     },
     {
       freezeTableName: true,
@@ -51,10 +51,11 @@ module.exports = (sequelize) => {
   );
 
   Sale.associate = (models) => {
-    Sale.hasMany(models.SaleItem, { foreignKey: "saleId" });
-    Sale.belongsTo(models.User, { foreignKey: "userId" });
-    Sale.belongsTo(models.Customer, { foreignKey: "customerId" });
-    Sale.hasOne(models.Payment, { foreignKey: "saleId" });
+    Sale.belongsTo(models.Branch, { foreignKey: "branchId", as: 'branch' });
+    Sale.hasMany(models.SaleItem, { foreignKey: "saleId", as: 'items' });
+    Sale.belongsTo(models.User, { foreignKey: "userId", as: "user" });
+    Sale.belongsTo(models.Customer, { foreignKey: "customerId", as: "customer" });
+    Sale.hasOne(models.Payment, { foreignKey: "saleId", as: 'payment' }); 
   };
 
   return Sale;

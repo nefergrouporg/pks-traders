@@ -4,7 +4,6 @@ const { Branch } = require("../models");
 exports.getBranches = async (req, res) => {
   try {
     const branches = await Branch.findAll();
-    console.log(branches,'kjasdfljkasd')
     // Return the branches in a consistent format
     res.json({ branches: branches });
   } catch (error) {

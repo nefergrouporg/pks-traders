@@ -1,6 +1,8 @@
 
 
 const sequelize = require('../config/database'); // Properly import the Sequelize instance
+const { DataTypes } = require('sequelize');
+
 
 const UserModel = require('./User');
 const ProductModel = require('./Product');
@@ -20,20 +22,20 @@ const StockEntry = require('./StockEntry')
 
 // Initialize models
 const models = {
-  User: UserModel(sequelize),
-  Product:ProductModel(sequelize),
-  Inventory:InventoryModel(sequelize),
-  Order:OrderModel(sequelize),
-  Payment:PaymentModel(sequelize),
-  Sale:SaleModel(sequelize),
-  SaleItem: SaleItemModel(sequelize),
-  Supplier:SupplierModel(sequelize),
-  Customer:CustomerModel(sequelize),
-  ProjectConfig: ProjectConfigModel(sequelize),
-  Branch:BranchModel(sequelize),
-  SupplierHistory:SupplierHistoryModel(sequelize),
-  SalaryPayment : SalaryPaymentModel(sequelize),
-  StockEntry : StockEntry(sequelize)
+  User: UserModel(sequelize, DataTypes),
+  Product: ProductModel(sequelize, DataTypes),
+  Inventory: InventoryModel(sequelize, DataTypes),
+  Order: OrderModel(sequelize, DataTypes),
+  Payment: PaymentModel(sequelize, DataTypes),
+  Sale: SaleModel(sequelize, DataTypes),
+  SaleItem: SaleItemModel(sequelize, DataTypes),
+  Supplier: SupplierModel(sequelize, DataTypes),
+  Customer: CustomerModel(sequelize, DataTypes),
+  ProjectConfig: ProjectConfigModel(sequelize, DataTypes),
+  Branch: BranchModel(sequelize, DataTypes),
+  SupplierHistory: SupplierHistoryModel(sequelize, DataTypes),
+  SalaryPayment: SalaryPaymentModel(sequelize, DataTypes),
+  StockEntry: StockEntry(sequelize, DataTypes),
 };
 
 // Setup associations

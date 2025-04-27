@@ -167,11 +167,11 @@ exports.salaryHistory = async (req, res) => {
 exports.deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
+    console.log(id)
     const user = await User.findByPk(id);
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
-
     user.isDeleted = !user.isDeleted;
     await user.save();
 

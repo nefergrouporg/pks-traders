@@ -30,9 +30,9 @@ exports.getStats = async (req, res) => {
       where: { stock: { [Op.lt]: sequelize.col("lowStockThreshold") } },
     }),
     Product.findAll({
-        where: { stock: { [Op.lt]: sequelize.col("lowStockThreshold") } },
-        attributes: ["name", "stock"],
-      }),
+      where: { stock: { [Op.lt]: sequelize.col("lowStockThreshold") } },
+      attributes: ["name", "stock"],
+    }),
     Payment.count({ where: { status: "pending" } }),
   ]);
 
@@ -55,7 +55,7 @@ exports.getSalesData = async (req, res) => {
 
 exports.getRecentTransactions = async (req, res) => {
   const transactions = await Sale.findAll({
-    include: [Payment],
+    include: [{ model: Payment, as: 'payment' }],
     order: [["createdAt", "DESC"]],
     limit: 5,
   });

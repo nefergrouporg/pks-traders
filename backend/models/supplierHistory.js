@@ -27,7 +27,7 @@ module.exports = (sequelize) => {
 
   SupplierHistory.associate = (models) => {
     SupplierHistory.belongsTo(models.Supplier, { foreignKey: 'supplierId' });
-    SupplierHistory.belongsTo(models.Product, { foreignKey: 'productId' });
+    SupplierHistory.belongsTo(models.Product, { foreignKey: 'productId', as: 'products'});
   };
 
   return SupplierHistory;

@@ -1,4 +1,5 @@
-const { StockEntry, Product, Supplier } = require('../models/index');
+
+const { StockEntry, Product, Supplier, SupplierHistory } = require('../models/index');
 
 const createStockEntry = async (req, res) => {
   const {
@@ -13,14 +14,14 @@ const createStockEntry = async (req, res) => {
   } = req.body;
 
   try {
+    if (!productId || !supplierId || !quantity || !purchasePrice || !batchNumber) {
+      return res.status(400).json({ error: "All fields are required" });
+    }
 
-    if(!productId || !supplierId || !quantity || !purchasePrice || !batchNumber){
-        return res.status(400).json({error: "All fields are required"})
-  }
     // 1. Validate product and supplier
     const product = await Product.findByPk(productId);
     const supplier = await Supplier.findByPk(supplierId);
-    
+
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
@@ -44,9 +45,19 @@ const createStockEntry = async (req, res) => {
     product.stock += quantity;
     await product.save();
 
-    // 4. Return success response
+    // 4. (New!) Create supplier history record
+    await SupplierHistory.create({
+      supplierId: supplierId,
+      productId: productId,
+      quantity: quantity,
+      amount: purchasePrice, 
+      date: receivedDate || new Date(), 
+      paymentStatus: 'Unpaid', 
+    });
+
+    // 5. Return success response
     res.status(201).json({
-      message: 'Stock entry added successfully',
+      message: 'Stock entry and supplier history added successfully',
       stockEntry,
     });
 
@@ -56,6 +67,26 @@ const createStockEntry = async (req, res) => {
   }
 };
 
+
+
+
+const getAllStockEntry = async (req, res) => {
+  try {
+    const stockEntries = await StockEntry.findAll({
+      include: [
+        { model: Product, as: 'product', attributes: ['id', 'name'] },
+        { model: Supplier, attributes: ['id', 'name'] }
+      ],
+      order: [['createdAt', 'DESC']] // optional: newest first
+    });
+    res.status(200).json(stockEntries);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error fetching stock entries' });
+  }
+};
+
 module.exports = {
   createStockEntry,
+  getAllStockEntry
 };

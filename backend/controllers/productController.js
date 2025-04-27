@@ -79,52 +79,14 @@ exports.updateProduct = async (req, res) => {
   }
 };
 
-// Update product stock
-// exports.updateStock = async (req, res) => {
-//   try {
-//     const { id } = req.params;
-//     const { quantity } = req.body;
-
-//     const product = await Product.findByPk(id);
-//     if (!product) return res.status(404).json({ message: 'Product not found' });
-
-//     if (quantity <= 0) {
-//       return res.status(400).json({ message: 'Quantity must be greater than zero' });
-//     }
-
-//     if (product.unitType === 'pcs' && !Number.isInteger(quantity)) {
-//       return res.status(400).json({ message: 'Quantity must be a whole number for piece-based products' });
-//     }
-
-//     product.stock += quantity;
-//     await product.save();
-
-//     if (quantity > 0) {
-//       // Record in supplier history
-//       await SupplierHistory.create({
-//         supplierId: product.supplierId,
-//         productId: product.id,
-//         quantity: quantity,
-//         amount: product.wholeSalePrice * quantity,
-//         date: new Date(),
-//         paymentStatus: 'Unpaid'
-//       });
-//     }
-
-//     res.json({ message: 'Stock updated successfully', product });
-//   } catch (error) {
-//     res.status(400).json({ error: error.message });
-//   }
-// };
-
 // Delete a product
 exports.deleteProduct = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Delete the product
-    await Product.destroy({ where: { id } });
-
+    const product = await Product.findByPk(id);
+    product.isDeleted = !product.isDeleted
+    product.save()
     res.json({ message: 'Product deleted successfully' });
   } catch (error) {
     res.status(400).json({ error: error.message });

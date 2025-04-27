@@ -17,7 +17,6 @@ exports.getUpiId = async (req, res) => {
 // Set UPI ID
 exports.setUpiId = async (req, res) => {
   const { upiId } = req.body;
-
   try {
     let config = await ProjectConfig.findOne();
     if (config) {

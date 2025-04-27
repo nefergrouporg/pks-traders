@@ -86,6 +86,7 @@ exports.getSupplierHistory = async (req, res) => {
       include: [
         {
           model: Product,
+          as: 'products',
           attributes: ["id", "name"],
         },
       ],
