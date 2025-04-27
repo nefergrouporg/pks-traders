@@ -31,7 +31,7 @@ exports.getStats = async (req, res) => {
     }),
     Product.findAll({
         where: { stock: { [Op.lt]: sequelize.col("lowStockThreshold") } },
-        attributes: ["name", "batchNumber", "stock"],
+        attributes: ["name", "stock"],
       }),
     Payment.count({ where: { status: "pending" } }),
   ]);
