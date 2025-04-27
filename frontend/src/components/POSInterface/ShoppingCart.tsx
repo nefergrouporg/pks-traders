@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import CartItem from "./CartItem";
 
 interface ShoppingCartProps {
@@ -23,21 +23,49 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
   onDecrease,
   onRemove,
   onUpdateKg,
-  saleType
+  saleType,
 }) => {
-  // Calculate total items
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+
   const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
-  
-  // Calculate total amount based on sale type
   const totalAmount = cart.reduce((total, item) => {
-    const price = saleType === "wholeSale" && item.wholeSalePrice 
-      ? item.wholeSalePrice 
-      : item.retailPrice;
+    const price =
+      saleType === "wholeSale" && item.wholeSalePrice
+        ? item.wholeSalePrice
+        : item.retailPrice;
     return total + price * item.quantity;
   }, 0);
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelectedIndex((prev) => Math.min(prev + 1, cart.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelectedIndex((prev) => Math.max(prev - 1, -1));
+    } else if (selectedIndex >= 0) {
+      const item = cart[selectedIndex];
+      switch (e.key) {
+        case "+":
+          onIncrease(item.id);
+          break;
+        case "-":
+          onDecrease(item.id);
+          break;
+        case "d":
+          onRemove(item.id);
+          setSelectedIndex((prev) => (prev >= cart.length - 1 ? prev - 1 : prev));
+          break;
+      }
+    }
+  };
+
   return (
-    <div className="bg-white rounded-lg shadow-md p-4">
+    <div
+      className="bg-white rounded-lg shadow-md p-4 max-h-96 overflow-auto focus:outline-none"
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
+    >
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg sm:text-xl font-bold">Shopping Cart</h2>
         <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">
@@ -59,7 +87,7 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
           </div>
 
           <div className="max-h-64 overflow-y-auto divide-y">
-            {cart.map((item) => (
+            {cart.map((item, index) => (
               <CartItem
                 key={item.id}
                 item={item}
@@ -68,6 +96,7 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
                 onRemove={onRemove}
                 onUpdateKg={onUpdateKg}
                 saleType={saleType}
+                isSelected={index === selectedIndex}
               />
             ))}
           </div>
@@ -80,6 +109,9 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
               <div className="text-sm text-gray-600">Total</div>
               <div className="text-xl font-bold">₹{totalAmount.toFixed(2)}</div>
             </div>
+          </div>
+          <div className="text-sm text-gray-500 mt-2">
+            (Arrow keys to navigate, + to increase, - to decrease, D to remove)
           </div>
         </>
       )}

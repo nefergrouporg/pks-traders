@@ -16,6 +16,7 @@ import React, { useState, useEffect } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Toaster } from "sonner";
 import { useAuth } from "../context/AuthContext";
+import BarcodeScanner from "../components/POSInterface/BarcodeScanner";
 
 type Tab = {
   id: number;
@@ -126,7 +127,9 @@ const Layout: React.FC = () => {
       <div
         className={`fixed inset-y-0 left-0 bg-gray-200 shadow-lg z-50 transform transition-transform duration-300 ease-in-out flex flex-col w-64 overflow-y-auto md:overflow-visible ${
           isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } md:relative md:translate-x-0 ${isSidebarCollapsed ? "md:w-16" : "md:w-64"}`}
+        } md:relative md:translate-x-0 ${
+          isSidebarCollapsed ? "md:w-16" : "md:w-64"
+        }`}
       >
         <div className="p-4 flex justify-between items-center">
           <button
@@ -161,7 +164,9 @@ const Layout: React.FC = () => {
                 }`}
               >
                 <span className="text-xl">{tab.icon}</span>
-                {!isSidebarCollapsed && <span className="ml-2">{tab.text}</span>}
+                {!isSidebarCollapsed && (
+                  <span className="ml-2">{tab.text}</span>
+                )}
               </Link>
             ))}
         </nav>
@@ -179,7 +184,9 @@ const Layout: React.FC = () => {
                 }`}
               >
                 <span className="text-xl">{tab.icon}</span>
-                {!isSidebarCollapsed && <span className="ml-2">{tab.text}</span>}
+                {!isSidebarCollapsed && (
+                  <span className="ml-2">{tab.text}</span>
+                )}
               </button>
             ))}
         </div>
@@ -203,15 +210,19 @@ const Layout: React.FC = () => {
                 <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-600 text-white flex items-center justify-center rounded-full text-lg font-semibold uppercase">
                   {username[0]}
                 </div>
-                <span className="hidden md:inline-block font-semibold">{username}</span>
+                <span className="hidden md:inline-block font-semibold">
+                  {username}
+                </span>
               </button>
             )}
           </div>
         </div>
 
         {/* Main Page Content */}
-        <div className="p-4 sm:p-8 overflow-auto">
-          <h1 className="text-xl sm:text-2xl font-bold mb-4">{activeTab.text}</h1>
+        <div className="p-6 m-0">
+          <h1 className="text-xl sm:text-2xl font-bold">
+            {activeTab.text !== "POS" && activeTab.text}
+          </h1>
           <div className="overflow-x-auto">
             <Outlet />
           </div>
