@@ -103,7 +103,7 @@ const POSInterface: React.FC = () => {
   const [showReceipt, setShowReceipt] = useState<boolean>(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState<boolean>(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<
-    "cash" | "card" | "upi" | undefined
+    "cash" | "card" | "upi" | "debt" | undefined
   >(undefined);
   const [paymentQR, setPaymentQR] = useState<string | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -112,7 +112,7 @@ const POSInterface: React.FC = () => {
   );
   const [isStepperOpen, setIsStepperOpen] = useState<boolean>(false);
   const [currentStepperStep, setCurrentStepperStep] = useState<number>(1);
-  const [saleType, setSaleType] = useState<"retail" | "whole-U+0073ale">("retail");
+  const [saleType, setSaleType] = useState<"retail" | "wholeSale">("retail");
   const [barcode, setBarcode] = useState<string>("");
   const [scanning, setScanning] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -370,7 +370,7 @@ const POSInterface: React.FC = () => {
     }
   };
 
-  const createPendingSale = async (method: "cash" | "card" | "upi") => {
+  const createPendingSale = async (method: "cash" | "card" | "upi" | 'debt') => {
     try {
       const saleData = {
         items: cart.map((item) => ({
@@ -410,7 +410,7 @@ const POSInterface: React.FC = () => {
 
   const confirmPayment = async (
     saleId: number,
-    paymentMethod: "cash" | "card" | "upi"
+    paymentMethod: "cash" | "card" | "upi" | 'debt'
   ) => {
     try {
       await axios.post(`${baseUrl}/api/payments/confirm`, { saleId });
@@ -1078,7 +1078,7 @@ const POSInterface: React.FC = () => {
                   <div className="w-16 text-right"></div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
+                <div className="flex-1 overflow-y-auto divide-y divide-gray-100 min-h-32">
                   {cart.map((item, index) => {
                     const price =
                       saleType === "wholeSale" && item.wholeSalePrice

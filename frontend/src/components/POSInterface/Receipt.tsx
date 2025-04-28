@@ -14,7 +14,7 @@ interface ReceiptProps {
   saleId: number;
   paymentMethod: string;
   customer?: any;
-  saleType: "retail" | "wholesale";
+  saleType: "retail" | "wholeSale";
 }
 
 const Receipt: React.FC<ReceiptProps> = ({
@@ -27,7 +27,7 @@ const Receipt: React.FC<ReceiptProps> = ({
 }) => {
   // Get the price based on sale type for each item
   const getItemPrice = (item) => {
-    return saleType === "wholesale" && item.wholeSalePrice 
+    return saleType === "wholeSale" && item.wholeSalePrice 
       ? item.wholeSalePrice 
       : item.retailPrice;
   };
@@ -46,7 +46,7 @@ const Receipt: React.FC<ReceiptProps> = ({
         </div>
         <div className="text-right">
           <p className="font-bold text-lg">
-            {saleType === "wholesale" ? "WHOLESALE INVOICE" : "RETAIL INVOICE"}
+            {saleType === "wholeSale" ? "WHOLESALE INVOICE" : "RETAIL INVOICE"}
           </p>
         </div>
       </div>

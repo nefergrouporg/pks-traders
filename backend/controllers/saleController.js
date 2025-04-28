@@ -20,7 +20,7 @@ exports.createSale = async (req, res) => {
     if (!items || !items.length)
       return res.status(400).json({ error: "At least one item is required" });
 
-    const validPaymentMethods = ["cash", "card", "upi", "debit"];
+    const validPaymentMethods = ["cash", "card", "upi", "debt"];
     if (!validPaymentMethods.includes(paymentMethod?.toLowerCase())) {
       return res.status(400).json({ error: "Invalid payment method" });
     }
@@ -94,10 +94,10 @@ exports.createSale = async (req, res) => {
       }
 
       const user = await User.findByPk(userId);
-      if (paymentMethod === "debit") {
+      if (paymentMethod === "debt") {
         if (customerId === null) {
           return res.status(400).json({
-            error: "Please select customer for Debit",
+            error: "Please select customer for Debt",
           });
         }
 

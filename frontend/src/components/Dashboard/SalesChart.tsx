@@ -127,7 +127,7 @@ const SalesChart: React.FC = () => {
               axisLine={false}
               tickLine={false}
               tick={{ fill: "#999", fontSize: 12 }}
-              tickFormatter={(value) => `$${value}`}
+              tickFormatter={(value) => `₹${value}`}
               domain={[0, (dataMax) => Math.ceil(dataMax / 1000) * 1000 + 1000]}
             />
             <Tooltip

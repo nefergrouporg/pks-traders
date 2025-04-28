@@ -15,7 +15,7 @@ module.exports = (sequelize) => {
         allowNull: false,
       },
       paymentMethod: {
-        type: DataTypes.ENUM("cash", "card", "upi", "debit"),
+        type: DataTypes.ENUM("cash", "card", "upi", "debt"),
         allowNull: false,
       },
       purchaseDate: {

@@ -4,19 +4,22 @@ import { toast } from "sonner";
 import Stepper, { Step } from "../Stepper";
 import moneyClipart from "../../assets/money_clipart.png";
 import cardsClipart from "../../assets/cards_clipart.png";
+import { TrendingDown } from "lucide-react";
 
 interface PaymentStepperProps {
   isOpen: boolean;
   onClose: () => void;
-  selectedPaymentMethod: "cash" | "card" | "upi" | undefined;
-  setSelectedPaymentMethod: (method: "cash" | "card" | "upi") => void;
+  selectedPaymentMethod: "cash" | "card" | "upi" | "debt" | undefined;
+  setSelectedPaymentMethod: (method: "cash" | "card" | "upi" | "debt") => void;
   currentStepperStep: number;
   setCurrentStepperStep: (step: number) => void;
   paymentQR: string | null;
   onPaymentConfirm: () => void;
   showReceiptPreview: () => void;
   handleAutomaticPrintAndDownload: () => void;
-  createPendingSale: (method: "cash" | "card" | "upi") => Promise<any>;
+  createPendingSale: (
+    method: "cash" | "card" | "upi" | "debt"
+  ) => Promise<any>;
   setCurrentSaleId: (id: number) => void;
   setPendingSale: (sale: any) => void;
 }
@@ -37,11 +40,13 @@ const PaymentStepper: React.FC<PaymentStepperProps> = ({
   setPendingSale,
 }) => {
   const [tempPaymentMethod, setTempPaymentMethod] = useState<
-    "cash" | "card" | "upi"
+    "cash" | "card" | "upi" | "debt"
   >();
   const [isGeneratingQR, setIsGeneratingQR] = useState(false);
 
-  const handlePaymentMethodSelect = (method: "cash" | "card" | "upi") => {
+  const handlePaymentMethodSelect = (
+    method: "cash" | "card" | "upi" | "debt"
+  ) => {
     setTempPaymentMethod(method);
     setSelectedPaymentMethod(method);
   };
@@ -164,6 +169,17 @@ const PaymentStepper: React.FC<PaymentStepperProps> = ({
                   />
                 </svg>
                 <span>UPI</span>
+              </button>
+              <button
+                onClick={() => handlePaymentMethodSelect("debt")}
+                className={`p-2 rounded flex items-center gap-2 ${
+                  selectedPaymentMethod === "debt"
+                    ? "bg-blue-500 text-white"
+                    : "bg-gray-200 hover:bg-gray-300"
+                }`}
+              >
+                <TrendingDown />
+                <span>Debt</span>
               </button>
             </div>
           </Step>

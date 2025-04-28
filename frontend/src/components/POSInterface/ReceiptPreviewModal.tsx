@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef } from "react";
 import Receipt from "./Receipt";
 
 interface ReceiptPreviewModalProps {
@@ -19,7 +19,7 @@ interface ReceiptPreviewModalProps {
   onDownload: () => void;
   customer?: any;
   handleAutomaticPrintAndDownload?: () => void;
-  saleType: "retail" | "wholesale";
+  saleType: "retail" | "wholeSale";
 }
 
 const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
@@ -35,11 +35,20 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
   handleAutomaticPrintAndDownload,
   saleType = "retail", // Default to retail
 }) => {
+  const receiptRef = useRef<HTMLDivElement>(null);
+
   if (!isOpen) return null;
 
   const handlePrint = () => {
-    onPrint();
-    onClose();
+    if (!receiptRef.current) return;
+
+    const printContents = receiptRef.current.innerHTML;
+    const originalContents = document.body.innerHTML;
+
+    document.body.innerHTML = printContents;
+    window.print();
+    document.body.innerHTML = originalContents;
+    window.location.reload(); // optional: reload to reset page if needed
   };
 
   const handleDownloadAndClose = () => {
@@ -60,7 +69,10 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
           </button>
         </div>
 
-        <div className="border rounded-lg p-4 mb-4 max-h-[70vh] overflow-y-auto">
+        <div
+          ref={receiptRef}
+          className="border rounded-lg p-4 mb-4 max-h-[70vh] overflow-y-auto"
+        >
           <Receipt
             cart={cart}
             totalPrice={totalPrice}
