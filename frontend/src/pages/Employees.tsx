@@ -14,7 +14,7 @@ import Modal from "../components/POSInterface/Modal";
 import ConfirmationModal from "../components/Dashboard/ConfirmationModal";
 import StaffDetailsModal from "../components/Dashboard/StaffDetailsModal";
 import SalaryPaymentModal from "../components/Dashboard/SalaryPaymentModal";
-import { jwtDecode } from "jwt-decode";
+import { jwtDecode, JwtPayload } from "jwt-decode";
 
 interface Staff {
   id: number;
@@ -24,12 +24,17 @@ interface Staff {
   salary: number;
   salaryCredited: boolean;
   isBlocked: boolean;
-  branch?: { name: string; id: number };
+  Branch?: { name: string; id: number };
   role: "staff" | "admin" | "manager";
   age?: number;
   gender?: string;
   aadharNumber?: string;
   address?: string;
+  isDeleted?: boolean;
+}
+
+interface CustomJwtPayload extends JwtPayload {
+  role: "admin" | "manager" | "staff"; // Adjust the roles as per your needs
 }
 
 interface Branch {
@@ -79,7 +84,11 @@ const Employees: React.FC = () => {
   });
 
   const token = localStorage.getItem("token");
-  const decoded = jwtDecode(token);
+  if (!token) {
+    toast.error("You are not authenticated");
+    return;
+  }
+  const decoded = jwtDecode(token) as CustomJwtPayload;
 
   useEffect(() => {
     fetchBranches();
@@ -108,7 +117,7 @@ const Employees: React.FC = () => {
         params: { role: "staff" },
         headers: { Authorization: `Bearer ${token}` },
       });
-      setStaffs(response.data?.users || []);
+      setStaffs(response.data?.users.filter((staff) => !staff.isDeleted));
     } catch (error) {
       console.error("Error fetching staff:", error);
       toast.error("Failed to fetch staff");
@@ -206,13 +215,8 @@ const Employees: React.FC = () => {
 
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
-
   return (
     <div className="p-4 sm:p-6 bg-gray-100 min-h-screen">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Staff Management</h1>
-      </div>
-
       <div className="mb-6 flex flex-col sm:flex-row gap-4">
         <input
           type="text"
@@ -553,15 +557,17 @@ const Employees: React.FC = () => {
       />
 
       {/* Salary Payment Modal */}
-      <SalaryPaymentModal
-        isOpen={isSalaryModalOpen}
-        onClose={() => setIsSalaryModalOpen(false)}
-        staff={selectedStaff}
-        onSuccess={() => {
-          handleSalarySuccess();
-          fetchStaffs(); // Refresh data after payment
-        }}
-      />
+      {selectedStaff && (
+        <SalaryPaymentModal
+          isOpen={isSalaryModalOpen}
+          onClose={() => setIsSalaryModalOpen(false)}
+          staff={selectedStaff}
+          onSuccess={() => {
+            handleSalarySuccess();
+            fetchStaffs(); // Refresh data after payment
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -33,6 +33,35 @@ interface Product {
   updatedAt: string;
 }
 
+interface CartItem {
+  id: number;
+  name: string;
+  retailPrice: number;
+  wholeSalePrice?: number;
+  quantity: number;
+  unitType: "pcs" | "kg";
+  price: number;
+}
+
+interface Customer {
+  id: number;
+  name: string | null;
+  phone: string;
+  email?: string;
+  address?: string;
+}
+
+interface Sale {
+  id: number;
+  items: {
+    productId: number;
+    quantity: number;
+  }[];
+  paymentMethod: string;
+  customerId: number | null;
+  saleType: "retail" | "wholesale"; // Changed to "wholesale"
+}
+
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children }) => {
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -69,49 +98,41 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children }) => {
 };
 
 const POSInterface: React.FC = () => {
-  const [cart, setCart] = useState<
-    Array<{
-      id: number;
-      name: string;
-      retailPrice: number;
-      wholeSalePrice?: number;
-      quantity: number;
-      unitType: "pcs" | "kg";
-      price: number;
-    }>
-  >([]);
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [isProductsLoading, setIsProductsLoading] = useState(false);
-  const [currentSaleId, setCurrentSaleId] = useState(-1);
-  const [isSaleComplete, setIsSaleComplete] = useState(false);
-  const [pendingSale, setPendingSale] = useState(null);
-  const [showReceipt, setShowReceipt] = useState(false);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isProductsLoading, setIsProductsLoading] = useState<boolean>(false);
+  const [currentSaleId, setCurrentSaleId] = useState<number>(-1);
+  const [isSaleComplete, setIsSaleComplete] = useState<boolean>(false);
+  const [pendingSale, setPendingSale] = useState<Sale | null>(null);
+  const [showReceipt, setShowReceipt] = useState<boolean>(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState<boolean>(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<
     "cash" | "card" | "upi" | undefined
   >(undefined);
   const [paymentQR, setPaymentQR] = useState<string | null>(null);
-  const [customers, setCustomers] = useState([]);
-  const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const [isStepperOpen, setIsStepperOpen] = useState(false);
-  const [currentStepperStep, setCurrentStepperStep] = useState(1);
-  const [saleType, setSaleType] = useState<"retail" | "wholeSale">("retail");
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
+    null
+  );
+  const [isStepperOpen, setIsStepperOpen] = useState<boolean>(false);
+  const [currentStepperStep, setCurrentStepperStep] = useState<number>(1);
+  const [saleType, setSaleType] = useState<"retail" | "wholesale">("retail");
 
   // BarcodeScanner states
-  const [barcode, setBarcode] = useState("");
-  const [scanning, setScanning] = useState(false);
+  const [barcode, setBarcode] = useState<string>("");
+  const [scanning, setScanning] = useState<boolean>(false);
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const scanTimeout = useRef<NodeJS.Timeout | null>(null);
 
   // ProductSearch states
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
-  const [productSelectedIndex, setProductSelectedIndex] = useState(-1);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [productSelectedIndex, setProductSelectedIndex] = useState<number>(-1);
+  const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
   const productSearchRef = useRef<HTMLInputElement>(null);
 
   // ShoppingCart states
-  const [cartSelectedIndex, setCartSelectedIndex] = useState(-1);
+  const [cartSelectedIndex, setCartSelectedIndex] = useState<number>(-1);
   const cartRef = useRef<HTMLDivElement>(null);
 
   const receiptRef = useRef<HTMLDivElement>(null);
@@ -119,12 +140,14 @@ const POSInterface: React.FC = () => {
   const createSaleButtonRef = useRef<HTMLButtonElement>(null);
   const saleTypeCheckboxRef = useRef<HTMLInputElement>(null);
 
-  const [customerSearch, setCustomerSearch] = useState("");
-  const [customerSearchResults, setCustomerSearchResults] = useState([]);
+  const [customerSearch, setCustomerSearch] = useState<string>("");
+  const [customerSearchResults, setCustomerSearchResults] = useState<
+    Customer[]
+  >([]);
 
   const toggleSaleType = () => {
-    setSaleType((currentType) =>
-      currentType === "retail" ? "wholeSale" : "retail"
+    setSaleType(
+      (currentType) => (currentType === "retail" ? "wholesale" : "retail") // Changed to "wholesale"
     );
   };
 
@@ -226,7 +249,7 @@ const POSInterface: React.FC = () => {
     unitType: "pcs" | "kg";
   }) => {
     const priceToUse =
-      saleType === "wholeSale" && product.wholeSalePrice
+      saleType === "wholesale" && product.wholeSalePrice
         ? product.wholeSalePrice
         : product.retailPrice;
     setCart((prevCart) => {
@@ -299,10 +322,10 @@ const POSInterface: React.FC = () => {
     setCart((prevCart) => prevCart.filter((item) => item.id !== id));
   };
 
-  const handleBarcodeScan = async (barcode: string) => {
+  const handleBarcodeScan = async (barcodeValue: string) => {
     try {
       const response = await axios.get(
-        `${baseUrl}/api/products/${barcode.trim()}`
+        `${baseUrl}/api/products/${barcodeValue.trim()}`
       );
       if (response.data) {
         addToCart(response.data);
@@ -384,8 +407,9 @@ const POSInterface: React.FC = () => {
         return { sale: response.data.sale, paymentQR: response.data.paymentQR };
       } else {
         toast.error(response.data.message || "Failed to create sale");
+        return null;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Sale creation failed:", error);
       toast.error(error.response?.data?.error || "Failed to create sale");
       throw error;
@@ -509,7 +533,7 @@ const POSInterface: React.FC = () => {
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setCartSelectedIndex((prev) => Math.max(prev - 1, -1));
-    } else if (cartSelectedIndex >= 0) {
+    } else if (cartSelectedIndex >= 0 && cartSelectedIndex < cart.length) {
       const item = cart[cartSelectedIndex];
       switch (e.key) {
         case "+":
@@ -531,7 +555,7 @@ const POSInterface: React.FC = () => {
   const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
   const totalAmount = cart.reduce((total, item) => {
     const price =
-      saleType === "wholeSale" && item.wholeSalePrice
+      saleType === "wholesale" && item.wholeSalePrice
         ? item.wholeSalePrice
         : item.retailPrice;
     return total + price * item.quantity;
@@ -548,7 +572,7 @@ const POSInterface: React.FC = () => {
         const product = products.find((p) => p.id === item.id);
         if (product) {
           const newPrice =
-            saleType === "wholeSale" && product.wholeSalePrice
+            saleType === "wholesale" && product.wholeSalePrice
               ? product.wholeSalePrice
               : product.retailPrice;
           return { ...item, price: newPrice };
@@ -603,7 +627,7 @@ const POSInterface: React.FC = () => {
     };
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
-  }, [scanning, toggleSaleType, handleCreateSale]);
+  }, [scanning]);
 
   // Scroll selected cart item into view
   useEffect(() => {
@@ -692,19 +716,19 @@ const POSInterface: React.FC = () => {
                 name="saleType"
                 id="saleType"
                 className="sr-only"
-                checked={saleType === "wholeSale"}
+                checked={saleType === "wholesale"}
                 onChange={toggleSaleType}
                 ref={saleTypeCheckboxRef}
               />
               <label
                 htmlFor="saleType"
                 className={`block overflow-hidden h-6 rounded-full cursor-pointer 
-                ${saleType === "wholeSale" ? "bg-blue-500" : "bg-gray-300"}`}
+                ${saleType === "wholesale" ? "bg-blue-500" : "bg-gray-300"}`}
               >
                 <span
                   className={`block h-6 w-6 rounded-full bg-white transform transition-transform duration-200 ease-in
                   ${
-                    saleType === "wholeSale"
+                    saleType === "wholesale"
                       ? "translate-x-10"
                       : "translate-x-0"
                   }`}
@@ -713,7 +737,7 @@ const POSInterface: React.FC = () => {
             </div>
             <span
               className={`font-bold ${
-                saleType === "wholeSale" ? "text-blue-600" : "text-gray-600"
+                saleType === "wholesale" ? "text-blue-600" : "text-gray-600"
               }`}
             >
               {saleType === "retail" ? "Retail" : "Wholesale"}
@@ -750,7 +774,7 @@ const POSInterface: React.FC = () => {
                         <span>{product.name}</span>
                         <span>
                           ₹
-                          {(saleType === "wholeSale" && product.wholeSalePrice
+                          {(saleType === "wholesale" && product.wholeSalePrice
                             ? product.wholeSalePrice
                             : product.retailPrice
                           ).toFixed(2)}
@@ -879,7 +903,7 @@ const POSInterface: React.FC = () => {
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg sm:text-xl font-bold">Shopping Cart</h2>
             <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">
-              {saleType === "wholeSale"
+              {saleType === "wholesale"
                 ? "Wholesale Pricing"
                 : "Retail Pricing"}
             </span>
@@ -903,7 +927,7 @@ const POSInterface: React.FC = () => {
               <div className="flex-1 overflow-y-auto divide-y">
                 {cart.map((item, index) => {
                   const price =
-                    saleType === "wholeSale" && item.wholeSalePrice
+                    saleType === "wholesale" && item.wholeSalePrice
                       ? item.wholeSalePrice
                       : item.retailPrice;
                   return (

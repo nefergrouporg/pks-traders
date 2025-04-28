@@ -184,7 +184,7 @@ exports.getAllSales = async (req, res) => {
             {
               model: Product,
               as:'product',
-              attributes: ['name'], // Only fetch the product name
+              attributes: ['name'], 
             },
           ],
         },
@@ -195,7 +195,7 @@ exports.getAllSales = async (req, res) => {
         },
         {
           model: User,
-          as: "user", // Fetch only staff name (username or any relevant field)
+          as: "user",
           attributes: ['username'],
         },
         {

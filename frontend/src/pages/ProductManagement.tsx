@@ -5,6 +5,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faToggleOff, faToggleOn } from "@fortawesome/free-solid-svg-icons";
 import { baseUrl } from "../../utils/services";
 import Modal from "../components/POSInterface/Modal";
+import DeleteConfirmationModal from "../components/Dashboard/DeleteConfirmationModal";
 
 interface Product {
   id: number;
@@ -13,12 +14,12 @@ interface Product {
   wholeSalePrice: number;
   category: string;
   stock: number;
-  batchNumber: string;
   barcode: string;
   description: string;
   lowStockThreshold: number;
   supplierId: number;
   active: boolean;
+  isDeleted: boolean;
 }
 
 interface Supplier {
@@ -91,11 +92,8 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 
 // Product Management Page
 const ProductManagement: React.FC = () => {
-  const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
-  const [selectedSupplier, setSelectedSupplier] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
-  const [batchNumber, setBatchNumber] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [isProductModalOpen, setProductModal] = useState(false);
@@ -111,31 +109,31 @@ const ProductManagement: React.FC = () => {
     description: "",
   });
 
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [productToDeleteId, setProductToDeleteId] = useState<string | null>(
+    null
+  );
   const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
-
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(8);
-
   const [isEditing, setIsEditing] = useState(false);
-
   const token = localStorage.getItem("token");
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      const response = await axios.get<{ products: Product[] }>(
-        `${baseUrl}/api/products`
-      );
-      setProducts(response.data.products);
-    };
-    fetchProducts();
-  }, []);
+  const fetchProducts = async () => {
+    const response = await axios.get<{ products: Product[] }>(
+      `${baseUrl}/api/products`
+    );
+    setProducts(response.data.products.filter((product) => !product.isDeleted));
+  };
+
+  const fetchSuppliers = async () => {
+    const response = await axios.get(`${baseUrl}/api/supplier`);
+    setSuppliers(response.data.suppliers);
+  };
 
   useEffect(() => {
-    const fetchSuppliers = async () => {
-      const response = await axios.get(`${baseUrl}/api/supplier`);
-      setSuppliers(response.data.suppliers);
-    };
+    fetchProducts();
     fetchSuppliers();
   }, []);
 
@@ -172,6 +170,31 @@ const ProductManagement: React.FC = () => {
     }
   };
 
+  const handleDelete = async () => {
+    if (!productToDeleteId) return;
+
+    try {
+      const response = await axios.delete(
+        `${baseUrl}/api/products/${productToDeleteId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.status === 200) {
+        toast.success("Product deleted successfully");
+        fetchProducts();
+      }
+    } catch (error) {
+      toast.error(error.message || "Failed to delete product");
+    } finally {
+      setIsDeleteModalOpen(false);
+      setProductToDeleteId(null);
+    }
+  };
+
   const handleCreateProduct = async (e) => {
     e.preventDefault();
 
@@ -186,7 +209,6 @@ const ProductManagement: React.FC = () => {
     ) {
       return toast.error("All fields are Required");
     }
-
     try {
       const url = isEditing
         ? `${baseUrl}/api/products/${formData.id}`
@@ -198,7 +220,6 @@ const ProductManagement: React.FC = () => {
           Authorization: `Bearer ${token}`,
         },
       });
-      console.log(response)
       if (response.status === 201 || response.status === 200) {
         toast.success(
           isEditing
@@ -210,8 +231,7 @@ const ProductManagement: React.FC = () => {
         setIsEditing(false);
 
         // Refresh product list
-        const fetchResponse = await axios.get(`${baseUrl}/api/products`);
-        setProducts(fetchResponse.data.products);
+        fetchProducts();
       } else {
         toast.error(response.data.message || "Something went wrong");
       }
@@ -344,7 +364,7 @@ const ProductManagement: React.FC = () => {
                 {/* Price */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Retail Price
+                    Retail Price
                   </label>
                   <input
                     type="number"
@@ -358,7 +378,7 @@ const ProductManagement: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                  WholeSale Price
+                    WholeSale Price
                   </label>
                   <input
                     type="number"
@@ -499,14 +519,18 @@ const ProductManagement: React.FC = () => {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="p-3 text-left text-sm sm:text-base">Name</th>
-                  <th className="p-3 text-left text-sm sm:text-base">Category</th>
-                  <th className="p-3 text-left text-sm sm:text-base">WholeSale </th>
+                  <th className="p-3 text-left text-sm sm:text-base">
+                    Category
+                  </th>
+                  <th className="p-3 text-left text-sm sm:text-base">
+                    WholeSale{" "}
+                  </th>
                   <th className="p-3 text-left text-sm sm:text-base">Retail</th>
                   <th className="p-3 text-left text-sm sm:text-base">Stock</th>
-                  <th className="p-3 text-left text-sm sm:text-base">Batch</th>
                   <th className="p-3 text-left text-sm sm:text-base">
                     Actions
                   </th>
+                  <th className="p-3 text-left text-sm sm:text-base">Delete</th>
                   <th className="p-3 text-left text-sm sm:text-base">Status</th>
                 </tr>
               </thead>
@@ -514,16 +538,38 @@ const ProductManagement: React.FC = () => {
                 {currentItems?.map((product) => (
                   <tr key={product.id} className="border-t">
                     <td className="p-3 text-sm sm:text-base">{product.name}</td>
-                    <td className="p-3 text-sm sm:text-base">{product.category}</td>
-                    <td className="p-3 text-sm sm:text-base">{product.wholeSalePrice}</td>
-                    <td className="p-3 text-sm sm:text-base">{product.retailPrice}</td>
-                    <td className="p-3 text-sm sm:text-base">{product.stock}</td>
-                    <td className="p-3 text-sm sm:text-base">{product.batchNumber}</td>
-                    <td><button onClick={() => handleEditClick(product)}
+                    <td className="p-3 text-sm sm:text-base">
+                      {product.category}
+                    </td>
+                    <td className="p-3 text-sm sm:text-base">
+                      {product.wholeSalePrice}
+                    </td>
+                    <td className="p-3 text-sm sm:text-base">
+                      {product.retailPrice}
+                    </td>
+                    <td className="p-3 text-sm sm:text-base">
+                      {product.stock}
+                    </td>
+
+                    <td>
+                      <button
+                        onClick={() => handleEditClick(product)}
                         className="bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600 transition text-sm sm:text-base"
                       >
                         Edit
-                      </button></td>
+                      </button>
+                    </td>
+                    <td>
+                      <button
+                        onClick={() => {
+                          setProductToDeleteId(product.id.toString());
+                          setIsDeleteModalOpen(true);
+                        }}
+                        className="bg-red-500 text-white px-3 py-1 rounded-lg hover:bg-red-600 transition text-sm sm:text-base ml-2"
+                      >
+                        Delete
+                      </button>
+                    </td>
                     <td>
                       <button
                         onClick={() => {
@@ -563,6 +609,16 @@ const ProductManagement: React.FC = () => {
           message="Are you sure you want to proceed?"
         />
 
+        <DeleteConfirmationModal
+          isOpen={isDeleteModalOpen}
+          onClose={() => {
+            setIsDeleteModalOpen(false);
+            setProductToDeleteId(null);
+          }}
+          onConfirm={handleDelete}
+          message="Are you sure you want to delete this product? This action cannot be undone."
+        />
+
         {/* Pagination */}
         <div className="flex justify-center mt-6">
           <button
@@ -585,14 +641,14 @@ const ProductManagement: React.FC = () => {
         </div>
 
         {/* Bulk Import CSV */}
-        <div className=" m-2">
+        {/* <div className=" m-2">
           <button className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition text-sm sm:text-base">
             Bulk Import CSV
           </button>
-        </div>
+        </div> */}
 
         {/* Low Stock Threshold Alerts */}
-        <div className="bg-yellow-50 p-4 rounded-lg">
+        <div className="bg-yellow-50 p-4 rounded-lg mt-6">
           <h2 className="text-lg sm:text-xl font-semibold mb-2">
             Low Stock Alerts
           </h2>

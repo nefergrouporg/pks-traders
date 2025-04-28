@@ -29,7 +29,7 @@ exports.getReportDataLogic = async (startDate, endDate) => {
       [
         sequelize.fn(
           "TO_CHAR",
-          sequelize.literal(`created_at AT TIME ZONE 'UTC'`),
+          sequelize.literal(`"Sale"."createdAt" AT TIME ZONE 'UTC'`),
           groupByFormat
         ),
         "period",
@@ -86,7 +86,7 @@ exports.getReportDataLogic = async (startDate, endDate) => {
       [
         sequelize.fn(
           "TO_CHAR",
-          sequelize.literal(`sale.created_at AT TIME ZONE 'UTC'`),
+          sequelize.literal(`"sale"."createdAt" AT TIME ZONE 'UTC'`),
           groupByFormat
         ),
         "period",
@@ -110,7 +110,7 @@ exports.getReportDataLogic = async (startDate, endDate) => {
       [
         sequelize.fn(
           "TO_CHAR",
-          sequelize.literal(`"createdAt" AT TIME ZONE 'UTC'`),
+          sequelize.literal(`"Payment"."createdAt" AT TIME ZONE 'UTC'`),
           groupByFormat
         ),
         "period",

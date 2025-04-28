@@ -11,6 +11,7 @@ import {
   faListAlt,
   faUsersLine,
   faUsers,
+  faBox,
 } from "@fortawesome/free-solid-svg-icons";
 import React, { useState, useEffect } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -79,6 +80,13 @@ const Layout: React.FC = () => {
       text: "Employees",
       path: "/employees",
       allowedRoles: ["admin"],
+    },
+    {
+      id: 4,
+      icon: <FontAwesomeIcon icon={faBox} />,
+      text: "Stock Entry",
+      path: "/stockEntry",
+      allowedRoles: ["admin", 'manager'],
     },
     {
       id: 4,

@@ -10,6 +10,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { baseUrl } from "../../utils/services";
 import Modal from "../components/POSInterface/Modal";
+import DeleteConfirmationModal from "../components/Dashboard/DeleteConfirmationModal";
 
 interface Product {
   id: number;
@@ -118,7 +119,6 @@ const Suppliers: React.FC = () => {
   const [itemsPerPage] = useState(8);
   const [activeTab, setActiveTab] = useState("info");
   const [modalMode, setModalMode] = useState<"create" | "edit">("create");
-
   const [formData, setFormData] = useState({
     id: "",
     name: "",
@@ -127,12 +127,10 @@ const Suppliers: React.FC = () => {
     phone: "",
     address: "",
   });
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [supplierToDelete, setSupplierToDelete] = useState<number | null>(null);
 
   const token = localStorage.getItem("token");
-
-  useEffect(() => {
-    fetchSuppliers();
-  }, []);
 
   const fetchSuppliers = async () => {
     try {
@@ -141,7 +139,7 @@ const Suppliers: React.FC = () => {
           Authorization: `Bearer ${token}`,
         },
       });
-      setSuppliers(response.data.suppliers);
+      setSuppliers(response.data.suppliers.filter((supplier) => !supplier.isDeleted));
     } catch (error) {
       console.error("Error fetching suppliers:", error);
       toast.error("Failed to load suppliers");
@@ -164,6 +162,10 @@ const Suppliers: React.FC = () => {
       setSupplierHistory([]);
     }
   };
+
+  useEffect(() => {
+    fetchSuppliers();
+  }, []);
 
   const filteredSuppliers = suppliers.filter(
     (supplier) =>
@@ -218,7 +220,9 @@ const Suppliers: React.FC = () => {
 
       if (response.status === 201 || response.status === 200) {
         toast.success(
-          formData.id ? "Supplier updated successfully" : "Supplier created successfully"
+          formData.id
+            ? "Supplier updated successfully"
+            : "Supplier created successfully"
         );
         setSupplierModalOpen(false);
         resetFormData();
@@ -228,6 +232,33 @@ const Suppliers: React.FC = () => {
       }
     } catch (error) {
       toast.error(error.message || "Something went wrong");
+    }
+  };
+
+  const handleDeleteSupplier = async () => {
+    if (!supplierToDelete) return;
+
+    try {
+      const response = await axios.delete(
+        `${baseUrl}/api/supplier/${supplierToDelete}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.status === 200) {
+        toast.success("Supplier deleted successfully");
+        fetchSuppliers();
+        setDetailsModalOpen(false);
+      }
+    } catch (error) {
+      console.error("Error deleting supplier:", error);
+      toast.error(error.message || "Failed to delete supplier");
+    } finally {
+      setIsDeleteModalOpen(false);
+      setSupplierToDelete(null);
     }
   };
 
@@ -292,12 +323,6 @@ const Suppliers: React.FC = () => {
   return (
     <>
       <div className="p-4 sm:p-6 bg-gray-100 min-h-screen">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">
-            Supplier Management
-          </h1>
-        </div>
-
         <div className="mb-6 flex flex-col sm:flex-row gap-4">
           <input
             type="text"
@@ -330,11 +355,9 @@ const Suppliers: React.FC = () => {
                   <th className="p-3 text-left text-sm sm:text-base">Email</th>
                   <th className="p-3 text-left text-sm sm:text-base">Phone</th>
                   <th className="p-3 text-left text-sm sm:text-base">
-                    Address
-                  </th>
-                  <th className="p-3 text-left text-sm sm:text-base">
                     Actions
                   </th>
+                  <th className="p-3 text-left text-sm sm:text-base">Edit</th>
                   <th className="p-3 text-left text-sm sm:text-base">Status</th>
                 </tr>
               </thead>
@@ -354,9 +377,6 @@ const Suppliers: React.FC = () => {
                       {supplier.phone}
                     </td>
                     <td className="p-3 text-sm sm:text-base">
-                      {supplier.address}
-                    </td>
-                    <td className="p-3 text-sm sm:text-base">
                       <div className="flex space-x-2">
                         <button
                           onClick={() => openDetailsModal(supplier)}
@@ -365,25 +385,27 @@ const Suppliers: React.FC = () => {
                           <FontAwesomeIcon icon={faEye} className="mr-1" />
                           Details
                         </button>
-                        <button
-                          onClick={() => {
-                            setModalMode("edit");
-                            setFormData({
-                              id: supplier.id.toString(),
-                              name: supplier.name,
-                              contactPerson: supplier.contactPerson,
-                              email: supplier.email,
-                              phone: supplier.phone,
-                              address: supplier.address,
-                            });
-                            setSupplierModalOpen(true);
-                          }}
-                          className="bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600 transition text-sm sm:text-base flex items-center"
-                        >
-                          <FontAwesomeIcon icon={faEdit} className="mr-1" />
-                          Edit
-                        </button>
                       </div>
+                    </td>
+                    <td>
+                      <button
+                        onClick={() => {
+                          setModalMode("edit");
+                          setFormData({
+                            id: supplier.id.toString(),
+                            name: supplier.name,
+                            contactPerson: supplier.contactPerson,
+                            email: supplier.email,
+                            phone: supplier.phone,
+                            address: supplier.address,
+                          });
+                          setSupplierModalOpen(true);
+                        }}
+                        className="bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600 transition text-sm sm:text-base flex items-center"
+                      >
+                        <FontAwesomeIcon icon={faEdit} className="mr-1" />
+                        Edit
+                      </button>
                     </td>
                     <td className="p-3 text-sm sm:text-base">
                       <button
@@ -431,7 +453,9 @@ const Suppliers: React.FC = () => {
           <div className="p-6 sm:p-8 max-h-[90vh] overflow-y-auto w-full max-w-2xl mx-auto">
             <div className="flex justify-between items-center mb-5 border-b pb-3">
               <h2 className="text-xl font-semibold text-gray-800">
-                {modalMode === "create" ? "Create New Supplier" : "Edit Supplier"}
+                {modalMode === "create"
+                  ? "Create New Supplier"
+                  : "Edit Supplier"}
               </h2>
             </div>
 
@@ -519,7 +543,9 @@ const Suppliers: React.FC = () => {
                   type="submit"
                   className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition"
                 >
-                  {modalMode === "create" ? "Create Supplier" : "Update Supplier"}
+                  {modalMode === "create"
+                    ? "Create Supplier"
+                    : "Update Supplier"}
                 </button>
               </div>
             </form>
@@ -770,13 +796,26 @@ const Suppliers: React.FC = () => {
                 )}
               </div>
             )}
-            <div className="flex justify-end mt-6">
-              <button
-                onClick={() => setDetailsModalOpen(false)}
-                className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition"
-              >
-                Close
-              </button>
+            <div className="flex justify-between items-center mt-4 pt-2">
+              <div>
+                <button
+                  onClick={() => {
+                    setSupplierToDelete(selectedSupplier?.id || null);
+                    setIsDeleteModalOpen(true);
+                  }}
+                  className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition text-sm"
+                >
+                  Delete Supplier
+                </button>
+              </div>
+              <div>
+                <button
+                  onClick={() => setDetailsModalOpen(false)}
+                  className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </Modal>
@@ -799,6 +838,16 @@ const Suppliers: React.FC = () => {
               ? "block"
               : "unblock"
           } this supplier?`}
+        />
+
+        <DeleteConfirmationModal
+          isOpen={isDeleteModalOpen}
+          onClose={() => {
+            setIsDeleteModalOpen(false);
+            setSupplierToDelete(null);
+          }}
+          onConfirm={handleDeleteSupplier}
+          message="Are you sure you want to delete this supplier? This action cannot be undone."
         />
       </div>
     </>

@@ -6,5 +6,6 @@ const { auth } = require('../middleware/authMiddleware');
 router.post('/', auth, branchController.createBranch)
 router.put('/:id', auth, branchController.blockBranch)
 router.get('/', branchController.getBranches)
+router.delete('/:id', branchController.deleteBranch)
 
 module.exports = router;

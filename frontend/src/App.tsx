@@ -14,6 +14,7 @@ import Unauthorized from "./pages/Unauthorized";
 import SalesList from "./pages/Sales";
 import Suppliers from "./pages/Suppliers";
 import Employees from "./pages/Employees";
+import StockEntryManagement from "./pages/StockEntry";
 
 const App: React.FC = () => {
   return (
@@ -52,6 +53,11 @@ const App: React.FC = () => {
               <Route path="users" element={
                 <RoleProtectedRoute allowedRoles={['admin']}>
                   <UserManagement />
+                </RoleProtectedRoute>
+              } />
+              <Route path="stockEntry" element={
+                <RoleProtectedRoute allowedRoles={['admin']}>
+                  <StockEntryManagement />
                 </RoleProtectedRoute>
               } />
               <Route path="sales" element={
