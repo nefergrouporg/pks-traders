@@ -28,7 +28,6 @@ module.exports = (sequelize) => {
       barcode: {
         type: DataTypes.STRING,
         allowNull: true,
-        unique: true,
       },
       stock: {
         type: DataTypes.FLOAT,  

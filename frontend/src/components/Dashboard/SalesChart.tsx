@@ -69,7 +69,7 @@ const SalesChart: React.FC = () => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-black bg-opacity-80 px-2 py-1 rounded text-white text-sm">
-          ${payload[0].value.toFixed(2)}
+          ₹{payload[0].value.toFixed(2)}
         </div>
       );
     }

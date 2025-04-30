@@ -40,20 +40,13 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
   if (!isOpen) return null;
 
   const handlePrint = () => {
-    if (!receiptRef.current) return;
-
-    const printContents = receiptRef.current.innerHTML;
-    const originalContents = document.body.innerHTML;
-
-    document.body.innerHTML = printContents;
-    window.print();
-    document.body.innerHTML = originalContents;
-    window.location.reload(); // optional: reload to reset page if needed
+    onDownload(); // Always download first
+    onPrint();
   };
 
   const handleDownloadAndClose = () => {
     onDownload();
-    onClose();
+    // onClose();
   };
 
   return (

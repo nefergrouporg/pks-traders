@@ -85,8 +85,9 @@ const PaymentStepper: React.FC<PaymentStepperProps> = ({
     try {
       if (selectedPaymentMethod !== "upi") {
         await createPendingSale(selectedPaymentMethod);
-        onPaymentConfirm();
-        onClose();
+        // onPaymentConfirm();
+        // onClose();
+        showReceiptPreview();
       } else {
         // For UPI, payment confirmation happens after QR scan
         onPaymentConfirm();

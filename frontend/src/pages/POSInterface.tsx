@@ -330,15 +330,27 @@ const POSInterface: React.FC = () => {
     }
   };
 
-  const handlePrint = useReactToPrint({
-    content: () => receiptRef.current,
-    onBeforeGetContent: () =>
-      new Promise<void>((resolve) => {
-        setShowReceipt(true);
-        setTimeout(() => resolve(), 100);
-      }),
-    removeAfterPrint: false,
-  });
+  const handlePrint = () => {
+    downloadReceiptAsPDF();
+    if (!receiptRef.current) return;
+    const printContents = receiptRef.current.innerHTML;
+    const originalContents = document.body.innerHTML;
+
+    document.body.innerHTML = printContents;
+    window.print();
+    document.body.innerHTML = originalContents;
+    window.location.reload(); // optional: reload to reset page if needed
+  };
+
+  // const handlePrint = useReactToPrint({
+  //   content: () => receiptRef.current,
+  //   onBeforeGetContent: () =>
+  //     new Promise<void>((resolve) => {
+  //       setShowReceipt(true);
+  //       setTimeout(() => resolve(), 100);
+  //     }),
+  //   removeAfterPrint: false,
+  // });
 
   const downloadReceiptAsPDF = async () => {
     if (!receiptRef.current) return;
@@ -348,21 +360,34 @@ const POSInterface: React.FC = () => {
       tempDiv.style.left = "-9999px";
       tempDiv.appendChild(receiptRef.current.cloneNode(true));
       document.body.appendChild(tempDiv);
+
       const canvas = await html2canvas(tempDiv.firstChild as HTMLElement, {
         scale: 3,
         backgroundColor: "#ffffff",
         logging: false,
       });
+
       document.body.removeChild(tempDiv);
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm" });
+
+      // Thermal printer dimensions (80mm width)
+      const pdfWidth = 80; // in mm
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: [pdfWidth, pdfHeight],
+      });
+
       pdf.addImage(
         canvas.toDataURL("image/png"),
         "PNG",
         0,
         0,
-        pdf.internal.pageSize.getWidth(),
-        (canvas.height * pdf.internal.pageSize.getWidth()) / canvas.width
+        pdfWidth,
+        pdfHeight
       );
+
       pdf.save(`receipt-${currentSaleId}.pdf`);
     } catch (error) {
       console.error("Failed to download receipt:", error);
@@ -370,7 +395,9 @@ const POSInterface: React.FC = () => {
     }
   };
 
-  const createPendingSale = async (method: "cash" | "card" | "upi" | 'debt') => {
+  const createPendingSale = async (
+    method: "cash" | "card" | "upi" | "debt"
+  ) => {
     try {
       const saleData = {
         items: cart.map((item) => ({
@@ -410,27 +437,28 @@ const POSInterface: React.FC = () => {
 
   const confirmPayment = async (
     saleId: number,
-    paymentMethod: "cash" | "card" | "upi" | 'debt'
+    paymentMethod: "cash" | "card" | "upi" | "debt"
   ) => {
     try {
       await axios.post(`${baseUrl}/api/payments/confirm`, { saleId });
       toast.success("Payment confirmed!");
       setIsSaleComplete(true);
-      if (paymentMethod === "cash") {
-        setTimeout(() => {
-          downloadReceiptAsPDF();
-          handlePrint();
-          resetSaleState();
-        }, 300);
-      } else if (paymentMethod === "upi") {
-        downloadReceiptAsPDF();
-        handlePrint();
+
+      // Always download PDF regardless of payment method
+      // setTimeout(() => {
+      downloadReceiptAsPDF();
+      // handlePrint();
+      // }, 300);
+
+      setShowReceipt(true);
+      setIsPreviewOpen(true);
+
+      if (paymentMethod === "upi") {
         setIsStepperOpen(true);
         setCurrentStepperStep(2);
-        resetSaleState();
-      } else {
-        showPreview();
       }
+
+      // resetSaleState();
     } catch (error) {
       console.error("Payment confirmation failed:", error);
       toast.error("Failed to confirm payment. Please try again.");
@@ -451,9 +479,20 @@ const POSInterface: React.FC = () => {
     setPendingSale(null);
   };
 
+  const scanningRef = useRef(scanning);
+  useEffect(() => {
+    scanningRef.current = scanning;
+    if (scanning) {
+      barcodeInputRef.current?.focus();
+    }
+  }, []);
+console.log(scanning)
   const handleBarcodeInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!scanningRef.current) return;
+
     const scannedCode = e.target.value;
     setBarcode(scannedCode);
+
     if (scanTimeout.current) clearTimeout(scanTimeout.current);
     scanTimeout.current = setTimeout(() => {
       if (scannedCode) {
@@ -569,9 +608,35 @@ const POSInterface: React.FC = () => {
   }, [saleType, products]);
 
   useEffect(() => {
+    // Start scanning when tab 1 becomes active
+    if (activeTab === 1) {
+      setScanning(true);
+      barcodeInputRef.current?.focus();
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (
+        scanningRef.current &&
+        !barcodeInputRef.current?.contains(e.target as Node)
+      ) {
+        setScanning(false);
+      }
+    };
+
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
+  }, []);
+
+  useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       const activeElement = document.activeElement?.tagName.toLowerCase();
       if (activeElement !== "input" && activeElement !== "textarea") {
+        if (scanning) {
+          setScanning(false);
+          return;
+        }
         if (e.key === "Enter") {
           e.preventDefault();
           if (activeTab === 0) {
@@ -686,8 +751,8 @@ const POSInterface: React.FC = () => {
             handleAutomaticPrintAndDownload={() => {
               setShowReceipt(true);
               setTimeout(() => {
-                downloadReceiptAsPDF();
-                handlePrint();
+                // downloadReceiptAsPDF();
+                // handlePrint();
                 setTimeout(() => resetSaleState(), 500);
               }, 300);
             }}
@@ -994,13 +1059,19 @@ const POSInterface: React.FC = () => {
                   type="text"
                   onChange={handleBarcodeInputChange}
                   autoFocus={scanning}
-                  className="absolute opacity-0 pointer-events-none"
+                  // disabled={!scanning}
+                  className="absolute opacity-0"
                 />
                 <button
                   onClick={() => {
+                    const newScanningState = !scanning;
                     setScanning((prev) => !prev);
-                    setBarcode("");
-                    if (!scanning) barcodeInputRef.current?.focus();
+                    console.log(scanning,'alks')
+                    if (newScanningState) {
+                      setTimeout(() => {
+                        barcodeInputRef.current?.focus();
+                      }, 50);
+                    }
                   }}
                   className={`px-6 py-3 rounded-lg transition-all duration-300 flex items-center space-x-2 ${
                     scanning
@@ -1022,7 +1093,11 @@ const POSInterface: React.FC = () => {
                       d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
                     ></path>
                   </svg>
-                  <span>{scanning ? "Stop Scanning" : "Scan Barcode"}</span>
+                  <span>
+                    {scanning
+                      ? "Scanning... (Click anywhere to stop)"
+                      : "Scan Barcode"}
+                  </span>
                 </button>
               </div>
             </div>

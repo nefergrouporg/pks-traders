@@ -4,11 +4,15 @@
 module.exports = {
   up: async (queryInterface, Sequelize) => {
     await queryInterface.sequelize.query(`
-      ALTER TYPE "enum_Payments_paymentMethod" ADD VALUE 'debit';
+      CREATE UNIQUE INDEX unique_barcode_not_null
+      ON "Products" ("barcode")
+      WHERE "barcode" IS NOT NULL;
     `);
   },
 
   down: async (queryInterface, Sequelize) => {
-    // Rollback the change if needed (this part is more complex and may involve creating a new enum type)
-  },
+    await queryInterface.sequelize.query(`
+      DROP INDEX unique_barcode_not_null;
+    `);
+  }
 };

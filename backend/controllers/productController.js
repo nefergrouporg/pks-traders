@@ -4,7 +4,12 @@ const { SupplierHistory } = require('../models/index');
 
 exports.createProduct = async (req, res) => {
   try {
-    const { name, retailPrice, wholeSalePrice, category, barcode, lowStockThreshold, unitType, description } = req.body;
+    const { name, retailPrice, wholeSalePrice, category, lowStockThreshold, unitType, description } = req.body;
+    let {barcode} = req.body
+    if (!barcode || barcode.trim() === '') {
+      barcode = null;
+    }
+
     if (!['pcs', 'kg'].includes(unitType)) {
       return res.status(400).json({ message: "Invalid unit type. Use 'pcs' or 'kg'." });
     }
