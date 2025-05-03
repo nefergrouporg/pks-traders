@@ -486,7 +486,6 @@ const POSInterface: React.FC = () => {
       barcodeInputRef.current?.focus();
     }
   }, []);
-console.log(scanning)
   const handleBarcodeInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!scanningRef.current) return;
 
@@ -512,7 +511,7 @@ console.log(scanning)
       const filtered = products.filter(
         (product) =>
           product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          product.barcode.includes(searchTerm)
+          product?.barcode?.includes(searchTerm)
       );
       setFilteredProducts(filtered);
       setIsDropdownOpen(true);
@@ -1012,30 +1011,30 @@ console.log(scanning)
                         }}
                       >
                         <div className="flex justify-between items-center">
-                          <span className="font-medium">{product.name}</span>
+                          <span className="font-medium">{product?.name}</span>
                           <span className="font-semibold text-blue-700">
                             ₹
-                            {(saleType === "wholeSale" && product.wholeSalePrice
-                              ? product.wholeSalePrice
-                              : product.retailPrice
+                            {(saleType === "wholeSale" && product?.wholeSalePrice
+                              ? product?.wholeSalePrice
+                              : product?.retailPrice
                             ).toFixed(2)}
                           </span>
                         </div>
                         <div className="text-sm text-gray-600 mt-1 flex items-center">
                           <span
                             className={`mr-2 inline-block h-2 w-2 rounded-full ${
-                              product.stock > 10
+                              product?.stock > 10
                                 ? "bg-green-500"
-                                : product.stock > 0
+                                : product?.stock > 0
                                 ? "bg-yellow-500"
                                 : "bg-red-500"
                             }`}
                           ></span>
                           <span>
-                            {product.stock} {product.unitType}{" "}
-                            {product.stock <= 5 && product.stock > 0
+                            {product?.stock} {product?.unitType}{" "}
+                            {product?.stock <= 5 && product?.stock > 0
                               ? "(Low Stock)"
-                              : product.stock === 0
+                              : product?.stock === 0
                               ? "(Out of Stock)"
                               : ""}
                           </span>
@@ -1066,7 +1065,6 @@ console.log(scanning)
                   onClick={() => {
                     const newScanningState = !scanning;
                     setScanning((prev) => !prev);
-                    console.log(scanning,'alks')
                     if (newScanningState) {
                       setTimeout(() => {
                         barcodeInputRef.current?.focus();

@@ -6,6 +6,7 @@ import { faToggleOff, faToggleOn } from "@fortawesome/free-solid-svg-icons";
 import { baseUrl } from "../../utils/services";
 import Modal from "../components/POSInterface/Modal";
 import DeleteConfirmationModal from "../components/Dashboard/DeleteConfirmationModal";
+import { set } from "../../../backend/app";
 
 interface Product {
   id: number;
@@ -20,6 +21,11 @@ interface Product {
   supplierId: number;
   active: boolean;
   isDeleted: boolean;
+}
+
+interface UploadError {
+  reason: string;
+  row: any;
 }
 
 interface Supplier {
@@ -120,6 +126,17 @@ const ProductManagement: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const token = localStorage.getItem("token");
 
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [file, setFile] = useState(null);
+  const [message, setMessage] = useState("");
+  const [errors, setErrors] = useState<UploadError[]>([]);
+
+  const handleFileChange = (e) => {
+    setFile(e.target.files[0]);
+    setMessage("");
+    setErrors([]);
+  };
+
   const fetchProducts = async () => {
     const response = await axios.get<{ products: Product[] }>(
       `${baseUrl}/api/products`
@@ -161,6 +178,30 @@ const ProductManagement: React.FC = () => {
       ...prev,
       [name]: numericFields.includes(name) ? Number(value) : value,
     }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!file) return toast.error("Please select a file");
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await axios.post(`${baseUrl}/api/products/bulk-upload`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      if (res.status === 200 || res.status === 201) {
+        toast.success(res.data.message || "Upload successful");
+        fetchProducts();
+        setIsModalOpen(false);
+      } else {
+        toast.error(res.data.message || "Upload failed");
+      }
+      setErrors(res.data.errors || []);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Upload failed");
+    }
   };
 
   const handleBarcodeScan = (e) => {
@@ -421,7 +462,6 @@ const ProductManagement: React.FC = () => {
                     onKeyDown={handleBarcodeScan}
                     className="w-full border rounded-lg px-4 py-2 bg-white text-black focus:ring-2 focus:ring-green-500"
                     placeholder="Scan or enter barcode"
-                    disabled={isEditing}
                   />
                 </div>
 
@@ -504,6 +544,69 @@ const ProductManagement: React.FC = () => {
             <option value="fruits">Fruits</option>
             <option value="vegetables">Vegetables</option>
           </select>
+          <div>
+            <button
+              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition text-sm sm:text-base"
+              onClick={() => setIsModalOpen(true)}
+            >
+              Bulk Import CSV
+            </button>
+
+            {isModalOpen && (
+              <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
+                <div className="bg-white p-6 rounded-lg w-full max-w-md shadow-lg">
+                  <h2 className="text-lg font-semibold mb-4">
+                    Upload CSV or Excel File
+                  </h2>
+                  <form onSubmit={handleSubmit}>
+                    <input
+                      type="file"
+                      accept=".csv, .xlsx, .xls"
+                      onChange={handleFileChange}
+                      className="mb-4"
+                    />
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+                        onClick={() => {
+                          setIsModalOpen(false);
+                          setFile(null);
+                          setMessage("");
+                          setErrors([]);
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                      >
+                        Upload
+                      </button>
+                    </div>
+                  </form>
+
+                  {message && (
+                    <p className="mt-3 text-sm text-green-600">{message}</p>
+                  )}
+
+                  {errors.length > 0 && (
+                    <div className="mt-4 text-sm text-red-600 max-h-40 overflow-auto">
+                      <strong>Errors:</strong>
+                      <ul className="list-disc pl-5 mt-2">
+                        {errors.map((err, i) => (
+                          <li key={i}>
+                            {err.reason} - {JSON.stringify(err.row)}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
           <button
             className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition text-sm sm:text-base"
             onClick={() => setProductModal(true)}
@@ -639,13 +742,6 @@ const ProductManagement: React.FC = () => {
             Next
           </button>
         </div>
-
-        {/* Bulk Import CSV */}
-        {/* <div className=" m-2">
-          <button className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition text-sm sm:text-base">
-            Bulk Import CSV
-          </button>
-        </div> */}
 
         {/* Low Stock Threshold Alerts */}
         <div className="bg-yellow-50 p-4 rounded-lg mt-6">

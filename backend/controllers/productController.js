@@ -1,5 +1,8 @@
 const { Product } = require('../models/index');
 const { SupplierHistory } = require('../models/index');
+const fs = require('fs');
+const xlsx = require('xlsx');
+const csvParser = require('csv-parser');
 
 
 exports.createProduct = async (req, res) => {
@@ -47,6 +50,94 @@ exports.createProduct = async (req, res) => {
   }
 };
 
+
+exports.uploadBulkProducts = async (req, res) => {
+  if (!req.file) return res.status(400).json({ message: 'File is required' });
+
+  const ext = req.file.originalname.split('.').pop().toLowerCase();
+  let data = [];
+
+  try {
+    if (ext === 'csv') {
+      data = await parseCSV(req.file.path);
+    } else if (['xlsx', 'xls'].includes(ext)) {
+      data = parseExcel(req.file.path);
+    } else {
+      return res.status(400).json({ message: 'Unsupported file format' });
+    }
+
+    const products = [];
+    const errors = [];
+
+    for (const row of data) {
+      const {
+        name,
+        description,
+        retailPrice,
+        wholeSalePrice,
+        barcode,
+        stock,
+        unitType,
+        category,
+        lowStockThreshold,
+      } = row;
+
+      if (!name || !category || !unitType || !retailPrice || !wholeSalePrice) {
+        errors.push({ row, reason: 'Missing required fields' });
+        continue;
+      }
+
+      if (!['pcs', 'kg'].includes(unitType)) {
+        errors.push({ row, reason: 'Invalid unitType' });
+        continue;
+      }
+
+      products.push({
+        name,
+        description: description || null,
+        retailPrice: parseFloat(retailPrice),
+        wholeSalePrice: parseFloat(wholeSalePrice),
+        barcode: barcode?.toString().trim() || null,
+        stock: parseFloat(stock || 0),
+        unitType,
+        category,
+        lowStockThreshold: parseInt(lowStockThreshold || 10),
+      });
+    }
+
+    await Product.bulkCreate(products);
+    fs.unlinkSync(req.file.path);
+
+    return res.status(201).json({
+      message: 'Bulk upload successful',
+      added: products.length,
+      errors
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Failed to process file', error: err.message });
+  }
+};
+
+const parseCSV = (filePath) => {
+  return new Promise((resolve, reject) => {
+    const results = [];
+    fs.createReadStream(filePath)
+      .pipe(csvParser())
+      .on('data', (row) => results.push(row))
+      .on('end', () => resolve(results))
+      .on('error', reject);
+  });
+};
+
+const parseExcel = (filePath) => {
+  const workbook = xlsx.readFile(filePath);
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  return xlsx.utils.sheet_to_json(sheet);
+};
+
+
 exports.updateProduct = async (req, res) => {
   try {
     const { id } = req.params; // Get product ID from the URL
@@ -55,6 +146,7 @@ exports.updateProduct = async (req, res) => {
       description,
       retailPrice,
       wholeSalePrice,
+      barcode,
       category,
       lowStockThreshold,
       unitType
@@ -73,6 +165,7 @@ exports.updateProduct = async (req, res) => {
       description: description || product.description,
       retailPrice: retailPrice || product.retailPrice,
       wholeSalePrice: wholeSalePrice || product.wholeSalePrice,
+      barcode: barcode || product.barcode,
       category: category || product.category,
       lowStockThreshold: lowStockThreshold || product.lowStockThreshold,
       unitType: unitType !== undefined ? unitType : product.unitType,
