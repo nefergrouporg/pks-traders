@@ -201,7 +201,6 @@ const Suppliers: React.FC = () => {
     if (
       !formData.name ||
       !formData.contactPerson ||
-      !formData.email ||
       !formData.phone
     ) {
       return toast.error("Required fields are missing");

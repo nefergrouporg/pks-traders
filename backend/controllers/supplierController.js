@@ -6,7 +6,7 @@ exports.createSupplier = async (req, res) => {
   try {
     const { name, contactPerson, email, phone, address } = req.body;
 
-    if (!name || !contactPerson || !email || !phone) {
+    if (!name || !contactPerson || !phone) {
       return res
         .status(400)
         .json({ error: "All required fields must be provided" });

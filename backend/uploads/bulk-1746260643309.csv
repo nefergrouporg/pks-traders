@@ -1,0 +1,7 @@
+name,retailPrice,wholeSalePrice,category,stock,barcode,description,lowStockThreshold,supplierId,active,isDeleted,unitType
+Apple,1.5,1.0,fruits,100,1234567890123,Fresh red apples,10,1,True,False,kg
+Banana,0.5,0.3,fruits,200,1234567890124,Organic bananas,20,2,True,False,kg
+Tomato,2.0,1.5,vegetables,150,1234567890125,Fresh tomatoes,15,1,True,False,kg
+Sugar,3.5,2.5,grocery,80,1234567890126,White sugar,10,3,True,False,kg
+Milk,2.0,1.7,grocery,60,1234567890127,Full cream milk,5,4,True,False,liter
+Eggs,0.2,0.15,grocery,300,1234567890128,Chicken eggs,30,3,True,False,pcs
