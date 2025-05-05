@@ -15,13 +15,20 @@ const usersRoutes = require("./routes/usersRoutes");
 const configRoutes = require("./routes/projectConfigRoutes");
 const customerRoutes = require("./routes/customerRoutes");
 const branchRouter = require("./routes/branchRoutes");
-const StockEntry = require("./routes/entryStockRouter")
+const StockEntry = require("./routes/entryStockRouter");
 const models = require("./models");
 // Initialize Express app
 const app = express();
 
 // Middleware
-app.use(cors()); // Enable CORS
+app.use(
+  cors({
+    origin: "https://pkstraders.in", // Frontend domain
+    methods: ["GET", "POST", "PUT", "DELETE"], // Allow these HTTP methods
+    allowedHeaders: ["Content-Type", "Authorization"], // Allow specific headers
+    credentials: true, // Allow cookies or credentials to be sent
+  })
+);
 app.use(morgan("dev")); // Logging
 app.use(bodyParser.json()); // Parse JSON bodies
 app.use(bodyParser.urlencoded({ extended: true })); // Parse URL-encoded bodies
