@@ -414,7 +414,7 @@ const StockEntryManagement: React.FC = () => {
             onChange={(e) => setBatchFilter(e.target.value)}
             className="p-2 border border-gray-400 bg-transparent rounded-lg text-sm sm:text-base"
           />
-          <div>
+          {/* <div>
             <button
               className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition text-sm sm:text-base"
               onClick={() => setIsModalOpen(true)}
@@ -476,7 +476,7 @@ const StockEntryManagement: React.FC = () => {
                 </div>
               </div>
             )}
-          </div>
+          </div> */}
           <button
             className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition text-sm sm:text-base"
             onClick={() => setStockEntryModal(true)}

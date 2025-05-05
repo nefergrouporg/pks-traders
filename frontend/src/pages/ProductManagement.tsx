@@ -544,7 +544,7 @@ const ProductManagement: React.FC = () => {
             <option value="fruits">Fruits</option>
             <option value="vegetables">Vegetables</option>
           </select>
-          <div>
+          {/* <div>
             <button
               className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition text-sm sm:text-base"
               onClick={() => setIsModalOpen(true)}
@@ -606,7 +606,7 @@ const ProductManagement: React.FC = () => {
                 </div>
               </div>
             )}
-          </div>
+          </div> */}
           <button
             className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition text-sm sm:text-base"
             onClick={() => setProductModal(true)}

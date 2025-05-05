@@ -499,7 +499,6 @@ const Suppliers: React.FC = () => {
                     onChange={handleInputChange}
                     className="w-full border rounded-lg px-4 py-2 bg-white text-black focus:ring-2 focus:ring-green-500"
                     placeholder="Enter email address"
-                    required
                   />
                 </div>
                 <div>
