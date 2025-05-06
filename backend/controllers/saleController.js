@@ -14,7 +14,7 @@ const { generatePaymentQR } = require("../utils/qrGenerator");
 exports.createSale = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { items, paymentMethod, customerId, saleType } = req.body;
+    const { items, paymentMethod, customerId, saleType, finalAmount } = req.body;
 
     if (!userId) return res.status(400).json({ error: "User ID is required" });
     if (!items || !items.length)
@@ -80,6 +80,10 @@ exports.createSale = async (req, res) => {
         });
       }
 
+      if(saleType === "wholeSale"){
+        totalAmount = finalAmount
+      }
+      
       if (customerId) {
         await Customer.update(
           {

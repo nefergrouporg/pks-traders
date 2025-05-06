@@ -131,7 +131,7 @@ const POSInterface: React.FC = () => {
   const receiptRef = useRef<HTMLDivElement>(null);
   const customerSearchRef = useRef<HTMLInputElement>(null);
   const scanTimeout = useRef<NodeJS.Timeout | null>(null);
-
+  const [customTotalPrice, setCustomTotalPrice] = useState<number | null>(null);
   const token = localStorage.getItem("token");
 
   const isCartValid = () => {
@@ -361,16 +361,24 @@ const POSInterface: React.FC = () => {
       tempDiv.appendChild(receiptRef.current.cloneNode(true));
       document.body.appendChild(tempDiv);
 
-      const canvas = await html2canvas(tempDiv.firstChild as HTMLElement, {
+      const element = tempDiv.firstChild as HTMLElement;
+
+      // Set fixed width and natural height
+      element.style.width = "80mm"; // Standard thermal printer width
+      element.style.height = "auto";
+
+      const canvas = await html2canvas(element, {
         scale: 3,
         backgroundColor: "#ffffff",
         logging: false,
+        width: 300, // 80mm equivalent in pixels
+        windowWidth: 300,
       });
 
       document.body.removeChild(tempDiv);
 
-      // Thermal printer dimensions (80mm width)
-      const pdfWidth = 80; // in mm
+      // Calculate PDF dimensions
+      const pdfWidth = 80; // mm
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
       const pdf = new jsPDF({
@@ -399,6 +407,11 @@ const POSInterface: React.FC = () => {
     method: "cash" | "card" | "upi" | "debt"
   ) => {
     try {
+      const finalAmount =
+        saleType === "wholeSale" && customTotalPrice !== null
+          ? customTotalPrice
+          : totalPrice;
+
       const saleData = {
         items: cart.map((item) => ({
           productId: item.id,
@@ -407,6 +420,7 @@ const POSInterface: React.FC = () => {
         paymentMethod: method.toLowerCase(),
         customerId: selectedCustomer?.id || null,
         saleType,
+        finalAmount: finalAmount, // Add this line
       };
       const response = await axios.post(`${baseUrl}/api/sales`, saleData, {
         headers: { Authorization: `Bearer ${token}` },
@@ -710,7 +724,7 @@ const POSInterface: React.FC = () => {
         <div ref={receiptRef}>
           <Receipt
             cart={cart}
-            totalPrice={totalPrice}
+            totalPrice={customTotalPrice ? customTotalPrice :totalPrice}
             saleId={currentSaleId}
             paymentMethod={selectedPaymentMethod || ""}
             customer={selectedCustomer}
@@ -723,7 +737,7 @@ const POSInterface: React.FC = () => {
         isOpen={isPreviewOpen}
         onClose={handlePreviewClose}
         cart={cart}
-        totalPrice={totalPrice}
+        totalPrice={customTotalPrice ? customTotalPrice :totalPrice}
         saleId={currentSaleId}
         paymentMethod={selectedPaymentMethod || ""}
         onPrint={handlePrint}
@@ -1014,7 +1028,8 @@ const POSInterface: React.FC = () => {
                           <span className="font-medium">{product?.name}</span>
                           <span className="font-semibold text-blue-700">
                             ₹
-                            {(saleType === "wholeSale" && product?.wholeSalePrice
+                            {(saleType === "wholeSale" &&
+                            product?.wholeSalePrice
                               ? product?.wholeSalePrice
                               : product?.retailPrice
                             ).toFixed(2)}
@@ -1268,16 +1283,17 @@ const POSInterface: React.FC = () => {
                 </div>
 
                 <div className="mt-4 pt-4 border-t border-gray-200">
-                  <div className="flex justify-between items-center">
-                    <div className="text-sm text-gray-600">
-                      {totalItems} {totalItems === 1 ? "item" : "items"}
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm text-gray-600">Total Amount</div>
-                      <div className="text-2xl font-bold text-blue-700">
-                        ₹{totalAmount.toFixed(2)}
-                      </div>
-                    </div>
+                  <div className="flex justify-between items-center pt-4 border-t border-gray-100">
+                    <span className="text-gray-600 font-medium">
+                      Total Amount
+                    </span>
+                    <span className="text-xl font-bold text-gray-800">
+                      ₹
+                      {(saleType === "wholeSale" && customTotalPrice !== null
+                        ? customTotalPrice
+                        : totalPrice
+                      )?.toFixed(2)}
+                    </span>
                   </div>
 
                   <div className="mt-4 flex justify-end">
@@ -1443,12 +1459,49 @@ const POSInterface: React.FC = () => {
             )}
           </div>
 
+          {saleType === "wholeSale" && (
+            <div className="mb-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-gray-600 mb-1">Calculated Total</p>
+                  <p className="text-lg font-semibold text-blue-700">
+                    ₹{totalPrice.toFixed(2)}
+                  </p>
+                </div>
+                <div className="p-3 bg-green-50 rounded-lg">
+                  <label className="text-sm text-gray-600 mb-1 block">
+                    Final Price
+                    <span className="text-xs text-gray-500 ml-2">
+                      (negotiable)
+                    </span>
+                  </label>
+                  <input
+                    type="number"
+                    value={customTotalPrice ? customTotalPrice : totalPrice}
+                    onChange={(e) =>
+                      setCustomTotalPrice(Number(e.target.value))
+                    }
+                    className="w-full text-lg font-semibold bg-transparent focus:outline-none"
+                    min={0}
+                    step={0.01}
+                  />
+                </div>
+              </div>
+              <p className="text-sm text-gray-500 mt-2">
+                * Adjust final price for wholesale customers as needed
+              </p>
+            </div>
+          )}
+
           {/* Total and Payment Section */}
           <div className="space-y-4">
             <div className="flex justify-between items-center pt-4 border-t border-gray-100">
               <span className="text-gray-600 font-medium">Total Amount</span>
               <span className="text-xl font-bold text-gray-800">
-                ₹{totalPrice.toFixed(2)}
+                ₹
+                {customTotalPrice
+                  ? customTotalPrice?.toFixed(2)
+                  : totalPrice.toFixed(2)}
               </span>
             </div>
 
