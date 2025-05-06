@@ -422,9 +422,15 @@ const POSInterface: React.FC = () => {
         saleType,
         finalAmount: finalAmount, // Add this line
       };
+
       const response = await axios.post(`${baseUrl}/api/sales`, saleData, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        timeout: 10000 // 10-second timeout
       });
+      
       if (response.status === 201) {
         toast.success(response.data.message || "Sale created successfully");
         setCurrentSaleId(response.data.sale.id);
@@ -458,6 +464,7 @@ const POSInterface: React.FC = () => {
       toast.success("Payment confirmed!");
       setIsSaleComplete(true);
 
+      await new Promise(resolve => setTimeout(resolve, 300))
       // Always download PDF regardless of payment method
       // setTimeout(() => {
       downloadReceiptAsPDF();

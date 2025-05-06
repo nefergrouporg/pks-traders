@@ -20,10 +20,17 @@ const models = require("./models");
 // Initialize Express app
 const app = express();
 
-// Middleware
-app.use(
-  cors()
-);
+const corsOptions = {
+  origin: [
+    'https://pkstraders.in',
+    'http://localhost:5173' 
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+app.use(cors(corsOptions));
 app.use(morgan("dev")); // Logging
 app.use(bodyParser.json()); // Parse JSON bodies
 app.use(bodyParser.urlencoded({ extended: true })); // Parse URL-encoded bodies

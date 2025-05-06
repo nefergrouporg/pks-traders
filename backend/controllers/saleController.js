@@ -14,7 +14,8 @@ const { generatePaymentQR } = require("../utils/qrGenerator");
 exports.createSale = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { items, paymentMethod, customerId, saleType, finalAmount } = req.body;
+    const { items, paymentMethod, customerId, saleType, finalAmount } =
+      req.body;
 
     if (!userId) return res.status(400).json({ error: "User ID is required" });
     if (!items || !items.length)
@@ -80,10 +81,10 @@ exports.createSale = async (req, res) => {
         });
       }
 
-      if(saleType === "wholeSale"){
-        totalAmount = finalAmount
+      if (saleType === "wholeSale") {
+        totalAmount = finalAmount;
       }
-      
+
       if (customerId) {
         await Customer.update(
           {
@@ -96,19 +97,17 @@ exports.createSale = async (req, res) => {
           }
         );
       }
-
       const user = await User.findByPk(userId);
+      console.log(paymentMethod, customerId)
       if (paymentMethod === "debt") {
         if (customerId === null) {
           return res.status(400).json({
             error: "Please select customer for Debt",
           });
         }
-
-        const customer = await Customer.findByPk(customerId);
-
+        const customer = await Customer.findByPk(customerId, { transaction });
         customer.debtAmount += totalAmount;
-        customer.save();
+        await customer.save({ transaction });
       }
 
       const sale = await Sale.create(
@@ -122,7 +121,6 @@ exports.createSale = async (req, res) => {
         },
         { transaction }
       );
-
       await Promise.all(
         saleItems.map((item) =>
           SaleItem.create(
@@ -164,6 +162,7 @@ exports.createSale = async (req, res) => {
         paymentQR,
         paymentId: payment.id,
       });
+      console.log("Sale created successfully:", sale.id);
     } catch (error) {
       await transaction.rollback();
       console.error("Sale creation failed:", error);
@@ -187,25 +186,25 @@ exports.getAllSales = async (req, res) => {
           include: [
             {
               model: Product,
-              as:'product',
-              attributes: ['name'], 
+              as: "product",
+              attributes: ["name"],
             },
           ],
         },
         {
-          model: Branch, 
-          as: 'branch',
-          attributes: ['name'],
+          model: Branch,
+          as: "branch",
+          attributes: ["name"],
         },
         {
           model: User,
           as: "user",
-          attributes: ['username'],
+          attributes: ["username"],
         },
         {
           model: Customer,
-          as:'customer',
-          attributes: ['name'],
+          as: "customer",
+          attributes: ["name"],
         },
         {
           model: Payment,
@@ -220,5 +219,3 @@ exports.getAllSales = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
-
-
