@@ -22,12 +22,7 @@ const app = express();
 
 // Middleware
 app.use(
-  cors({
-    origin: "https://pkstraders.in", // Frontend domain
-    methods: ["GET", "POST", "PUT", "DELETE"], // Allow these HTTP methods
-    allowedHeaders: ["Content-Type", "Authorization"], // Allow specific headers
-    credentials: true, // Allow cookies or credentials to be sent
-  })
+  cors()
 );
 app.use(morgan("dev")); // Logging
 app.use(bodyParser.json()); // Parse JSON bodies

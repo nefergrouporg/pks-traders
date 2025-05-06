@@ -20,7 +20,7 @@ module.exports = (sequelize) => {
         allowNull: true,
       },
       paymentMethod: {
-        type: DataTypes.ENUM('cash', 'card', 'upi', 'qr'),
+        type: DataTypes.ENUM('cash', 'card', 'upi', 'debt'),
         allowNull: false,
       },
       userId: {
