@@ -23,13 +23,15 @@ const app = express();
 const corsOptions = {
   origin: [
     'https://pkstraders.in',
-    'http://localhost:5173' 
+    'https://www.pkstraders.in', // Added www variant
+    'http://localhost:5173'
   ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   credentials: true,
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 204
 };
+
 app.use(cors(corsOptions));
 app.use(morgan("dev")); // Logging
 app.use(bodyParser.json()); // Parse JSON bodies
