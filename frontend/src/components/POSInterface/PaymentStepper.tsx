@@ -5,6 +5,7 @@ import Stepper, { Step } from "../Stepper";
 import moneyClipart from "../../assets/money_clipart.png";
 import cardsClipart from "../../assets/cards_clipart.png";
 import { TrendingDown } from "lucide-react";
+import { Customer } from "../../pages/POSInterface";
 
 interface PaymentStepperProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ interface PaymentStepperProps {
   ) => Promise<any>;
   setCurrentSaleId: (id: number) => void;
   setPendingSale: (sale: any) => void;
+  selectedCustomer: Customer | null;
 }
 
 const PaymentStepper: React.FC<PaymentStepperProps> = ({
@@ -38,6 +40,7 @@ const PaymentStepper: React.FC<PaymentStepperProps> = ({
   createPendingSale,
   setCurrentSaleId,
   setPendingSale,
+  selectedCustomer
 }) => {
   const [tempPaymentMethod, setTempPaymentMethod] = useState<
     "cash" | "card" | "upi" | "debt"
@@ -47,6 +50,10 @@ const PaymentStepper: React.FC<PaymentStepperProps> = ({
   const handlePaymentMethodSelect = (
     method: "cash" | "card" | "upi" | "debt"
   ) => {
+    if(method === "debt" && selectedCustomer === null) {
+      toast.error("Please select a customer first");
+      return
+    }
     setTempPaymentMethod(method);
     setSelectedPaymentMethod(method);
   };
@@ -81,7 +88,6 @@ const PaymentStepper: React.FC<PaymentStepperProps> = ({
       toast.error("Please select a payment method first");
       return;
     }
-
     try {
       if (selectedPaymentMethod !== "upi") {
         await createPendingSale(selectedPaymentMethod);
@@ -94,7 +100,7 @@ const PaymentStepper: React.FC<PaymentStepperProps> = ({
         // Don’t close yet, let user view receipt
       }
     } catch (error) {
-      toast.error("Failed to complete payment");
+      // toast.error("Failed to complete payment");
       console.error(error);
     }
   };
@@ -129,6 +135,8 @@ const PaymentStepper: React.FC<PaymentStepperProps> = ({
             currentStepperStep === 2 ? "Confirm Payment" : undefined
           }
           onClose={onClose}
+          selectedCustomer={selectedCustomer}
+          paymentMethod={selectedPaymentMethod}
         >
           <Step>
             <div className="flex flex-col gap-4">

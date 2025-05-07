@@ -7,6 +7,8 @@ import React, {
   ReactNode,
 } from "react";
 import { motion, AnimatePresence, Variants } from "framer-motion";
+import { Customer } from "../pages/POSInterface";
+import { toast } from "sonner";
 
 interface StepperProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
@@ -23,6 +25,8 @@ interface StepperProps extends HTMLAttributes<HTMLDivElement> {
   backButtonText?: string;
   nextButtonText?: string;
   disableStepIndicators?: boolean;
+  selectedCustomer?: Customer | null
+  paymentMethod : "cash" | "card" | "upi" | "debt" | undefined;
   renderStepIndicator?: (props: {
     step: number;
     currentStep: number;
@@ -45,6 +49,8 @@ export default function Stepper({
   nextButtonText = "Continue",
   disableStepIndicators = false,
   renderStepIndicator,
+  selectedCustomer,
+  paymentMethod,
   ...rest
 }: StepperProps) {
   const [currentStep, setCurrentStep] = useState<number>(initialStep);
@@ -65,12 +71,20 @@ export default function Stepper({
 
   const handleNext = () => {
     if (!isLastStep) {
+      if (selectedCustomer === null && paymentMethod === "debt") {
+        toast.error("Please select a customer first");
+        return;
+      }
       setDirection(1);
       updateStep(currentStep + 1);
     }
   };
 
   const handleComplete = () => {
+    if (selectedCustomer === null && paymentMethod === "debt") {
+      toast.error("Please select a customer first");
+      return;
+    }
     setDirection(1);
     updateStep(totalSteps + 1);
   };

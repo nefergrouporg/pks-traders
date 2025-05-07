@@ -43,7 +43,7 @@ interface CartItem {
   price: number;
 }
 
-interface Customer {
+export interface Customer {
   id: number;
   name: string | null;
   phone: string;
@@ -407,6 +407,11 @@ const POSInterface: React.FC = () => {
     method: "cash" | "card" | "upi" | "debt"
   ) => {
     try {
+      if (method === "debt" && selectedCustomer?.id === null) {
+        toast.error("Please select a customer for debt payment.");
+        return;
+      }
+
       const finalAmount =
         saleType === "wholeSale" && customTotalPrice !== null
           ? customTotalPrice
@@ -424,13 +429,13 @@ const POSInterface: React.FC = () => {
       };
 
       const response = await axios.post(`${baseUrl}/api/sales`, saleData, {
-        headers: { 
+        headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
-        timeout: 10000 // 10-second timeout
+        timeout: 10000, // 10-second timeout
       });
-      
+
       if (response.status === 201) {
         toast.success(response.data.message || "Sale created successfully");
         setCurrentSaleId(response.data.sale.id);
@@ -464,7 +469,7 @@ const POSInterface: React.FC = () => {
       toast.success("Payment confirmed!");
       setIsSaleComplete(true);
 
-      await new Promise(resolve => setTimeout(resolve, 300))
+      await new Promise((resolve) => setTimeout(resolve, 300));
       // Always download PDF regardless of payment method
       // setTimeout(() => {
       downloadReceiptAsPDF();
@@ -731,7 +736,7 @@ const POSInterface: React.FC = () => {
         <div ref={receiptRef}>
           <Receipt
             cart={cart}
-            totalPrice={customTotalPrice ? customTotalPrice :totalPrice}
+            totalPrice={customTotalPrice ? customTotalPrice : totalPrice}
             saleId={currentSaleId}
             paymentMethod={selectedPaymentMethod || ""}
             customer={selectedCustomer}
@@ -744,7 +749,7 @@ const POSInterface: React.FC = () => {
         isOpen={isPreviewOpen}
         onClose={handlePreviewClose}
         cart={cart}
-        totalPrice={customTotalPrice ? customTotalPrice :totalPrice}
+        totalPrice={customTotalPrice ? customTotalPrice : totalPrice}
         saleId={currentSaleId}
         paymentMethod={selectedPaymentMethod || ""}
         onPrint={handlePrint}
@@ -779,6 +784,7 @@ const POSInterface: React.FC = () => {
             createPendingSale={createPendingSale}
             setCurrentSaleId={setCurrentSaleId}
             setPendingSale={setPendingSale}
+            selectedCustomer={selectedCustomer}
           />
         )}
       </AnimatePresence>

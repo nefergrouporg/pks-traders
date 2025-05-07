@@ -42,10 +42,15 @@ exports.createSale = async (req, res) => {
           .json({ error: "Quantity is required for each item" });
     }
 
-    const transaction = await sequelize.transaction();
     try {
+      const transaction = await sequelize.transaction();
       const saleItems = [];
       let totalAmount = 0;
+      if (paymentMethod === "debt" && customerId === null) {
+        return res.status(400).json({
+          error: "Please select customer for Debt",
+        });
+      }
 
       for (const item of items) {
         const product = await Product.findByPk(item.productId, {
@@ -98,13 +103,9 @@ exports.createSale = async (req, res) => {
         );
       }
       const user = await User.findByPk(userId);
-      console.log(paymentMethod, customerId)
+      console.log(paymentMethod, customerId);
+      
       if (paymentMethod === "debt") {
-        if (customerId === null) {
-          return res.status(400).json({
-            error: "Please select customer for Debt",
-          });
-        }
         const customer = await Customer.findByPk(customerId, { transaction });
         customer.debtAmount += totalAmount;
         await customer.save({ transaction });
