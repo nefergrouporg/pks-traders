@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import Stepper, { Step } from "../Stepper";
@@ -40,57 +40,125 @@ const PaymentStepper: React.FC<PaymentStepperProps> = ({
   setCurrentSaleId,
   setPendingSale,
   selectedCustomer,
-  paymentMethod,
 }) => {
+  const [isGeneratingQR, setIsGeneratingQR] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState<number>(0);
   const [tempPaymentMethod, setTempPaymentMethod] = useState<
     "cash" | "card" | "upi" | "debt"
-  >();
-  const [isGeneratingQR, setIsGeneratingQR] = useState(false);
+  >(selectedPaymentMethod || "cash");
+
+  const paymentMethodsRef = useRef<HTMLDivElement>(null);
+
+  const paymentOptions = [
+    {
+      method: "cash",
+      label: "Cash",
+      icon: <img src={moneyClipart} alt="Cash" className="h-8 w-8" />,
+    },
+    {
+      method: "card",
+      label: "Card",
+      icon: <img src={cardsClipart} alt="Card" className="h-8 w-8" />,
+    },
+    {
+      method: "upi",
+      label: "UPI",
+      icon: (
+        <svg className="h-8 w-8" viewBox="0 0 24 24">
+          <path
+            fill="currentColor"
+            d="M10.5 15.5v-7h3v7h-3zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"
+          />
+        </svg>
+      ),
+    },
+    { method: "debt", label: "Debt", icon: <TrendingDown /> },
+  ];
 
   const handlePaymentMethodSelect = (
     method: "cash" | "card" | "upi" | "debt"
-  ) => {
-    // if (method === "debt" && selectedCustomer === null) {
-    //   toast.error("Please select a customer first");
-    //   return;
-    // }
-    setTempPaymentMethod(method);
+  ): boolean => {
+    console.log(`Attempting to select payment method: ${method}`);
+    if (method === "debt" && selectedCustomer === null) {
+      toast.error("Please select a customer first");
+      console.log("Selection failed: No customer selected for debt");
+      return false;
+    }
     setSelectedPaymentMethod(method);
+    console.log(`Selected payment method: ${method}`);
+    return true;
   };
 
-  const handleStepChange = async (newStep: number) => {
-    if (newStep === 1 && !selectedPaymentMethod) {
-      toast.error("Please select a payment method first");
-      return;
-    }
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!isOpen || currentStepperStep !== 1) return;
 
-    // Prevent selecting 'debt' without a customer
-    if (
-      newStep === 1 &&
-      selectedPaymentMethod === "debt" &&
-      !selectedCustomer
-    ) {
-      toast.error("Please select a customer for debt payment");
-      return;
-    }
-    if (newStep === 2 && selectedPaymentMethod === "upi" && !paymentQR) {
-      try {
-        setIsGeneratingQR(true);
-        const response = await createPendingSale("upi");
-        if (response?.paymentQR) {
-          setCurrentSaleId(response.sale.id);
-          setPendingSale(response.sale);
-          // setCurrent;
-          // StepperStep(2); // Move to QR step
-        } else {
-          toast.error("Failed to generate UPI QR code");
-          setCurrentStepperStep(1);
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        setHighlightedIndex((prev) => (prev + 1) % paymentOptions.length);
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        setHighlightedIndex(
+          (prev) => (prev - 1 + paymentOptions.length) % paymentOptions.length
+        );
+        break;
+      case "Enter":
+        e.preventDefault();
+        const method = paymentOptions[highlightedIndex]
+          .method as typeof tempPaymentMethod;
+        if (method === "debt" && !selectedCustomer) {
+          toast.error("Please select a customer first");
+          return;
         }
-      } catch (error) {
-        toast.error("Failed to generate UPI QR code");
-        setCurrentStepperStep(1);
-      } finally {
-        setIsGeneratingQR(false);
+        setTempPaymentMethod(method);
+        setSelectedPaymentMethod(method);
+        handleStepChange(2, method); // Pass the method directly
+        break;
+      default:
+        break;
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && currentStepperStep === 1) {
+      const timer = setTimeout(() => {
+        paymentMethodsRef.current?.focus();
+        setHighlightedIndex(
+          paymentOptions.findIndex((opt) => opt.method === tempPaymentMethod)
+        );
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, currentStepperStep]);
+
+  const handleStepChange = async (
+    newStep: number,
+    selectedMethod?: typeof tempPaymentMethod
+  ) => {
+    const method = selectedMethod || tempPaymentMethod;
+    if (newStep === 2) {
+      if (!method) {
+        toast.error("Please select a payment method first");
+        return;
+      }
+
+      // For UPI specifically
+      if (method === "upi" && !paymentQR) {
+        try {
+          setIsGeneratingQR(true);
+          const response = await createPendingSale(method);
+          if (response?.paymentQR) {
+            setPaymentQR(response.paymentQR);
+            setCurrentStepperStep(2);
+          }
+        } catch (error) {
+          toast.error("Failed to initialize UPI payment");
+        } finally {
+          setIsGeneratingQR(false);
+        }
+      } else {
+        setCurrentStepperStep(newStep);
       }
     } else {
       setCurrentStepperStep(newStep);
@@ -98,26 +166,32 @@ const PaymentStepper: React.FC<PaymentStepperProps> = ({
   };
 
   const handleFinalStep = async () => {
+    console.log("Handling final step...");
     if (!selectedPaymentMethod) {
       toast.error("Please select a payment method first");
+      console.log("Final step failed: No payment method selected");
       return;
     }
     try {
       if (selectedPaymentMethod !== "upi") {
+        console.log(`Creating pending sale for: ${selectedPaymentMethod}`);
         await createPendingSale(selectedPaymentMethod);
-        // onPaymentConfirm();
-        // onClose();
         showReceiptPreview();
+        console.log("Receipt preview shown");
       } else {
-        // For UPI, payment confirmation happens after QR scan
         onPaymentConfirm();
-        // Don’t close yet, let user view receipt
+        console.log("UPI payment confirmed");
       }
     } catch (error) {
-      // toast.error("Failed to complete payment");
-      console.error(error);
+      console.error("Final step error:", error);
     }
   };
+  useEffect(() => {
+    if (isOpen && currentStepperStep === 1) {
+      // Add slight delay to ensure focus is applied
+      setTimeout(() => paymentMethodsRef.current?.focus(), 50);
+    }
+  }, [isOpen, currentStepperStep]);
 
   if (!isOpen) return null;
 
@@ -133,73 +207,56 @@ const PaymentStepper: React.FC<PaymentStepperProps> = ({
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
-        className="rounded-lg p-4 sm:p-6 w-full max-w-xs sm:max-w-sm md:max-w-md  relative"
+        className="rounded-lg p-4 sm:p-6 w-full max-w-xs sm:max-w-sm md:max-w-md relative"
       >
         <Stepper
+          key={currentStepperStep} // Add this line to force re-render on step change
           initialStep={currentStepperStep}
           onFinalStepCompleted={handleFinalStep}
           onStepChange={handleStepChange}
           nextButtonText={
             currentStepperStep === 2 ? "Confirm Payment" : undefined
           }
-          onClose={onClose}
+          onClose={() => {
+            onClose();
+            setTempPaymentMethod("cash"); // Set to default payment method
+          }}
           selectedCustomer={selectedCustomer}
           paymentMethod={tempPaymentMethod}
         >
           <Step>
             <div className="flex flex-col gap-4">
               <h2 className="text-lg font-semibold">Select Payment Method</h2>
-              <button
-                onClick={() => handlePaymentMethodSelect("cash")}
-                className={`p-2 rounded flex items-center gap-2 ${
-                  selectedPaymentMethod === "cash"
-                    ? "bg-blue-500 text-white"
-                    : "bg-gray-200 hover:bg-gray-300"
-                }`}
+              <div
+                ref={paymentMethodsRef}
+                onKeyDown={handleKeyDown}
+                tabIndex={0}
+                className="focus:outline-none flex flex-col gap-2"
               >
-                <img src={moneyClipart} alt="Cash" className="h-8 w-8" />
-                <span>Cash</span>
-              </button>
-              <button
-                onClick={() => handlePaymentMethodSelect("card")}
-                className={`p-2 rounded flex items-center gap-2 ${
-                  selectedPaymentMethod === "card"
-                    ? "bg-blue-500 text-white"
-                    : "bg-gray-200 hover:bg-gray-300"
-                }`}
-              >
-                <img src={cardsClipart} alt="Card" className="h-8 w-8" />
-                <span>Card</span>
-              </button>
-              <button
-                onClick={() => handlePaymentMethodSelect("upi")}
-                className={`p-2 rounded flex items-center gap-2 ${
-                  selectedPaymentMethod === "upi"
-                    ? "bg-blue-500 text-white"
-                    : "bg-gray-200 hover:bg-gray-300"
-                }`}
-              >
-                <svg className="h-8 w-8" viewBox="0 0 24 24">
-                  <path
-                    fill="currentColor"
-                    d="M10.5 15.5v-7h3v7h-3zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"
-                  />
-                </svg>
-                <span>UPI</span>
-              </button>
-              {/* {selectedCustomer && ( */}
-              <button
-                onClick={() => handlePaymentMethodSelect("debt")}
-                className={`p-2 rounded flex items-center gap-2 ${
-                  selectedPaymentMethod === "debt"
-                    ? "bg-blue-500 text-white"
-                    : "bg-gray-200 hover:bg-gray-300"
-                }`}
-              >
-                <TrendingDown />
-                <span>Debt</span>
-              </button>
-              {/* )} */}
+                {paymentOptions.map((option, index) => (
+                  <button
+                    key={option.method}
+                    onClick={() => {
+                      const method = option.method as typeof tempPaymentMethod;
+                      setHighlightedIndex(index);
+                      if (handlePaymentMethodSelect(method)) {
+                        setTempPaymentMethod(method); // Update local state
+                        handleStepChange(2, method); // Pass method directly
+                      }
+                    }}
+                    className={`p-2 rounded flex items-center gap-2 w-full text-left transition-colors ${
+                      tempPaymentMethod === option.method
+                        ? "bg-blue-500 text-white"
+                        : index === highlightedIndex
+                        ? "bg-blue-100 border-2 border-blue-500"
+                        : "bg-gray-100 hover:bg-gray-200"
+                    }`}
+                  >
+                    {option.icon}
+                    <span>{option.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </Step>
           <Step>

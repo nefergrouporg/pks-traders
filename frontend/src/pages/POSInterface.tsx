@@ -8,7 +8,9 @@ import jsPDF from "jspdf";
 import { baseUrl } from "../../utils/services";
 import Receipt from "../components/POSInterface/Receipt";
 import ReceiptPreviewModal from "../components/POSInterface/ReceiptPreviewModal";
-import PaymentStepper from "../components/POSInterface/PaymentStepper";
+import moneyClipart from "../assets/cards_clipart.png";
+import cardsClipart from "../assets/cards_clipart.png";
+import { TrendingDown } from "lucide-react";
 
 interface ModalProps {
   isOpen: boolean;
@@ -110,8 +112,6 @@ const POSInterface: React.FC = () => {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
     null
   );
-  const [isStepperOpen, setIsStepperOpen] = useState<boolean>(false);
-  const [currentStepperStep, setCurrentStepperStep] = useState<number>(1);
   const [saleType, setSaleType] = useState<"retail" | "wholeSale">("retail");
   const [barcode, setBarcode] = useState<string>("");
   const [scanning, setScanning] = useState<boolean>(false);
@@ -124,15 +124,46 @@ const POSInterface: React.FC = () => {
   const [customerSearchResults, setCustomerSearchResults] = useState<
     Customer[]
   >([]);
+  const [highlightedPaymentIndex, setHighlightedPaymentIndex] =
+    useState<number>(0);
 
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const productSearchRef = useRef<HTMLInputElement>(null);
   const cartRef = useRef<HTMLDivElement>(null);
   const receiptRef = useRef<HTMLDivElement>(null);
   const customerSearchRef = useRef<HTMLInputElement>(null);
+  const paymentMethodsRef = useRef<HTMLDivElement>(null);
+  const confirmPaymentRef = useRef<HTMLButtonElement>(null);
+  const paymentReceivedRef = useRef<HTMLButtonElement>(null);
   const scanTimeout = useRef<NodeJS.Timeout | null>(null);
   const [customTotalPrice, setCustomTotalPrice] = useState<number | null>(null);
   const token = localStorage.getItem("token");
+
+  const paymentOptions = [
+    {
+      method: "cash",
+      label: "Cash",
+      icon: <img src={moneyClipart} alt="Cash" className="h-8 w-8" />,
+    },
+    {
+      method: "card",
+      label: "Card",
+      icon: <img src={cardsClipart} alt="Card" className="h-8 w-8" />,
+    },
+    {
+      method: "upi",
+      label: "UPI",
+      icon: (
+        <svg className="h-8 w-8" viewBox="0 0 24 24">
+          <path
+            fill="currentColor"
+            d="M10.5 15.5v-7h3v7h-3zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"
+          />
+        </svg>
+      ),
+    },
+    { method: "debt", label: "Debt", icon: <TrendingDown /> },
+  ];
 
   const isCartValid = () => {
     return cart.length > 0 && cart.every((item) => item.quantity > 0);
@@ -149,13 +180,9 @@ const POSInterface: React.FC = () => {
     if (isSaleComplete) resetSaleState();
   };
 
-  const showPreview = () => {
+  const showReceiptPreview = () => {
     setShowReceipt(true);
     setIsPreviewOpen(true);
-  };
-
-  const handleCancelOrder = () => {
-    setIsStepperOpen(false);
   };
 
   const handleCustomerKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -191,8 +218,6 @@ const POSInterface: React.FC = () => {
     setCurrentSaleId(-1);
     setIsSaleComplete(false);
     setPendingSale(null);
-    setIsStepperOpen(false);
-    setCurrentStepperStep(1);
     setSelectedPaymentMethod(undefined);
     setPaymentQR(null);
     setShowReceipt(false);
@@ -207,6 +232,7 @@ const POSInterface: React.FC = () => {
     setIsDropdownOpen(false);
     setCartSelectedIndex(-1);
     setActiveTab(0);
+    setHighlightedPaymentIndex(0);
   };
 
   const fetchCustomers = async () => {
@@ -339,18 +365,8 @@ const POSInterface: React.FC = () => {
     document.body.innerHTML = printContents;
     window.print();
     document.body.innerHTML = originalContents;
-    window.location.reload(); // optional: reload to reset page if needed
+    window.location.reload();
   };
-
-  // const handlePrint = useReactToPrint({
-  //   content: () => receiptRef.current,
-  //   onBeforeGetContent: () =>
-  //     new Promise<void>((resolve) => {
-  //       setShowReceipt(true);
-  //       setTimeout(() => resolve(), 100);
-  //     }),
-  //   removeAfterPrint: false,
-  // });
 
   const downloadReceiptAsPDF = async () => {
     if (!receiptRef.current) return;
@@ -363,22 +379,20 @@ const POSInterface: React.FC = () => {
 
       const element = tempDiv.firstChild as HTMLElement;
 
-      // Set fixed width and natural height
-      element.style.width = "80mm"; // Standard thermal printer width
+      element.style.width = "80mm";
       element.style.height = "auto";
 
       const canvas = await html2canvas(element, {
         scale: 3,
         backgroundColor: "#ffffff",
         logging: false,
-        width: 300, // 80mm equivalent in pixels
+        width: 300,
         windowWidth: 300,
       });
 
       document.body.removeChild(tempDiv);
 
-      // Calculate PDF dimensions
-      const pdfWidth = 80; // mm
+      const pdfWidth = 80;
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
       const pdf = new jsPDF({
@@ -425,7 +439,7 @@ const POSInterface: React.FC = () => {
         paymentMethod: method.toLowerCase(),
         customerId: selectedCustomer?.id || null,
         saleType,
-        finalAmount: finalAmount, // Add this line
+        finalAmount: finalAmount,
       };
 
       const response = await axios.post(`${baseUrl}/api/sales`, saleData, {
@@ -433,7 +447,7 @@ const POSInterface: React.FC = () => {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        timeout: 10000, // 10-second timeout
+        timeout: 10000,
       });
 
       if (response.status === 201) {
@@ -442,8 +456,6 @@ const POSInterface: React.FC = () => {
         setPendingSale(response.data.sale);
         if (method === "upi" && response.data.paymentQR) {
           setPaymentQR(response.data.paymentQR);
-          setIsStepperOpen(true);
-          setCurrentStepperStep(2);
         } else {
           await confirmPayment(response.data.sale.id, method);
         }
@@ -470,40 +482,101 @@ const POSInterface: React.FC = () => {
       setIsSaleComplete(true);
 
       await new Promise((resolve) => setTimeout(resolve, 300));
-      // Always download PDF regardless of payment method
-      // setTimeout(() => {
       downloadReceiptAsPDF();
-      // handlePrint();
-      // }, 300);
 
       setShowReceipt(true);
       setIsPreviewOpen(true);
-
-      if (paymentMethod === "upi") {
-        setIsStepperOpen(true);
-        setCurrentStepperStep(2);
-      }
-
-      // resetSaleState();
     } catch (error) {
       console.error("Payment confirmation failed:", error);
       toast.error("Failed to confirm payment. Please try again.");
-      setIsStepperOpen(true);
     }
   };
 
-  const handleCreateSale = async () => {
-    if (!isCartValid()) {
-      toast.error("Cannot create sale with empty or invalid cart");
+  const handlePaymentKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowRight") {
+      e.preventDefault();
+      setHighlightedPaymentIndex((prev) => (prev + 1) % paymentOptions.length);
+    } else if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      setHighlightedPaymentIndex(
+        (prev) => (prev - 1 + paymentOptions.length) % paymentOptions.length
+      );
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const method = paymentOptions[highlightedPaymentIndex].method as
+        | "cash"
+        | "card"
+        | "upi"
+        | "debt";
+      handlePaymentMethodSelect(method);
+    }
+  };
+
+  const handlePaymentMethodSelect = async (
+    method: "cash" | "card" | "upi" | "debt"
+  ) => {
+    if (method === "debt" && !selectedCustomer) {
+      toast.error("Please select a customer for debt payment.");
       return;
     }
-    setIsStepperOpen(true);
-    setCurrentStepperStep(1);
-    setSelectedPaymentMethod(undefined);
-    setPaymentQR(null);
-    setIsSaleComplete(false);
-    setPendingSale(null);
+    setSelectedPaymentMethod(method);
+    if (method === "upi") {
+      try {
+        const response = await createPendingSale(method);
+        if (response?.paymentQR) {
+          setPaymentQR(response.paymentQR);
+        }
+      } catch (error) {
+        toast.error("Failed to generate UPI QR code");
+        setSelectedPaymentMethod(undefined);
+      }
+    }
   };
+
+  const handleConfirmPayment = async () => {
+    if (!selectedPaymentMethod || selectedPaymentMethod === "upi") return;
+    try {
+      await createPendingSale(selectedPaymentMethod);
+      setIsSaleComplete(true);
+      showReceiptPreview();
+    } catch (error) {
+      toast.error("Failed to process payment");
+    }
+  };
+
+  const handleConfirmUPI = async () => {
+    if (currentSaleId > 0) {
+      try {
+        await confirmPayment(currentSaleId, "upi");
+        setIsSaleComplete(true);
+        showReceiptPreview();
+      } catch (error) {
+        toast.error("Failed to confirm UPI payment");
+      }
+    }
+  };
+
+  // Focus "Confirm Payment" button after selecting a non-UPI payment method
+  useEffect(() => {
+    if (
+      selectedPaymentMethod &&
+      selectedPaymentMethod !== "upi" &&
+      confirmPaymentRef.current
+    ) {
+      confirmPaymentRef.current.focus();
+    }
+  }, [selectedPaymentMethod]);
+
+  // Focus "Payment Received" button after QR code is generated for UPI
+  useEffect(() => {
+    if (
+      selectedPaymentMethod === "upi" &&
+      paymentQR &&
+      paymentReceivedRef.current
+    ) {
+      paymentReceivedRef.current.focus();
+    }
+  }, [paymentQR]);
 
   const scanningRef = useRef(scanning);
   useEffect(() => {
@@ -512,6 +585,7 @@ const POSInterface: React.FC = () => {
       barcodeInputRef.current?.focus();
     }
   }, []);
+
   const handleBarcodeInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!scanningRef.current) return;
 
@@ -633,10 +707,11 @@ const POSInterface: React.FC = () => {
   }, [saleType, products]);
 
   useEffect(() => {
-    // Start scanning when tab 1 becomes active
     if (activeTab === 1) {
       setScanning(true);
       barcodeInputRef.current?.focus();
+    } else if (activeTab === 2) {
+      paymentMethodsRef.current?.focus();
     }
   }, [activeTab]);
 
@@ -663,10 +738,11 @@ const POSInterface: React.FC = () => {
           return;
         }
         if (e.key === "Enter") {
-          e.preventDefault();
           if (activeTab === 0) {
+            e.preventDefault();
             setActiveTab(1);
           } else if (activeTab === 1) {
+            e.preventDefault();
             if (isCartValid()) {
               setActiveTab(2);
             } else {
@@ -674,9 +750,9 @@ const POSInterface: React.FC = () => {
                 "Cart must have at least one item with quantity greater than zero."
               );
             }
-          } else if (activeTab === 2) {
-            handleCreateSale();
           }
+          // When activeTab === 2, do NOT call e.preventDefault()
+          // This allows the "Confirm Payment" button to handle Enter naturally
         } else if (e.key === "Backspace") {
           e.preventDefault();
           if (activeTab === 1) {
@@ -694,10 +770,20 @@ const POSInterface: React.FC = () => {
               }
               break;
             case "p":
-              if (activeTab === 1) productSearchRef.current?.focus();
+              if (activeTab === 1) {
+                e.preventDefault();
+                if (productSearchRef.current) {
+                  productSearchRef.current.focus();
+                }
+              }
               break;
             case "c":
-              if (activeTab === 0) customerSearchRef.current?.focus();
+              if (activeTab === 0) {
+                e.preventDefault();
+                if (customerSearchRef.current) {
+                  customerSearchRef.current.focus();
+                }
+              }
               break;
             case "t":
               toggleSaleType();
@@ -757,38 +843,6 @@ const POSInterface: React.FC = () => {
         customer={selectedCustomer}
         saleType={saleType}
       />
-      <AnimatePresence>
-        {isStepperOpen && (
-          <PaymentStepper
-            isOpen={isStepperOpen}
-            onClose={handleCancelOrder}
-            selectedPaymentMethod={selectedPaymentMethod}
-            setSelectedPaymentMethod={setSelectedPaymentMethod}
-            currentStepperStep={currentStepperStep}
-            setCurrentStepperStep={setCurrentStepperStep}
-            paymentQR={paymentQR}
-            onPaymentConfirm={() => {
-              if (selectedPaymentMethod && currentSaleId > 0) {
-                confirmPayment(currentSaleId, selectedPaymentMethod);
-              }
-            }}
-            showReceiptPreview={showPreview}
-            handleAutomaticPrintAndDownload={() => {
-              setShowReceipt(true);
-              setTimeout(() => {
-                // downloadReceiptAsPDF();
-                // handlePrint();
-                setTimeout(() => resetSaleState(), 500);
-              }, 300);
-            }}
-            createPendingSale={createPendingSale}
-            setCurrentSaleId={setCurrentSaleId}
-            setPendingSale={setPendingSale}
-            selectedCustomer={selectedCustomer}
-            paymentMethod={selectedPaymentMethod}
-          />
-        )}
-      </AnimatePresence>
 
       <div className="flex space-x-2 mb-4 border-b border-gray-200">
         <button
@@ -1087,7 +1141,6 @@ const POSInterface: React.FC = () => {
                   type="text"
                   onChange={handleBarcodeInputChange}
                   autoFocus={scanning}
-                  // disabled={!scanning}
                   className="absolute opacity-0"
                 />
                 <button
@@ -1181,119 +1234,138 @@ const POSInterface: React.FC = () => {
                 </div>
 
                 <div className="flex-1 overflow-y-auto divide-y divide-gray-100 min-h-32">
-                  {cart.map((item, index) => {
-                    const price =
-                      saleType === "wholeSale" && item.wholeSalePrice
-                        ? item.wholeSalePrice
-                        : item.retailPrice;
-                    return (
-                      <div
-                        key={item.id}
-                        id={`cart-item-${index}`}
-                        className={`flex justify-between items-center py-3 px-2 ${
-                          index === cartSelectedIndex
-                            ? "bg-blue-50 rounded-md"
-                            : ""
-                        }`}
-                      >
-                        <div className="flex-1 font-medium">{item.name}</div>
-                        <div className="w-24 text-center">
-                          ₹{price.toFixed(2)}
-                        </div>
-                        <div className="w-32 text-center">
-                          {item.unitType === "kg" ? (
-                            <div className="relative">
-                              <input
-                                type="number"
-                                value={item.quantity}
-                                onChange={(e) =>
-                                  updateQuantity(
-                                    item.id,
-                                    parseFloat(e.target.value) || 0
-                                  )
+                  {cart.map((item, index) => (
+                    <div
+                      key={item.id}
+                      id={`cart-item-${index}`}
+                      className={`flex justify-between items-center py-3 px-2 ${
+                        index === cartSelectedIndex
+                          ? "bg-blue-50 rounded-md"
+                          : ""
+                      }`}
+                    >
+                      <div className="flex-1 font-medium">{item.name}</div>
+                      <div className="w-24 text-center">
+                        {saleType === "wholeSale" ? (
+                          <div className="flex items-center justify-center">
+                            <span className="mr-1">₹</span>
+                            <input
+                              type="number"
+                              value={item.price}
+                              onChange={(e) => {
+                                const newPrice = parseFloat(e.target.value);
+                                if (!isNaN(newPrice) && newPrice >= 0) {
+                                  setCart((prevCart) =>
+                                    prevCart.map((cartItem) =>
+                                      cartItem.id === item.id
+                                        ? { ...cartItem, price: newPrice }
+                                        : cartItem
+                                    )
+                                  );
                                 }
-                                className="w-20 text-center border rounded-md py-1 px-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                step={0.1}
-                                min={0}
-                              />
-                              <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 pointer-events-none">
-                                kg
-                              </span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-center">
-                              <button
-                                onClick={() => decreaseQuantity(item.id)}
-                                className="w-8 h-8 rounded-l-md bg-gray-200 hover:bg-gray-300 flex items-center justify-center focus:outline-none"
-                              >
-                                <svg
-                                  className="w-4 h-4"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                  xmlns="http://www.w3.org/2000/svg"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="2"
-                                    d="M20 12H4"
-                                  ></path>
-                                </svg>
-                              </button>
-                              <span className="w-12 text-center py-1 border-t border-b">
-                                {item.quantity}
-                              </span>
-                              <button
-                                onClick={() => increaseQuantity(item.id)}
-                                className="w-8 h-8 rounded-r-md bg-gray-200 hover:bg-gray-300 flex items-center justify-center focus:outline-none"
-                              >
-                                <svg
-                                  className="w-4 h-4"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                  xmlns="http://www.w3.org/2000/svg"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="2"
-                                    d="M12 4v16m8-8H4"
-                                  ></path>
-                                </svg>
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                        <div className="w-24 text-right font-semibold">
-                          ₹{(price * item.quantity).toFixed(2)}
-                        </div>
-                        <div className="w-16 text-right">
-                          <button
-                            onClick={() => removeFromCart(item.id)}
-                            className="p-1 text-gray-500 hover:text-red-600 transition-colors duration-150 rounded-full hover:bg-red-50"
-                            title="Remove item"
-                          >
-                            <svg
-                              className="w-5 h-5"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                              ></path>
-                            </svg>
-                          </button>
-                        </div>
+                              }}
+                              className="w-16 text-center border rounded-md py-1 px-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              step={0.01}
+                              min={0}
+                            />
+                          </div>
+                        ) : (
+                          <span>₹{item.price.toFixed(2)}</span>
+                        )}
                       </div>
-                    );
-                  })}
+                      <div className="w-32 text-center">
+                        {item.unitType === "kg" ? (
+                          <div className="relative">
+                            <input
+                              type="number"
+                              value={item.quantity}
+                              onChange={(e) =>
+                                updateQuantity(
+                                  item.id,
+                                  parseFloat(e.target.value) || 0
+                                )
+                              }
+                              className="w-20 text-center border rounded-md py-1 px-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              step={0.1}
+                              min={0}
+                            />
+                            <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 pointer-events-none">
+                              kg
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center">
+                            <button
+                              onClick={() => decreaseQuantity(item.id)}
+                              className="w-8 h-8 rounded-l-md bg-gray-200 hover:bg-gray-300 flex items-center justify-center focus:outline-none"
+                            >
+                              <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="2"
+                                  d="M20 12H4"
+                                ></path>
+                              </svg>
+                            </button>
+                            <span className="w-12 text-center py-1 border-t border-b">
+                              {item.quantity}
+                            </span>
+                            <button
+                              onClick={() => increaseQuantity(item.id)}
+                              className="w-8 h-8 rounded-r-md bg-gray-200 hover:bg-gray-300 flex items-center justify-center focus:outline-none"
+                            >
+                              <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="2"
+                                  d="M12 4v16m8-8H4"
+                                ></path>
+                              </svg>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      <div className="w-24 text-right font-semibold">
+                        ₹{(item.price * item.quantity).toFixed(2)}
+                      </div>
+                      <div className="w-16 text-right">
+                        <button
+                          onClick={() => removeFromCart(item.id)}
+                          className="p-1 text-gray-500 hover:text-red-600 transition-colors duration-150 rounded-full hover:bg-red-50"
+                          title="Remove item"
+                        >
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            ></path>
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
 
                 <div className="mt-4 pt-4 border-t border-gray-200">
@@ -1519,33 +1591,73 @@ const POSInterface: React.FC = () => {
               </span>
             </div>
 
-            <button
-              onClick={handleCreateSale}
-              disabled={!isCartValid()}
-              className={`w-full px-4 py-3 rounded-lg text-white font-semibold transition-colors duration-200 flex items-center justify-center ${
-                isCartValid()
-                  ? "bg-blue-600 hover:bg-blue-700"
-                  : "bg-gray-300 cursor-not-allowed"
-              }`}
-            >
-              {isCartValid() ? "Proceed to Payment" : "Add Items to Continue"}
-              {isCartValid() && (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 ml-2"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M14 5l7 7m0 0l-7 7m7-7H3"
-                  />
-                </svg>
-              )}
-            </button>
+            <div className="mt-6">
+              <h3 className="text-lg font-semibold mb-2">
+                Select Payment Method
+              </h3>
+              <div
+                ref={paymentMethodsRef}
+                tabIndex={0}
+                onKeyDown={handlePaymentKeyDown}
+                className="focus:outline-none"
+              >
+                <div className="grid grid-cols-2 gap-4">
+                  {paymentOptions.map((option, index) => (
+                    <button
+                      key={option.method}
+                      onClick={() =>
+                        handlePaymentMethodSelect(
+                          option.method as "cash" | "card" | "upi" | "debt"
+                        )
+                      }
+                      className={`p-4 border rounded-lg flex flex-col items-center justify-center focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                        selectedPaymentMethod === option.method
+                          ? "border-blue-500 bg-blue-50"
+                          : index === highlightedPaymentIndex
+                          ? "border-blue-300 bg-blue-50"
+                          : "border-gray-200"
+                      }`}
+                    >
+                      {option.icon}
+                      <span className="mt-2">{option.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {selectedPaymentMethod && (
+              <div className="mt-6">
+                {selectedPaymentMethod === "upi" && paymentQR ? (
+                  <div className="text-center">
+                    <h4 className="text-lg font-semibold mb-2">
+                      Scan QR Code for UPI Payment
+                    </h4>
+                    <img
+                      src={paymentQR}
+                      alt="QR Code"
+                      className="mx-auto h-40 w-40 border-2 border-gray-300 rounded-lg"
+                    />
+                    <button
+                      ref={paymentReceivedRef}
+                      onClick={handleConfirmUPI}
+                      className="mt-4 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                    >
+                      Payment Received
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    ref={confirmPaymentRef}
+                    onClick={handleConfirmPayment}
+                    className="w-full px-4 py-3 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:text-gray-500 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    disabled={!isCartValid()}
+                  >
+                    Confirm Payment
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

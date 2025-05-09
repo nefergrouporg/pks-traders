@@ -7,6 +7,7 @@ import {
   faToggleOn,
   faEye,
   faEdit,
+  faTrash,
 } from "@fortawesome/free-solid-svg-icons";
 import { baseUrl } from "../../utils/services";
 import Modal from "../components/POSInterface/Modal";
@@ -35,6 +36,7 @@ interface Supplier {
   phone: string;
   address: string;
   active: boolean;
+  isDeleted?: boolean; // Added isDeleted field, optional as it might not be present initially
   products?: Product[];
 }
 
@@ -129,6 +131,7 @@ const Suppliers: React.FC = () => {
   });
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [supplierToDelete, setSupplierToDelete] = useState<number | null>(null);
+  const [supplierTab, setSupplierTab] = useState("active"); // New state for tabs
 
   const token = localStorage.getItem("token");
 
@@ -139,7 +142,7 @@ const Suppliers: React.FC = () => {
           Authorization: `Bearer ${token}`,
         },
       });
-      setSuppliers(response.data.suppliers.filter((supplier) => !supplier.isDeleted));
+      setSuppliers(response.data.suppliers); // Store all suppliers, no filtering here
     } catch (error) {
       console.error("Error fetching suppliers:", error);
       toast.error("Failed to load suppliers");
@@ -167,21 +170,19 @@ const Suppliers: React.FC = () => {
     fetchSuppliers();
   }, []);
 
-  const filteredSuppliers = suppliers.filter(
-    (supplier) =>
+  const filteredSuppliers = suppliers.filter((supplier) => {
+    const matchesTab =
+      supplierTab === "active" ? !supplier.isDeleted : supplier.isDeleted;
+    const matchesSearch =
       supplier.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      supplier.contactPerson
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase()) ||
-      supplier.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+      supplier.contactPerson.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      supplier.email.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesTab && matchesSearch;
+  });
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredSuppliers.slice(
-    indexOfFirstItem,
-    indexOfLastItem
-  );
+  const currentItems = filteredSuppliers.slice(indexOfFirstItem, indexOfLastItem);
 
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
@@ -198,11 +199,7 @@ const Suppliers: React.FC = () => {
   const handleSupplierSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (
-      !formData.name ||
-      !formData.contactPerson ||
-      !formData.phone
-    ) {
+    if (!formData.name || !formData.contactPerson || !formData.phone) {
       return toast.error("Required fields are missing");
     }
 
@@ -274,7 +271,6 @@ const Suppliers: React.FC = () => {
           },
         }
       );
-
       if (response.status === 200) {
         toast.success("Supplier status toggled successfully");
         setSuppliers((prevSuppliers) =>
@@ -342,6 +338,38 @@ const Suppliers: React.FC = () => {
           </button>
         </div>
 
+        {/* Tabs for Suppliers and Deleted Suppliers */}
+        <div className="mb-4">
+          <div className="flex space-x-4">
+            <button
+              className={`py-2 px-4 font-medium ${
+                supplierTab === "active"
+                  ? "text-blue-600 border-b-2 border-blue-600"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+              onClick={() => {
+                setSupplierTab("active");
+                setCurrentPage(1);
+              }}
+            >
+              Suppliers
+            </button>
+            <button
+              className={`py-2 px-4 font-medium ${
+                supplierTab === "deleted"
+                  ? "text-blue-600 border-b-2 border-blue-600"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+              onClick={() => {
+                setSupplierTab("deleted");
+                setCurrentPage(1);
+              }}
+            >
+              Deleted Suppliers
+            </button>
+          </div>
+        </div>
+
         <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -384,6 +412,18 @@ const Suppliers: React.FC = () => {
                           <FontAwesomeIcon icon={faEye} className="mr-1" />
                           Details
                         </button>
+                        {!supplier.isDeleted && (
+                          <button
+                            onClick={() => {
+                              setSupplierToDelete(supplier.id);
+                              setIsDeleteModalOpen(true);
+                            }}
+                            className="bg-red-500 text-white px-3 py-1 rounded-lg hover:bg-red-600 transition text-sm sm:text-base flex items-center"
+                          >
+                            <FontAwesomeIcon icon={faTrash} className="mr-1" />
+                            Delete
+                          </button>
+                        )}
                       </div>
                     </td>
                     <td>

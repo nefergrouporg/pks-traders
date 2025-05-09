@@ -1,4 +1,3 @@
-// Employees.tsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
@@ -8,12 +7,14 @@ import {
   faToggleOn,
   faMoneyBill,
   faEye,
+  faTrash,
 } from "@fortawesome/free-solid-svg-icons";
 import { baseUrl } from "../../utils/services";
 import Modal from "../components/POSInterface/Modal";
 import ConfirmationModal from "../components/Dashboard/ConfirmationModal";
 import StaffDetailsModal from "../components/Dashboard/StaffDetailsModal";
 import SalaryPaymentModal from "../components/Dashboard/SalaryPaymentModal";
+import DeleteConfirmationModal from "../components/Dashboard/DeleteConfirmationModal";
 import { jwtDecode, JwtPayload } from "jwt-decode";
 
 interface Staff {
@@ -34,7 +35,7 @@ interface Staff {
 }
 
 interface CustomJwtPayload extends JwtPayload {
-  role: "admin" | "manager" | "staff"; // Adjust the roles as per your needs
+  role: "admin" | "manager" | "staff";
 }
 
 interface Branch {
@@ -64,10 +65,13 @@ const Employees: React.FC = () => {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState(false);
   const [isSalaryModalOpen, setIsSalaryModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [staffToToggle, setStaffToToggle] = useState<number | null>(null);
+  const [staffToDelete, setStaffToDelete] = useState<number | null>(null);
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(8);
+  const [staffTab, setStaffTab] = useState<"active" | "deleted">("active");
 
   const [newStaff, setNewStaff] = useState<NewStaff>({
     username: "",
@@ -86,7 +90,7 @@ const Employees: React.FC = () => {
   const token = localStorage.getItem("token");
   if (!token) {
     toast.error("You are not authenticated");
-    return;
+    return null;
   }
   const decoded = jwtDecode(token) as CustomJwtPayload;
 
@@ -117,7 +121,7 @@ const Employees: React.FC = () => {
         params: { role: "staff" },
         headers: { Authorization: `Bearer ${token}` },
       });
-      setStaffs(response.data?.users.filter((staff) => !staff.isDeleted));
+      setStaffs(response.data?.users);
     } catch (error) {
       console.error("Error fetching staff:", error);
       toast.error("Failed to fetch staff");
@@ -181,6 +185,29 @@ const Employees: React.FC = () => {
     }
   };
 
+  const handleDeleteStaff = async () => {
+    if (!staffToDelete) return;
+    try {
+      const response = await axios.delete(
+        `${baseUrl}/api/users/${staffToDelete}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (response.status === 200) {
+        toast.success("Staff deleted successfully");
+        fetchStaffs();
+      }
+    } catch (error) {
+      console.error("Error deleting staff:", error);
+      toast.error(error.message || "Failed to delete staff");
+    } finally {
+      setIsDeleteModalOpen(false);
+      setStaffToDelete(null);
+    }
+  };
+
   const handleSalarySuccess = () => {
     if (!selectedStaff) return;
 
@@ -201,13 +228,16 @@ const Employees: React.FC = () => {
     setIsSalaryModalOpen(true);
   };
 
-  const filteredStaffs = staffs.filter(
-    (staff) =>
+  const filteredStaffs = staffs.filter((staff) => {
+    const matchesTab =
+      staffTab === "active" ? !staff.isDeleted : staff.isDeleted === true;
+    const matchesSearch =
       staff.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
       staff.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (staff.phone &&
-        staff.phone.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+        staff.phone.toLowerCase().includes(searchQuery.toLowerCase()));
+    return matchesTab && matchesSearch;
+  });
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -231,6 +261,38 @@ const Employees: React.FC = () => {
         >
           Add Staff
         </button>
+      </div>
+
+      {/* Tabs */}
+      <div className="mb-4">
+        <div className="flex space-x-4">
+          <button
+            className={`py-2 px-4 font-medium ${
+              staffTab === "active"
+                ? "text-blue-600 border-b-2 border-blue-600"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+            onClick={() => {
+              setStaffTab("active");
+              setCurrentPage(1);
+            }}
+          >
+            Employees
+          </button>
+          <button
+            className={`py-2 px-4 font-medium ${
+              staffTab === "deleted"
+                ? "text-blue-600 border-b-2 border-blue-600"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+            onClick={() => {
+              setStaffTab("deleted");
+              setCurrentPage(1);
+            }}
+          >
+            Deleted Employees
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
@@ -286,7 +348,7 @@ const Employees: React.FC = () => {
                       <FontAwesomeIcon icon={faMoneyBill} />
                     </button>
                   </td>
-                  <td className="p-3 flex gap-2">
+                  <td className="p-3">
                     <button
                       onClick={() => openStaffDetails(staff)}
                       className="text-blue-600 hover:text-blue-800"
@@ -295,7 +357,19 @@ const Employees: React.FC = () => {
                       <FontAwesomeIcon icon={faEye} />
                     </button>
                   </td>
-                  <td>
+                  <td className="p-3 flex gap-2">
+                    {!staff.isDeleted && (
+                      <button
+                        onClick={() => {
+                          setStaffToDelete(staff.id);
+                          setIsDeleteModalOpen(true);
+                        }}
+                        className="text-red-600 hover:text-red-800"
+                        title="Delete Staff"
+                      >
+                        <FontAwesomeIcon icon={faTrash} />
+                      </button>
+                    )}
                     <button
                       onClick={() => {
                         setStaffToToggle(staff.id);
@@ -347,7 +421,6 @@ const Employees: React.FC = () => {
           <h2 className="text-xl font-semibold mb-5">Create New Staff</h2>
           <form onSubmit={handleAddStaff} className="space-y-5">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Basic Information */}
               <div>
                 <label className="block text-sm font-medium mb-1">
                   Username*
@@ -399,8 +472,6 @@ const Employees: React.FC = () => {
                   }
                 />
               </div>
-
-              {/* Personal Information */}
               <div>
                 <label className="block text-sm font-medium mb-1">Age</label>
                 <input
@@ -456,8 +527,6 @@ const Employees: React.FC = () => {
                   }
                 />
               </div>
-
-              {/* Work Information */}
               <div>
                 <label className="block text-sm font-medium mb-1">
                   Salary*
@@ -549,6 +618,17 @@ const Employees: React.FC = () => {
         } this staff member?`}
       />
 
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setStaffToDelete(null);
+        }}
+        onConfirm={handleDeleteStaff}
+        message="Are you sure you want to delete this staff member? This action cannot be undone."
+      />
+
       {/* Staff Details Modal */}
       <StaffDetailsModal
         isOpen={isDetailsModalOpen}
@@ -564,7 +644,7 @@ const Employees: React.FC = () => {
           staff={selectedStaff}
           onSuccess={() => {
             handleSalarySuccess();
-            fetchStaffs(); // Refresh data after payment
+            fetchStaffs();
           }}
         />
       )}
