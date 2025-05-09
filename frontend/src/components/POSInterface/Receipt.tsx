@@ -9,6 +9,7 @@ interface ReceiptProps {
     wholeSalePrice?: number;
     quantity: number;
     unitType: "pcs" | "kg";
+    price: number; // Modified price (if any)
   }>;
   totalPrice: number;
   saleId: number;
@@ -27,18 +28,31 @@ const Receipt: React.FC<ReceiptProps> = ({
   saleType = "retail",
   customTotalPrice,
 }) => {
+  console.log(
+    cart,
+    "cart",
+    totalPrice,
+    saleId,
+    paymentMethod,
+    customer,
+    saleType,
+    customTotalPrice,
+    "lkjhgfdsa"
+  );
   // Get the price based on sale type for each item
-  const getItemPrice = (item) => {
-    return saleType === "wholeSale" && item.wholeSalePrice
-      ? item.wholeSalePrice
-      : item.retailPrice;
-  };
+  const originalSubtotal = cart.reduce((acc, item) => {
+    const originalPrice =
+      saleType === "wholeSale" && item.price ? item.price : item.retailPrice;
+    return acc + originalPrice * item.quantity;
+  }, 0);
+
+  console.log(originalSubtotal, "originalSubtotal");
+  const displayTotal = customTotalPrice ?? totalPrice;
 
   return (
     <div className="min-w-[300px] max-w-[400px] mx-auto p-4 bg-white text-black">
       <div className="text-center mb-4">
         <h1 className="text-xl font-bold">PKS Traders</h1>
-        {/* <p className="text-sm">Phone: +91 1234567890</p> */}
       </div>
 
       <div className="flex justify-between mb-4">
@@ -84,16 +98,22 @@ const Receipt: React.FC<ReceiptProps> = ({
         </thead>
         <tbody>
           {cart.map((item) => {
-            const price = getItemPrice(item);
+            console.log("hola", item.price, "");
+            const originalPrice =
+              item.price !== undefined
+                ? item.price
+                : saleType === "wholeSale"
+                ? item.wholeSalePrice ?? item.retailPrice
+                : item.retailPrice;
             return (
               <tr key={item.id} className="border-b text-sm">
                 <td className="py-1">{item.name}</td>
                 <td className="text-center">
                   {item.quantity} {item.unitType}
                 </td>
-                <td className="text-right">₹{price.toFixed(2)}</td>
+                <td className="text-right">₹{originalPrice.toFixed(2)}</td>
                 <td className="text-right">
-                  ₹{(price * item.quantity).toFixed(2)}
+                  ₹{(originalPrice * item.quantity).toFixed(2)}
                 </td>
               </tr>
             );
@@ -101,22 +121,24 @@ const Receipt: React.FC<ReceiptProps> = ({
         </tbody>
       </table>
 
-      {saleType === "wholeSale" && customTotalPrice !== undefined && (
+      {saleType === "wholeSale" && (
         <div className="mb-2 text-sm">
           <div className="flex justify-between">
             <span>Calculated Total:</span>
-            <span>₹{totalPrice.toFixed(2)}</span>
+            <span>₹{originalSubtotal.toFixed(2)}</span>
           </div>
-          <div className="flex justify-between text-green-700">
-            <span>Negotiated Price:</span>
-            <span>₹{customTotalPrice.toFixed(2)}</span>
-          </div>
+          {customTotalPrice !== undefined && (
+            <div className="flex justify-between text-green-700">
+              <span>Negotiated Price:</span>
+              <span>₹{customTotalPrice.toFixed(2)}</span>
+            </div>
+          )}
         </div>
       )}
 
-<div className="flex justify-between font-bold border-t pt-2 mb-4">
+      <div className="flex justify-between font-bold border-t pt-2 mb-4">
         <div>Total</div>
-        <div>₹{totalPrice.toFixed(2)}</div>
+        <div>₹{displayTotal.toFixed(2)}</div>
       </div>
 
       <div className="flex justify-between border-t">

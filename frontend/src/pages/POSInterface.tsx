@@ -1,8 +1,6 @@
 import axios from "axios";
 import React, { useEffect, useState, useRef } from "react";
 import { toast } from "sonner";
-import { motion, AnimatePresence } from "framer-motion";
-import { useReactToPrint } from "react-to-print";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { baseUrl } from "../../utils/services";
@@ -11,12 +9,6 @@ import ReceiptPreviewModal from "../components/POSInterface/ReceiptPreviewModal"
 import moneyClipart from "../assets/cards_clipart.png";
 import cardsClipart from "../assets/cards_clipart.png";
 import { TrendingDown } from "lucide-react";
-
-interface ModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  children: React.ReactNode;
-}
 
 interface Product {
   id: number;
@@ -60,39 +52,6 @@ interface Sale {
   customerId: number | null;
   saleType: "retail" | "wholeSale";
 }
-
-const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children }) => {
-  const modalRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (isOpen) modalRef.current?.focus();
-  }, [isOpen]);
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Escape") onClose();
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
-      onKeyDown={handleKeyDown}
-      tabIndex={0}
-      ref={modalRef}
-    >
-      <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-xs sm:max-w-sm md:max-w-md">
-        <button
-          onClick={onClose}
-          className="float-right text-gray-500 hover:text-gray-700 text-xl sm:text-2xl"
-        >
-          × (Esc to close)
-        </button>
-        {children}
-      </div>
-    </div>
-  );
-};
 
 const POSInterface: React.FC = () => {
   const [activeTab, setActiveTab] = useState<number>(0);
@@ -426,21 +385,25 @@ const POSInterface: React.FC = () => {
         return;
       }
 
-      const finalAmount =
-        saleType === "wholeSale" && customTotalPrice !== null
-          ? customTotalPrice
-          : totalPrice;
+      // const finalAmount =
+      //   saleType === "wholeSale" && customTotalPrice !== null
+      //     ? customTotalPrice
+      //     : totalPrice;
 
       const saleData = {
         items: cart.map((item) => ({
           productId: item.id,
           quantity: item.quantity,
+          price: item.price,
+          total: item.price * item.quantity,
         })),
         paymentMethod: method.toLowerCase(),
         customerId: selectedCustomer?.id || null,
         saleType,
-        finalAmount: finalAmount,
+        finalAmount: customTotalPrice || totalPrice,
       };
+
+      console.log(saleData);
 
       const response = await axios.post(`${baseUrl}/api/sales`, saleData, {
         headers: {
@@ -675,6 +638,8 @@ const POSInterface: React.FC = () => {
     }
   };
 
+  console.log(cart);
+
   const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
   const totalAmount = cart.reduce((total, item) => {
     const price =
@@ -695,8 +660,8 @@ const POSInterface: React.FC = () => {
         const product = products.find((p) => p.id === item.id);
         if (product) {
           const newPrice =
-            saleType === "wholeSale" && product.wholeSalePrice
-              ? product.wholeSalePrice
+            saleType === "wholeSale" && item.price
+              ? item.price
               : product.retailPrice;
           return { ...item, price: newPrice };
         }
@@ -1297,44 +1262,18 @@ const POSInterface: React.FC = () => {
                           <div className="flex items-center justify-center">
                             <button
                               onClick={() => decreaseQuantity(item.id)}
-                              className="w-8 h-8 rounded-l-md bg-gray-200 hover:bg-gray-300 flex items-center justify-center focus:outline-none"
+                              className="w-8 h-8 rounded-l-md bg-gray-200 hover:bg-gray-300 flex items-center justify-center"
                             >
-                              <svg
-                                className="w-4 h-4"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                                xmlns="http://www.w3.org/2000/svg"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth="2"
-                                  d="M20 12H4"
-                                ></path>
-                              </svg>
+                              -
                             </button>
                             <span className="w-12 text-center py-1 border-t border-b">
                               {item.quantity}
                             </span>
                             <button
                               onClick={() => increaseQuantity(item.id)}
-                              className="w-8 h-8 rounded-r-md bg-gray-200 hover:bg-gray-300 flex items-center justify-center focus:outline-none"
+                              className="w-8 h-8 rounded-r-md bg-gray-200 hover:bg-gray-300 flex items-center justify-center"
                             >
-                              <svg
-                                className="w-4 h-4"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                                xmlns="http://www.w3.org/2000/svg"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth="2"
-                                  d="M12 4v16m8-8H4"
-                                ></path>
-                              </svg>
+                              +
                             </button>
                           </div>
                         )}
@@ -1544,40 +1483,6 @@ const POSInterface: React.FC = () => {
               </div>
             )}
           </div>
-
-          {saleType === "wholeSale" && (
-            <div className="mb-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-3 bg-blue-50 rounded-lg">
-                  <p className="text-sm text-gray-600 mb-1">Calculated Total</p>
-                  <p className="text-lg font-semibold text-blue-700">
-                    ₹{totalPrice.toFixed(2)}
-                  </p>
-                </div>
-                <div className="p-3 bg-green-50 rounded-lg">
-                  <label className="text-sm text-gray-600 mb-1 block">
-                    Final Price
-                    <span className="text-xs text-gray-500 ml-2">
-                      (negotiable)
-                    </span>
-                  </label>
-                  <input
-                    type="number"
-                    value={customTotalPrice ? customTotalPrice : totalPrice}
-                    onChange={(e) =>
-                      setCustomTotalPrice(Number(e.target.value))
-                    }
-                    className="w-full text-lg font-semibold bg-transparent focus:outline-none"
-                    min={0}
-                    step={0.01}
-                  />
-                </div>
-              </div>
-              <p className="text-sm text-gray-500 mt-2">
-                * Adjust final price for wholesale customers as needed
-              </p>
-            </div>
-          )}
 
           {/* Total and Payment Section */}
           <div className="space-y-4">

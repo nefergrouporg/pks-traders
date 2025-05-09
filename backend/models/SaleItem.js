@@ -13,6 +13,11 @@ module.exports = (sequelize) => {
         type: DataTypes.FLOAT,
         allowNull: false,
       },
+      subtotal: {
+        type: DataTypes.FLOAT,
+        allowNull: false,
+        defaultValue: 0,
+      },
       productId: {
         // Ensure this field exists
         type: DataTypes.INTEGER,

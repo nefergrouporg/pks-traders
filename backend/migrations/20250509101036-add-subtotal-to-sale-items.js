@@ -4,14 +4,15 @@
 
 module.exports = {
   up: async (queryInterface, Sequelize) => {
-    await queryInterface.addColumn('SaleItems', 'price', {
+    return queryInterface.addColumn('sale_items', 'subtotal', {
       type: Sequelize.FLOAT,
       allowNull: false,
-      defaultValue: 0 // TEMP to avoid errors on old rows
+      defaultValue: 0
     });
   },
 
   down: async (queryInterface, Sequelize) => {
-    await queryInterface.removeColumn('SaleItems', 'price');
+    return queryInterface.removeColumn('sale_items', 'subtotal');
   }
 };
+

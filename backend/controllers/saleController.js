@@ -48,6 +48,8 @@ exports.createSale = async (req, res) => {
           .json({ error: "Quantity is required for each item" });
     }
 
+    console.log(items)
+
     try {
       const transaction = await sequelize.transaction();
       const saleItems = [];
@@ -71,7 +73,7 @@ exports.createSale = async (req, res) => {
 
         let itemTotal;
         if (saleType === "wholeSale") {
-          itemTotal = product.wholeSalePrice * item.quantity;
+          itemTotal = item.price * item.quantity;
         } else {
           itemTotal = product.retailPrice * item.quantity;
         }
@@ -82,8 +84,11 @@ exports.createSale = async (req, res) => {
           quantity: item.quantity,
           price:
             saleType === "wholeSale"
-              ? product.wholeSalePrice
+              ? item.price
               : product.retailPrice,
+          subtotal: saleType === "wholeSale"
+          ? item.price
+          : product.retailPrice,
         });
       }
 
