@@ -9,6 +9,9 @@ interface SalaryPaymentProps {
     id: number;
     username: string;
     salary: number;
+    remainingSalary?: number;
+    totalAdvances?: number;
+    totalIncentives?: number;
   };
   isOpen: boolean;
   onClose: () => void;
@@ -21,34 +24,26 @@ const SalaryPaymentModal: React.FC<SalaryPaymentProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const [paymentDate, setPaymentDate] = useState(getCurrentPaymentDate());
-  const [incentive, setIncentive] = useState(0);
-  const [cutOff, setCutOff] = useState(0);
+  const [amount, setAmount] = useState(0);
+  const [paymentDate, setPaymentDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+  const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const token = localStorage.getItem("token");
 
-  const totalSalary = useMemo(() => {
-    return staff?.salary + incentive - cutOff;
-  }, [staff?.salary, incentive, cutOff]);
+  console.log("Staff data:", staff);
+  // console.log("Payment date:", paymentDate);
 
-  function getCurrentPaymentDate() {
-    const date = new Date();
-    const options: Intl.DateTimeFormatOptions = {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-      hour: "numeric",
-      minute: "numeric",
-      hour12: true,
-    };
-    return date.toLocaleDateString("en-US", options); // e.g., "April 6, 2025, 3:45 PM"
-  }
+  const remainingSalary = useMemo(() => {
+    return staff.remainingSalary || staff.salary - (staff.totalAdvances || 0);
+  }, [staff]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (totalSalary < 0) {
-      toast.error("Total salary cannot be negative");
+    if (amount <= 0) {
+      toast.error("Amount must be greater than 0");
       return;
     }
 
@@ -57,25 +52,25 @@ const SalaryPaymentModal: React.FC<SalaryPaymentProps> = ({
       const response = await axios.post(
         `${baseUrl}/api/users/salaryCredit`,
         {
-          userId: staff?.id,
-          amount: staff?.salary,
-          incentive: incentive,
-          cutOff: cutOff,
-          paid: totalSalary,
+          userId: staff.id,
+          amount,
           paymentDate,
-          status: "paid",
+          notes,
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
+      console.log("Payment response:", response.data);
       if (response.status === 201) {
-        toast.success(`Salary paid to ${staff?.username} on ${paymentDate}`);
+        toast.success(`Payment processed for ${staff.username}`);
         onSuccess();
         onClose();
+        setAmount(0);
+        setNotes("");
       }
     } catch (error) {
-      console.error("Error processing salary payment:", error);
-      toast.error("Failed to process salary payment");
+      console.error("Error processing payment:", error);
+      toast.error("Failed to process payment");
     } finally {
       setLoading(false);
     }
@@ -88,77 +83,87 @@ const SalaryPaymentModal: React.FC<SalaryPaymentProps> = ({
       className="max-w-md max-h-[90vh] overflow-y-auto"
     >
       <div className="p-6">
-        <h2 className="text-xl font-semibold mb-5">Process Salary Payment</h2>
+        <h2 className="text-xl font-semibold mb-5">Process Payment</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1">Staff Name</label>
             <input
               type="text"
-              value={staff?.username}
+              value={staff.username}
               disabled
-              className="w-full border rounded-lg px-4 py-2 bg-gray-100 text-black"
+              className="w-full border rounded-lg px-4 py-2 bg-gray-100"
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-1">
-              Base Salary (₹)
-            </label>
-            <input
-              type="number"
-              value={staff?.salary}
-              disabled
-              className="w-full border rounded-lg px-4 py-2 bg-gray-100 text-black"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Incentive (₹)
-            </label>
-            <input
-              type="number"
-              value={incentive}
-              onChange={(e) => setIncentive(Number(e.target.value))}
-              min="0"
-              className="w-full border rounded-lg px-4 py-2 bg-white text-black"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Cut Off (₹)
-            </label>
-            <input
-              type="number"
-              value={cutOff}
-              onChange={(e) => setCutOff(Number(e.target.value))}
-              min="0"
-              className="w-full border rounded-lg px-4 py-2 bg-white text-black"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Total Salary (₹)
-            </label>
-            <input
-              type="number"
-              value={totalSalary}
-              disabled
-              className="w-full border rounded-lg px-4 py-2 bg-gray-100 text-black font-semibold"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Payment Date
+              Monthly Salary (₹)
             </label>
             <input
               type="text"
-              value={paymentDate}
-              className="w-full border rounded-lg px-4 py-2 bg-white text-black"
+              value={`₹${(
+                Number(staff?.salary ?? 0) + Number(staff?.totalIncentives ?? 0)
+              ).toLocaleString("en-IN", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}`}
               disabled
+              className="w-full border rounded-lg px-4 py-2 bg-gray-100"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Remaining Salary (₹)
+            </label>
+            <input
+              type="number"
+              value={remainingSalary}
+              disabled
+              className="w-full border rounded-lg px-4 py-2 bg-gray-100"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Payment Amount (₹)*
+            </label>
+            <input
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(Number(e.target.value))}
+              min="0"
+              className="w-full border rounded-lg px-4 py-2"
+              required
+            />
+            {remainingSalary > 0 && (
+              <p className="text-sm text-gray-600 mt-1">
+                Max advance available: ₹{remainingSalary}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Payment Date*
+            </label>
+            <input
+              type="date"
+              value={paymentDate}
+              onChange={(e) => setPaymentDate(e.target.value)}
+              className="w-full border rounded-lg px-4 py-2"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Notes</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="w-full border rounded-lg px-4 py-2"
+              placeholder="Optional payment notes..."
+              rows={3}
             />
           </div>
 
@@ -172,10 +177,10 @@ const SalaryPaymentModal: React.FC<SalaryPaymentProps> = ({
             </button>
             <button
               type="submit"
-              disabled={loading || totalSalary < 0}
+              disabled={loading}
               className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 disabled:opacity-50"
             >
-              {loading ? "Processing..." : "Process Payment"}
+              {loading ? "Processing..." : "Submit Payment"}
             </button>
           </div>
         </form>

@@ -53,4 +53,7 @@ Object.values(models).forEach((model) => {
 models.sequelize = sequelize; // Attach sequelize instance
 models.Sequelize = sequelize.Sequelize; // Attach Sequelize constructor
 
-module.exports = models;
+module.exports = {
+  sequelize,  // Explicitly export sequelize
+  ...models    // Spread all model definitions
+};

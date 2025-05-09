@@ -23,27 +23,18 @@ module.exports = (sequelize) => {
       type: DataTypes.STRING, 
       allowNull: false
     },
-    status: {
-      type: DataTypes.ENUM('paid', 'unpaid'),
-      defaultValue: 'unpaid'
+    type: {
+      type: DataTypes.ENUM('advance', 'incentive'),
+      allowNull: false,
+      defaultValue: 'advance',
     },
     paidAt: {
       type: DataTypes.DATE,
       allowNull: true
     },
-    incentive: {
-      type: DataTypes.INTEGER,
-      allowNull : true,
-      default: 0
-    },
-    cutOff :{
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      default: 0
-    },
-    paid:{
-      type: DataTypes.INTEGER,
-      allowNull :true,
+    notes: {  
+      type: DataTypes.TEXT,
+      allowNull: true
     }
   });
 

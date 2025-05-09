@@ -24,14 +24,11 @@ interface Staff {
 
 interface SalaryPayment {
   id: number;
-  userId: number;
   amount: number;
+  type: "advance" | "incentive";
+  paidAt: string;
   month: string;
-  status: "paid" | "unpaid";
-  paidAt: string | null;
-  incentive: number;
-  cutOff: number;
-  paid: number;
+  notes?: string;
 }
 
 interface StaffDetailsModalProps {
@@ -67,7 +64,7 @@ const StaffDetailsModal: React.FC<StaffDetailsModalProps> = ({
         `${baseUrl}/api/users/salary-history/${staff.id}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setSalaryHistory(response.data || []);
+      setSalaryHistory(response.data.payments || []);
     } catch (error) {
       console.error("Error fetching salary history:", error);
       toast.error("Failed to fetch salary history");
@@ -76,20 +73,17 @@ const StaffDetailsModal: React.FC<StaffDetailsModalProps> = ({
     }
   };
   if (!staff) return null;
-
+  console.log(salaryHistory)
   const handleDeleteStaff = async () => {
     if (!staffToDelete) return;
 
     try {
       // Replace with your actual API endpoint
-      const response = await axios.delete(
-        `${baseUrl}/api/users/${staff.id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`, // Add your auth token if needed
-          },
-        }
-      );
+      const response = await axios.delete(`${baseUrl}/api/users/${staff.id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`, // Add your auth token if needed
+        },
+      });
 
       if (response.status === 200) {
         toast.success("Staff deleted successfully");
@@ -203,55 +197,47 @@ const StaffDetailsModal: React.FC<StaffDetailsModalProps> = ({
 
           {/* Salary History Tab */}
           {activeTab === "salary" && (
-            <div>
-              {loading ? (
-                <div className="text-center py-4">
-                  Loading salary history...
+            <div className="space-y-4">
+              {salaryHistory.map((payment) => (
+                <div
+                  key={payment.id}
+                  className="border rounded-lg p-4 bg-white"
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <span
+                        className={`inline-block px-2 py-1 rounded-full text-sm ${
+                          payment.type === "advance"
+                            ? "bg-blue-100 text-blue-800"
+                            : "bg-green-100 text-green-800"
+                        }`}
+                      >
+                        {payment.type.toUpperCase()}
+                      </span>
+                      <span className="ml-2 text-sm text-gray-500">
+                        {payment.month}
+                      </span>
+                    </div>
+                    <div className="text-lg font-semibold">
+                      ₹{payment.amount}
+                    </div>
+                  </div>
+                  <div className="flex justify-between text-sm text-gray-600">
+                    <span>
+                      {new Date(payment.paidAt).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </span>
+                    {payment.notes && (
+                      <span className="text-gray-500 italic">
+                        "{payment.notes}"
+                      </span>
+                    )}
+                  </div>
                 </div>
-              ) : salaryHistory.length > 0 ? (
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="bg-gray-50">
-                      <th className="p-2 text-left">Paid Date</th>
-                      <th className="p-2 text-left">Amount</th>
-                      <th className="p-2 text-left">Status</th>
-                      <th className="p-2 text-left">Incentive</th>
-                      <th className="p-2 text-left">Cut Off</th>
-                      <th className="p-2 text-left">Paid</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-black">
-                    {salaryHistory.map((payment) => (
-                      <tr key={payment.id} className="border-t">
-                        <td className="p-2">
-                          {payment.paidAt
-                            ? new Date(payment.paidAt).toLocaleDateString()
-                            : "N/A"}
-                        </td>
-                        <td className="p-2">₹{payment.amount}</td>
-                        <td className="p-2">
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs ${
-                              payment.status === "paid"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-red-100 text-red-800"
-                            }`}
-                          >
-                            {payment.status}
-                          </span>
-                        </td>
-                        <td className="p-2">₹{payment.incentive}</td>
-                        <td className="p-2">₹{payment.cutOff}</td>
-                        <td className="p-2">₹{payment.paid}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <div className="text-center py-4 text-gray-500">
-                  No salary payment records found
-                </div>
-              )}
+              ))}
             </div>
           )}
           <div>

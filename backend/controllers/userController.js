@@ -1,4 +1,6 @@
-const { User, Branch } = require("../models/index");
+const models = require("../models/index");
+const { User, Branch } = models;
+const sequelize = models.sequelize;
 const { SalaryPayment } = require("../models/index");
 const moment = require("moment");
 const bcrypt = require("bcrypt");
@@ -6,21 +8,44 @@ const { Op } = require("sequelize");
 
 exports.getAllUsers = async (req, res) => {
   try {
-    const { role } = req.query;
     const users = await User.findAll({
-      where: { role },
-      attributes: {
-        exclude: ["password"],
-      },
+      where: { role: req.query.role },
       include: [
         {
-          model: Branch, // 👈 Now properly imported
-          as: "Branch",
+          model: Branch,
           attributes: ["name"],
         },
       ],
+      attributes: {
+        include: [
+          [
+            sequelize.literal(`(
+              SELECT COALESCE(SUM(amount), 0)
+              FROM "SalaryPayments"
+              WHERE "SalaryPayments"."userId" = "User"."id"
+                AND type = 'advance'
+            )`),
+            "totalAdvances",
+          ],
+          [
+            sequelize.literal(`(
+              SELECT COALESCE(SUM(amount), 0)
+              FROM "SalaryPayments"
+              WHERE "SalaryPayments"."userId" = "User"."id"
+                AND type = 'incentive'
+            )`),
+            "totalIncentives",
+          ],
+        ],
+      },
     });
-    res.json({ users });
+
+    const usersWithRemaining = users.map((user) => ({
+      ...user.toJSON(),
+      remainingSalary: user.salary - user.dataValues.totalAdvances,
+    }));
+
+    res.json({ users: usersWithRemaining });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
@@ -98,71 +123,113 @@ exports.toggleUser = async (req, res) => {
 };
 
 exports.salaryCredit = async (req, res) => {
-  const { userId, incentive, cutOff, paid, amount, paymentDate, status } = req.body;
-  const currentMonth = moment(paymentDate).format("MMMM YYYY"); // format from frontend date
+  const { userId, amount, paymentDate, notes } = req.body;
+  const currentMonth = moment(paymentDate).format("MMMM YYYY");
 
   try {
-    // 1. Upsert salary payment for this user and month
-    let payment = await SalaryPayment.findOne({
-      where: { userId, month: currentMonth },
-    });
+    const user = await User.findByPk(userId);
+    if (!user) return res.status(404).json({ error: "User not found" });
 
-    if (!payment) {
-      payment = await SalaryPayment.create({
-        userId,
-        amount,
+    // Get existing advances for current month
+    const existingAdvances =
+      (await SalaryPayment.sum("amount", {
+        where: {
+          userId,
+          month: currentMonth,
+          type: "advance",
+        },
+      })) || 0;
+
+    const baseSalary = user.salary;
+    const remainingSalary = baseSalary - existingAdvances;
+
+    // Calculate payment breakdown
+    const payments = [];
+    const advancePayment = Math.min(amount, remainingSalary);
+    const incentivePayment = Math.max(amount - remainingSalary, 0);
+
+    if (advancePayment > 0) {
+      payments.push({
+        userId: userId, // Add this line
+        type: "advance",
+        amount: advancePayment,
         month: currentMonth,
-        status,
-        paidAt: new Date(),
-        incentive: incentive,
-        cutOff :cutOff,
-        paid: paid
-      });
-    } else {
-      await payment.update({
-        amount,
-        status,
-        paidAt: new Date(),
-        incentive: incentive,
-        cutOff :cutOff,
-        paid: paid
+        paidAt: paymentDate,
+        notes,
       });
     }
 
-    // 2. Update the user's salaryCredited flag
-    const [updatedCount] = await User.update(
-      { salaryCredited: true },
-      { where: { id: userId } }
-    );
-
-    if (updatedCount === 0) {
-      return res.status(404).json({ error: "User not found" });
+    if (incentivePayment > 0) {
+      payments.push({
+        userId: userId, // Add this line
+        type: "incentive",
+        amount: incentivePayment,
+        month: currentMonth,
+        paidAt: paymentDate,
+        notes,
+      });
     }
 
-    return res.status(201).json({
-      message: "✅ Salary payment recorded and user marked as paid",
-      payment,
+    // Create payments
+    const createdPayments = await SalaryPayment.bulkCreate(payments);
+
+    res.status(201).json({
+      message: "Payment processed successfully",
+      payments: createdPayments,
+      summary: {
+        totalAdvances: existingAdvances + advancePayment,
+        totalIncentives: incentivePayment,
+        remainingSalary: baseSalary - (existingAdvances + advancePayment),
+      },
     });
   } catch (error) {
-    console.error("❌ Error processing salary credit:", error);
-    return res.status(500).json({ error: "Server Error" });
+    console.error("Payment error:", error);
+    res.status(500).json({ error: "Server error" });
   }
 };
 
 exports.salaryHistory = async (req, res) => {
   const { id } = req.params;
   try {
+    // Validate user exists
+    const user = await User.findByPk(id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
     const history = await SalaryPayment.findAll({
       where: { userId: id },
-      order: [["month", "DESC"]],
+      order: [["paidAt", "DESC"]],
+      attributes: ["id", "userId", "amount", "type", "paidAt", "month"],
     });
-    res.json(history);
+
+    // Format the response for better readability
+    const formattedHistory = history.map((payment) => ({
+      ...payment.toJSON(),
+      paidAt: payment.paidAt.toISOString().split("T")[0], // Format date
+      type: payment.type.toUpperCase(),
+    }));
+
+    res.json({
+      count: history.length,
+      totalAdvance:
+        (await SalaryPayment.sum("amount", {
+          where: { userId: id, type: "advance" },
+        })) || 0,
+      totalIncentive:
+        (await SalaryPayment.sum("amount", {
+          where: { userId: id, type: "incentive" },
+        })) || 0,
+      payments: formattedHistory,
+    });
   } catch (err) {
-    console.error("Salary history fetch error", err);
-    res.status(500).json({ error: "Server error" });
+    console.error("Salary history fetch error:", err);
+    res.status(500).json({
+      error: "Failed to fetch salary history",
+      details: err.message,
+    });
   }
 };
-
 
 exports.deleteUser = async (req, res) => {
   try {
@@ -174,7 +241,7 @@ exports.deleteUser = async (req, res) => {
     user.isDeleted = !user.isDeleted;
     await user.save();
 
-    res.status(200).json({ message: `User Deleted successfully`});
+    res.status(200).json({ message: `User Deleted successfully` });
   } catch (error) {
     console.log("error from toggling staff", error);
     res.status(500).json({ error: "Server eroor" });

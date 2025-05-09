@@ -56,10 +56,6 @@ module.exports = (sequelize) => {
       type: DataTypes.INTEGER,
       allowNull: true
     },  
-    salaryCredited: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false
-    },
     branchId: {
       type: DataTypes.INTEGER,
       allowNull: true, // or false if every user must belong to a branch

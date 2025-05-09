@@ -32,6 +32,7 @@ interface Staff {
   aadharNumber?: string;
   address?: string;
   isDeleted?: boolean;
+  totalIncentives?: number;
 }
 
 interface CustomJwtPayload extends JwtPayload {
@@ -305,7 +306,7 @@ const Employees: React.FC = () => {
                 <th className="p-3 text-left">Phone</th>
                 <th className="p-3 text-left">Branch</th>
                 <th className="p-3 text-left">Salary</th>
-                <th className="p-3 text-left">Status</th>
+                {/* <th className="p-3 text-left">Status</th> */}
                 <th className="p-3 text-left">Pay</th>
                 <th className="p-3 text-left">View</th>
                 <th className="p-3 text-left">Actions</th>
@@ -318,8 +319,17 @@ const Employees: React.FC = () => {
                   <td className="p-3">{staff.email}</td>
                   <td className="p-3">{staff.phone || "N/A"}</td>
                   <td className="p-3">{staff?.Branch?.name || "N/A"}</td>
-                  <td className="p-3">₹{staff.salary}</td>
                   <td className="p-3">
+                    ₹
+                    {(
+                      Number(staff?.salary ?? 0) +
+                      Number(staff?.totalIncentives ?? 0)
+                    ).toLocaleString("en-IN", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </td>
+                  {/* <td className="p-3">
                     <span
                       className={`px-2 py-1 rounded-full text-xs ${
                         staff.salaryCredited
@@ -329,7 +339,7 @@ const Employees: React.FC = () => {
                     >
                       {staff.salaryCredited ? "Paid" : "Pending"}
                     </span>
-                  </td>
+                  </td> */}
                   <td>
                     <button
                       onClick={() => openSalaryModal(staff)}
