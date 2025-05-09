@@ -20,7 +20,7 @@ module.exports = (sequelize) => {
       allowNull: false
     },
     month: {
-      type: DataTypes.STRING, // e.g., "April 2025"
+      type: DataTypes.STRING, 
       allowNull: false
     },
     status: {

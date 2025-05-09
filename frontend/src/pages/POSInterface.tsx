@@ -785,6 +785,7 @@ const POSInterface: React.FC = () => {
             setCurrentSaleId={setCurrentSaleId}
             setPendingSale={setPendingSale}
             selectedCustomer={selectedCustomer}
+            paymentMethod={selectedPaymentMethod}
           />
         )}
       </AnimatePresence>

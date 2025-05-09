@@ -1,23 +1,35 @@
-const { Product } = require('../models/index');
-const { SupplierHistory } = require('../models/index');
-const fs = require('fs');
-const xlsx = require('xlsx');
-const csvParser = require('csv-parser');
-
+const { Product } = require("../models/index");
+const { SupplierHistory } = require("../models/index");
+const fs = require("fs");
+const xlsx = require("xlsx");
+const csvParser = require("csv-parser");
 
 exports.createProduct = async (req, res) => {
   try {
-    const { name, retailPrice, wholeSalePrice, category, lowStockThreshold, unitType, description } = req.body;
-    let {barcode} = req.body
-    if (!barcode || barcode.trim() === '') {
+    const {
+      name,
+      retailPrice,
+      category,
+      lowStockThreshold,
+      unitType,
+      description,
+    } = req.body;
+    let { barcode, wholeSalePrice } = req.body;
+    if (!barcode || barcode.trim() === "") {
       barcode = null;
     }
 
-    if (!['pcs', 'kg'].includes(unitType)) {
-      return res.status(400).json({ message: "Invalid unit type. Use 'pcs' or 'kg'." });
+    if (!wholeSalePrice || !wholeSalePrice.trim() === "") {
+      wholeSalePrice = null;
     }
-    if(!name || !category || !lowStockThreshold || !unitType || (!wholeSalePrice || !retailPrice)){
-      return  res.status(400).json({ message: 'All fiels are required'});
+
+    if (!["pcs", "kg"].includes(unitType)) {
+      return res
+        .status(400)
+        .json({ message: "Invalid unit type. Use 'pcs' or 'kg'." });
+    }
+    if (!name || !category || !lowStockThreshold || !unitType || !retailPrice) {
+      return res.status(400).json({ message: "All fiels are required" });
     }
 
     // Create the product
@@ -39,31 +51,30 @@ exports.createProduct = async (req, res) => {
         quantity: product.stock,
         amount: product.wholeSalePrice * product.stock,
         date: new Date(),
-        paymentStatus: 'Unpaid'
+        paymentStatus: "Unpaid",
       });
     }
 
-    res.status(201).json({ message: 'Product created successfully', product });
+    res.status(201).json({ message: "Product created successfully", product });
   } catch (error) {
-    console.log(error)
+    console.log(error);
     res.status(400).json({ error: error.message });
   }
 };
 
-
 exports.uploadBulkProducts = async (req, res) => {
-  if (!req.file) return res.status(400).json({ message: 'File is required' });
+  if (!req.file) return res.status(400).json({ message: "File is required" });
 
-  const ext = req.file.originalname.split('.').pop().toLowerCase();
+  const ext = req.file.originalname.split(".").pop().toLowerCase();
   let data = [];
 
   try {
-    if (ext === 'csv') {
+    if (ext === "csv") {
       data = await parseCSV(req.file.path);
-    } else if (['xlsx', 'xls'].includes(ext)) {
+    } else if (["xlsx", "xls"].includes(ext)) {
       data = parseExcel(req.file.path);
     } else {
-      return res.status(400).json({ message: 'Unsupported file format' });
+      return res.status(400).json({ message: "Unsupported file format" });
     }
 
     const products = [];
@@ -83,12 +94,12 @@ exports.uploadBulkProducts = async (req, res) => {
       } = row;
 
       if (!name || !category || !unitType || !retailPrice || !wholeSalePrice) {
-        errors.push({ row, reason: 'Missing required fields' });
+        errors.push({ row, reason: "Missing required fields" });
         continue;
       }
 
-      if (!['pcs', 'kg'].includes(unitType)) {
-        errors.push({ row, reason: 'Invalid unitType' });
+      if (!["pcs", "kg"].includes(unitType)) {
+        errors.push({ row, reason: "Invalid unitType" });
         continue;
       }
 
@@ -109,14 +120,15 @@ exports.uploadBulkProducts = async (req, res) => {
     fs.unlinkSync(req.file.path);
 
     return res.status(201).json({
-      message: 'Bulk upload successful',
+      message: "Bulk upload successful",
       added: products.length,
-      errors
+      errors,
     });
-
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: 'Failed to process file', error: err.message });
+    res
+      .status(500)
+      .json({ message: "Failed to process file", error: err.message });
   }
 };
 
@@ -125,9 +137,9 @@ const parseCSV = (filePath) => {
     const results = [];
     fs.createReadStream(filePath)
       .pipe(csvParser())
-      .on('data', (row) => results.push(row))
-      .on('end', () => resolve(results))
-      .on('error', reject);
+      .on("data", (row) => results.push(row))
+      .on("end", () => resolve(results))
+      .on("error", reject);
   });
 };
 
@@ -136,7 +148,6 @@ const parseExcel = (filePath) => {
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   return xlsx.utils.sheet_to_json(sheet);
 };
-
 
 exports.updateProduct = async (req, res) => {
   try {
@@ -149,14 +160,14 @@ exports.updateProduct = async (req, res) => {
       barcode,
       category,
       lowStockThreshold,
-      unitType
+      unitType,
     } = req.body;
 
     // Find the product by ID
     const product = await Product.findByPk(id);
 
     if (!product) {
-      return res.status(404).json({ message: 'Product not found' });
+      return res.status(404).json({ message: "Product not found" });
     }
 
     // Update the product details
@@ -171,7 +182,7 @@ exports.updateProduct = async (req, res) => {
       unitType: unitType !== undefined ? unitType : product.unitType,
     });
 
-    res.status(200).json({ message: 'Product updated successfully', product });
+    res.status(200).json({ message: "Product updated successfully", product });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -183,9 +194,9 @@ exports.deleteProduct = async (req, res) => {
     const { id } = req.params;
 
     const product = await Product.findByPk(id);
-    product.isDeleted = !product.isDeleted
-    product.save()
-    res.json({ message: 'Product deleted successfully' });
+    product.isDeleted = !product.isDeleted;
+    product.save();
+    res.json({ message: "Product deleted successfully" });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -194,7 +205,9 @@ exports.deleteProduct = async (req, res) => {
 exports.getAllProducts = async (req, res) => {
   try {
     const products = await Product.findAll();
-    res.status(200).json({ message: 'Products retrieved successfully', products });
+    res
+      .status(200)
+      .json({ message: "Products retrieved successfully", products });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -205,7 +218,7 @@ exports.getProductByBarcode = async (req, res) => {
   try {
     const { barcode } = req.params;
     const product = await Product.findOne({ where: { barcode } });
-    if (!product) return res.status(404).json({ message: 'Product not found' });
+    if (!product) return res.status(404).json({ message: "Product not found" });
     res.json(product);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -244,7 +257,9 @@ exports.toggleProduct = async (req, res) => {
     await product.save();
 
     res.status(200).json({
-      message: `Product ${product.active ? "activated" : "deactivated"} successfully`,
+      message: `Product ${
+        product.active ? "activated" : "deactivated"
+      } successfully`,
       product,
     });
   } catch (error) {

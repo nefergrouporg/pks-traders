@@ -31,6 +31,12 @@ exports.createSale = async (req, res) => {
       return res.status(400).json({ error: "Invalid sale type" });
     }
 
+    if (paymentMethod === "debt" && customerId === null) {
+      return res.status(400).json({
+        error: "Please select customer for Debt",
+      });
+    }
+
     for (const item of items) {
       if (!item.productId)
         return res
@@ -46,11 +52,6 @@ exports.createSale = async (req, res) => {
       const transaction = await sequelize.transaction();
       const saleItems = [];
       let totalAmount = 0;
-      if (paymentMethod === "debt" && customerId === null) {
-        return res.status(400).json({
-          error: "Please select customer for Debt",
-        });
-      }
 
       for (const item of items) {
         const product = await Product.findByPk(item.productId, {
@@ -86,9 +87,9 @@ exports.createSale = async (req, res) => {
         });
       }
 
-      if (saleType === "wholeSale") {
-        totalAmount = finalAmount;
-      }
+      // if (saleType === "wholeSale") {
+      //   totalAmount = finalAmount;
+      // }
 
       if (customerId) {
         await Customer.update(

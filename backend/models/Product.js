@@ -20,10 +20,10 @@ module.exports = (sequelize) => {
         allowNull: false,
         default : 0
       },
-      wholeSalePrice :{
+      wholeSalePrice: {
         type: DataTypes.FLOAT,
-        allowNull : false,
-        default: 0
+        allowNull: true, 
+        defaultValue: null,
       },
       barcode: {
         type: DataTypes.STRING,

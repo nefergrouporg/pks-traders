@@ -242,7 +242,6 @@ const ProductManagement: React.FC = () => {
     if (
       (!formData.name ||
         !formData.retailPrice ||
-        !formData.wholeSalePrice ||
         !formData.category ||
         !formData.lowStockThreshold ||
         !formData.unitType) &&

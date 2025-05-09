@@ -18,12 +18,11 @@ interface PaymentStepperProps {
   onPaymentConfirm: () => void;
   showReceiptPreview: () => void;
   handleAutomaticPrintAndDownload: () => void;
-  createPendingSale: (
-    method: "cash" | "card" | "upi" | "debt"
-  ) => Promise<any>;
+  createPendingSale: (method: "cash" | "card" | "upi" | "debt") => Promise<any>;
   setCurrentSaleId: (id: number) => void;
   setPendingSale: (sale: any) => void;
   selectedCustomer: Customer | null;
+  paymentMethod: "cash" | "card" | "upi" | "debt" | undefined;
 }
 
 const PaymentStepper: React.FC<PaymentStepperProps> = ({
@@ -40,7 +39,8 @@ const PaymentStepper: React.FC<PaymentStepperProps> = ({
   createPendingSale,
   setCurrentSaleId,
   setPendingSale,
-  selectedCustomer
+  selectedCustomer,
+  paymentMethod,
 }) => {
   const [tempPaymentMethod, setTempPaymentMethod] = useState<
     "cash" | "card" | "upi" | "debt"
@@ -50,15 +50,29 @@ const PaymentStepper: React.FC<PaymentStepperProps> = ({
   const handlePaymentMethodSelect = (
     method: "cash" | "card" | "upi" | "debt"
   ) => {
-    if(method === "debt" && selectedCustomer === null) {
-      toast.error("Please select a customer first");
-      return
-    }
+    // if (method === "debt" && selectedCustomer === null) {
+    //   toast.error("Please select a customer first");
+    //   return;
+    // }
     setTempPaymentMethod(method);
     setSelectedPaymentMethod(method);
   };
 
   const handleStepChange = async (newStep: number) => {
+    if (newStep === 1 && !selectedPaymentMethod) {
+      toast.error("Please select a payment method first");
+      return;
+    }
+
+    // Prevent selecting 'debt' without a customer
+    if (
+      newStep === 1 &&
+      selectedPaymentMethod === "debt" &&
+      !selectedCustomer
+    ) {
+      toast.error("Please select a customer for debt payment");
+      return;
+    }
     if (newStep === 2 && selectedPaymentMethod === "upi" && !paymentQR) {
       try {
         setIsGeneratingQR(true);
@@ -121,12 +135,6 @@ const PaymentStepper: React.FC<PaymentStepperProps> = ({
         exit={{ scale: 0.95, opacity: 0 }}
         className="rounded-lg p-4 sm:p-6 w-full max-w-xs sm:max-w-sm md:max-w-md  relative"
       >
-        {/* <button
-          onClick={onClose}
-          className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-xl sm:text-2xl"
-        >
-          ×
-        </button> */}
         <Stepper
           initialStep={currentStepperStep}
           onFinalStepCompleted={handleFinalStep}
@@ -136,7 +144,7 @@ const PaymentStepper: React.FC<PaymentStepperProps> = ({
           }
           onClose={onClose}
           selectedCustomer={selectedCustomer}
-          paymentMethod={selectedPaymentMethod}
+          paymentMethod={tempPaymentMethod}
         >
           <Step>
             <div className="flex flex-col gap-4">
@@ -179,6 +187,7 @@ const PaymentStepper: React.FC<PaymentStepperProps> = ({
                 </svg>
                 <span>UPI</span>
               </button>
+              {/* {selectedCustomer && ( */}
               <button
                 onClick={() => handlePaymentMethodSelect("debt")}
                 className={`p-2 rounded flex items-center gap-2 ${
@@ -190,6 +199,7 @@ const PaymentStepper: React.FC<PaymentStepperProps> = ({
                 <TrendingDown />
                 <span>Debt</span>
               </button>
+              {/* )} */}
             </div>
           </Step>
           <Step>

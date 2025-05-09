@@ -5,6 +5,7 @@ import React, {
   useLayoutEffect,
   HTMLAttributes,
   ReactNode,
+  useEffect,
 } from "react";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import { Customer } from "../pages/POSInterface";
@@ -60,7 +61,20 @@ export default function Stepper({
   const isCompleted = currentStep > totalSteps;
   const isLastStep = currentStep === totalSteps;
 
+  const paymentMethodRef = useRef(paymentMethod);
+  const selectedCustomerRef = useRef(selectedCustomer);
+
+  useEffect(() => {
+    paymentMethodRef.current = paymentMethod;
+    selectedCustomerRef.current = selectedCustomer;
+  }, [paymentMethod, selectedCustomer]);
+
+
   const updateStep = (newStep: number) => {
+    if (paymentMethodRef.current === "debt" && !selectedCustomerRef.current) {
+      toast.error("Please select a customer first");
+      return;
+    }
     setCurrentStep(newStep);
     if (newStep > totalSteps) {
       onFinalStepCompleted();
@@ -70,11 +84,12 @@ export default function Stepper({
   };
 
   const handleNext = () => {
+    if (paymentMethodRef.current === "debt" && !selectedCustomerRef.current) {
+      toast.error("Please select a customer first");
+      return;
+    }
+
     if (!isLastStep) {
-      if (selectedCustomer === null && paymentMethod === "debt") {
-        toast.error("Please select a customer first");
-        return;
-      }
       setDirection(1);
       updateStep(currentStep + 1);
     }
