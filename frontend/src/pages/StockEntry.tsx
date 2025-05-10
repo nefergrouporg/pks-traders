@@ -55,6 +55,8 @@ const StockEntryManagement: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [isStockEntryModalOpen, setStockEntryModal] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [currentEditId, setCurrentEditId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     productId: "",
     supplierId: "",
@@ -213,6 +215,60 @@ const StockEntryManagement: React.FC = () => {
     }
   };
 
+  // Open edit modal and populate form with entry data
+  const handleEditClick = (entry: StockEntry) => {
+    setCurrentEditId(entry.id);
+    setFormData({
+      productId: entry.productId.toString(),
+      supplierId: entry.supplierId.toString(),
+      quantity: entry.quantity.toString(),
+      purchasePrice: entry.purchasePrice.toString(),
+      expiryDate: entry.expiryDate ? entry.expiryDate.split('T')[0] : "",
+      batchNumber: entry.batchNumber,
+      note: entry.note || "",
+    });
+    setIsEditModalOpen(true);
+  };
+
+  // Submit the edit form
+  const handleUpdateStockEntry = async (e) => {
+    e.preventDefault();
+
+    if (
+      !formData.productId ||
+      !formData.supplierId ||
+      !formData.quantity ||
+      !formData.purchasePrice ||
+      !formData.batchNumber
+    ) {
+      return toast.error("All required fields must be filled");
+    }
+
+    try {
+      const response = await axios.put(
+        `${baseUrl}/api/entryStock/${currentEditId}`, 
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.status === 200) {
+        toast.success("Stock entry updated successfully");
+        setIsEditModalOpen(false);
+        resetFormData();
+        fetchStockEntries();
+        fetchProducts();
+      } else {
+        toast.error(response.data.message || "Something went wrong");
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Something went wrong");
+    }
+  };
+
   // Reset form data to initial state
   const resetFormData = () => {
     setFormData({
@@ -224,11 +280,13 @@ const StockEntryManagement: React.FC = () => {
       batchNumber: "",
       note: "",
     });
+    setCurrentEditId(null);
   };
 
   // Close modal and reset form data
   const closeModal = () => {
     setStockEntryModal(false);
+    setIsEditModalOpen(false);
     resetFormData();
   };
 
@@ -398,6 +456,161 @@ const StockEntryManagement: React.FC = () => {
           </div>
         </Modal>
 
+        {/* Edit Stock Entry Modal */}
+        <Modal isOpen={isEditModalOpen} onClose={closeModal}>
+          <div className="p-6 sm:p-8 max-h-[90vh] overflow-y-auto w-full max-w-2xl mx-auto bg-white rounded-lg shadow-xl">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center mb-5 border-b pb-3">
+              <h2 className="text-xl font-semibold text-gray-800">
+                Edit Stock Entry
+              </h2>
+            </div>
+
+            <form className="space-y-5" onSubmit={handleUpdateStockEntry}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Product Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Product <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="productId"
+                    value={formData.productId}
+                    onChange={handleInputChange}
+                    className="w-full border rounded-lg px-4 py-2 bg-white text-black focus:ring-2 focus:ring-green-500"
+                    required
+                  >
+                    <option value="">Select Product</option>
+                    {products.map((product) => (
+                      <option key={product.id} value={product.id}>
+                        {product.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Supplier Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Supplier <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="supplierId"
+                    value={formData.supplierId}
+                    onChange={handleInputChange}
+                    className="w-full border rounded-lg px-4 py-2 bg-white text-black focus:ring-2 focus:ring-green-500"
+                    required
+                  >
+                    <option value="">Select Supplier</option>
+                    {suppliers.map((supplier) => (
+                      <option key={supplier.id} value={supplier.id}>
+                        {supplier.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Quantity */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Quantity <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="quantity"
+                    value={formData.quantity}
+                    onChange={handleInputChange}
+                    className="w-full border rounded-lg px-4 py-2 bg-white text-black focus:ring-2 focus:ring-green-500"
+                    placeholder="Enter quantity"
+                    required
+                    min="1"
+                  />
+                </div>
+
+                {/* Purchase Price */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Purchase Price <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="purchasePrice"
+                    value={formData.purchasePrice}
+                    onChange={handleInputChange}
+                    className="w-full border rounded-lg px-4 py-2 bg-white text-black focus:ring-2 focus:ring-green-500"
+                    placeholder="Enter purchase price"
+                    required
+                    step="0.01"
+                    min="0"
+                  />
+                </div>
+
+                {/* Expiry Date */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Expiry Date
+                  </label>
+                  <input
+                    type="date"
+                    name="expiryDate"
+                    value={formData.expiryDate}
+                    onChange={handleInputChange}
+                    className="w-full border rounded-lg px-4 py-2 bg-white text-black focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+
+                {/* Batch Number */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Batch Number <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="batchNumber"
+                    value={formData.batchNumber}
+                    onChange={handleInputChange}
+                    className="w-full border rounded-lg px-4 py-2 bg-white text-black focus:ring-2 focus:ring-green-500"
+                    placeholder="Enter batch number"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Note - Full Width */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Note
+                </label>
+                <textarea
+                  name="note"
+                  value={formData.note}
+                  onChange={handleInputChange}
+                  className="w-full border rounded-lg px-4 py-2 bg-white text-black focus:ring-2 focus:ring-green-500"
+                  rows={3}
+                  placeholder="Enter any additional notes"
+                />
+              </div>
+
+              {/* Submit Button */}
+              <div className="flex justify-end mt-5">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="bg-gray-400 text-white px-6 py-2 rounded-lg hover:bg-gray-500 transition mr-3"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition"
+                >
+                  Update Stock Entry
+                </button>
+              </div>
+            </form>
+          </div>
+        </Modal>
+
         {/* Search and Filter */}
         <div className="mb-6 flex flex-col sm:flex-row gap-4">
           <input
@@ -512,6 +725,9 @@ const StockEntryManagement: React.FC = () => {
                   <th className="p-3 text-left text-sm sm:text-base">
                     Expiry Date
                   </th>
+                  <th className="p-3 text-left text-sm sm:text-base">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -540,11 +756,19 @@ const StockEntryManagement: React.FC = () => {
                         ? new Date(entry.expiryDate).toLocaleDateString()
                         : "N/A"}
                     </td>
+                    <td className="p-3 text-sm sm:text-base">
+                      <button
+                        onClick={() => handleEditClick(entry)}
+                        className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition text-xs sm:text-sm"
+                      >
+                        Edit
+                      </button>
+                    </td>
                   </tr>
                 ))}
                 {currentItems?.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="p-3 text-center text-gray-500">
+                    <td colSpan={8} className="p-3 text-center text-gray-500">
                       No stock entries found
                     </td>
                   </tr>

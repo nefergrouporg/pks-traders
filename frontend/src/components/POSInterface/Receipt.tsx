@@ -38,99 +38,95 @@ const Receipt: React.FC<ReceiptProps> = ({
   const displayTotal = customTotalPrice ?? totalPrice;
 
   return (
-    <div className="min-w-[300px] max-w-[400px] mx-auto p-4 bg-white text-black">
-      <div className="text-center mb-4">
-        <h1 className="text-xl font-bold">PKS Traders</h1>
-      </div>
-
-      <div className="flex justify-between mb-4">
-        <div>
-          <p>
-            <strong>Invoice #:</strong> {saleId}
-          </p>
-          <p>
-            <strong>Date:</strong> {moment().format("YYYY-MM-DD")}
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="font-bold text-lg">
-            {saleType === "wholeSale" ? "WHOLESALE INVOICE" : "RETAIL INVOICE"}
-          </p>
-        </div>
-      </div>
-
-      {customer && (
-        <div className="mb-4 border-t border-b py-2">
-          <p>
-            <strong>Customer:</strong> {customer.name || "No Name"}
-          </p>
-          <p>
-            <strong>Phone:</strong> {customer.phone}
-          </p>
-          {customer.address && (
-            <p>
-              <strong>Address:</strong> {customer.address}
-            </p>
-          )}
-        </div>
-      )}
-
-      <table className="w-full mb-4">
-        <thead>
-          <tr className="border-b">
-            <th className="text-left py-2">Item</th>
-            <th className="text-center">Qty</th>
-            <th className="text-right">Rate</th>
-            <th className="text-right">Amt</th>
-          </tr>
-        </thead>
-        <tbody>
-          {cart.map((item) => {
-            const originalPrice =
-              item.price !== undefined
-                ? item.price
-                : saleType === "wholeSale"
-                ? item.wholeSalePrice ?? item.retailPrice
-                : item.retailPrice;
-            return (
-              <tr key={item.id} className="border-b text-sm">
-                <td className="py-1">{item.name}</td>
-                <td className="text-center">
-                  {item.quantity} {item.unitType}
-                </td>
-                <td className="text-right">₹{originalPrice.toFixed(2)}</td>
-                <td className="text-right">
-                  ₹{(originalPrice * item.quantity).toFixed(2)}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-
-      {saleType === "wholeSale" && (
-        <div className="mb-2 text-sm">
-          <div className="flex justify-between">
-            <span>Calculated Total:</span>
-            <span>₹{originalSubtotal.toFixed(2)}</span>
+    <div className="min-w-[300px] max-w-[400px] mx-auto p-4 bg-white text-black font-mono">
+      {/* Store name and header */}
+      <div className="text-center mb-2">
+        <h1 className="text-xl font-bold tracking-wider">PKS TRADERS</h1>
+        <div className="text-xs">
+          {/* <p>GSTIN: 32CEUPM084GN1ZX PH: 9847359760</p> */}
+          <div className="border-t border-b border-dashed my-1 py-1">
+            <p>Bill No:{saleId}</p>
+            <p>Date:{moment().format("DD/MM/YYYY")}</p>
+            {customer && <p>To : {customer.name || "No Name"}</p>}
           </div>
-          {customTotalPrice !== undefined && (
-            <div className="flex justify-between text-green-700">
-              <span>Negotiated Price:</span>
-              <span>₹{customTotalPrice.toFixed(2)}</span>
-            </div>
-          )}
         </div>
-      )}
-
-      <div className="flex justify-between font-bold border-t pt-2 mb-4">
-        <div>Total</div>
-        <div>₹{displayTotal.toFixed(2)}</div>
       </div>
 
-      <div className="flex justify-between border-t">
-        <div>Payment Method</div>
-        <div className="uppercase">{paymentMethod}</div>
+      {/* Item header */}
+      <div className="text-xs border-b border-dashed flex mb-1">
+        <div className="w-8 text-left">NO</div>
+        <div className="flex-1 text-left">ITEM NAME</div>
+        <div className="w-12 text-right">QTY</div>
+        <div className="w-16 text-right">RATE</div>
+        <div className="w-20 text-right">TOTAL</div>
+      </div>
+
+      {/* Cart items */}
+      <div className="text-xs mb-2">
+        {cart.map((item, index) => {
+          const originalPrice =
+            item.price !== undefined
+              ? item.price
+              : saleType === "wholeSale"
+              ? item.wholeSalePrice ?? item.retailPrice
+              : item.retailPrice;
+          
+          // Format the item name to wrap if needed
+          const formattedName = item.name.length > 20
+            ? `${item.name.substring(0, 20)}\n${item.name.substring(20)}`
+            : item.name;
+            
+          return (
+            <div key={item.id} className="flex py-1">
+              <div className="w-8 text-left">{index + 1}</div>
+              <div className="flex-1 text-left uppercase">{formattedName}</div>
+              <div className="w-12 text-right">{item.quantity}</div>
+              <div className="w-16 text-right">{originalPrice.toFixed(2)}</div>
+              <div className="w-20 text-right">
+                {(originalPrice * item.quantity).toFixed(2)}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Total amount section */}
+      <div className="border-t border-dashed pt-2 mb-1">
+        <div className="flex justify-between text-lg font-bold">
+          <div>BILL AMOUNT :</div>
+          <div>{displayTotal.toFixed(2)}</div>
+        </div>
+      </div>
+
+      {/* Payment and balance information */}
+      <div className="text-xs">
+        {saleType === "wholeSale" && (
+          <>
+            <div className="flex justify-between">
+              <span>Previous :</span>
+              <span>{originalSubtotal.toFixed(2)}</span>
+            </div>
+            {customTotalPrice !== undefined && (
+              <div className="flex justify-between">
+                <span>Net Amount:</span>
+                <span>{customTotalPrice.toFixed(2)}</span>
+              </div>
+            )}
+          </>
+        )}
+        <div className="flex justify-between">
+          <span>Debt Amount:</span>
+          <span>{customer ? customer.debtAmount : "0.00"}</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Paid :</span>
+          <span>{displayTotal.toFixed(2)}</span>
+        </div>
+      </div>
+
+      {/* Time */}
+      <div className="text-xs border-t border-dashed mt-4 pt-1">
+        <div>Time : {moment().format("HH:mm:ss")}</div>
       </div>
     </div>
   );

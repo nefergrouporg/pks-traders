@@ -183,7 +183,108 @@ const bulkImportStockEntries = async (req, res) => {
   });
 };
 
+const editStockEntry = async (req, res) => {
+  const entryId = req.params.id;
+  const {
+    productId,
+    supplierId,
+    quantity,
+    purchasePrice,
+    receivedDate,
+    expiryDate,
+    batchNumber,
+    note
+  } = req.body;
 
+  try {
+    // 1. Find the existing stock entry
+    const stockEntry = await StockEntry.findByPk(entryId);
+    if (!stockEntry) {
+      return res.status(404).json({ message: 'Stock entry not found' });
+    }
+
+    // 2. Validate the new data
+    if (!productId || !supplierId || !quantity || !purchasePrice || !batchNumber) {
+      return res.status(400).json({ error: "All required fields must be filled" });
+    }
+
+    // 3. Validate product and supplier
+    const product = await Product.findByPk(productId);
+    const supplier = await Supplier.findByPk(supplierId);
+
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    if (!supplier) {
+      return res.status(404).json({ message: 'Supplier not found' });
+    }
+
+    // 4. Update the product stock
+    // First, subtract the old quantity
+    product.stock -= stockEntry.quantity;
+    // Then, add the new quantity
+    product.stock += parseInt(quantity);
+    await product.save();
+
+    // 5. Update the supplier history if the product or supplier changed
+    if (productId !== stockEntry.productId || supplierId !== stockEntry.supplierId ||
+        quantity !== stockEntry.quantity || purchasePrice !== stockEntry.purchasePrice) {
+      
+      // Find the related supplier history entry
+      const supplierHistory = await SupplierHistory.findOne({
+        where: {
+          supplierId: stockEntry.supplierId,
+          productId: stockEntry.productId,
+          quantity: stockEntry.quantity,
+          amount: stockEntry.purchasePrice,
+        }
+      });
+
+      if (supplierHistory) {
+        // Update the supplier history
+        await supplierHistory.update({
+          supplierId: supplierId,
+          productId: productId,
+          quantity: quantity,
+          amount: purchasePrice,
+          date: receivedDate || supplierHistory.date,
+        });
+      } else {
+        // If no history found, create a new one
+        await SupplierHistory.create({
+          supplierId: supplierId,
+          productId: productId,
+          quantity: quantity,
+          amount: purchasePrice,
+          date: receivedDate || new Date(),
+          paymentStatus: 'Unpaid',
+        });
+      }
+    }
+
+    // 6. Update the stock entry
+    await stockEntry.update({
+      productId,
+      supplierId,
+      quantity,
+      purchasePrice,
+      receivedDate,
+      expiryDate,
+      batchNumber,
+      note
+    });
+
+    // 7. Return success response
+    res.status(200).json({
+      message: 'Stock entry updated successfully',
+      stockEntry,
+    });
+
+  } catch (error) {
+    console.error('Error updating stock entry:', error);
+    res.status(500).json({ message: 'Error updating stock entry' });
+  }
+};
 
 
 const getAllStockEntry = async (req, res) => {
@@ -205,5 +306,6 @@ const getAllStockEntry = async (req, res) => {
 module.exports = {
   createStockEntry,
   getAllStockEntry,
-  bulkImportStockEntries
+  bulkImportStockEntries,
+  editStockEntry
 };
