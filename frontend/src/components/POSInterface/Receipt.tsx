@@ -28,17 +28,6 @@ const Receipt: React.FC<ReceiptProps> = ({
   saleType = "retail",
   customTotalPrice,
 }) => {
-  console.log(
-    cart,
-    "cart",
-    totalPrice,
-    saleId,
-    paymentMethod,
-    customer,
-    saleType,
-    customTotalPrice,
-    "lkjhgfdsa"
-  );
   // Get the price based on sale type for each item
   const originalSubtotal = cart.reduce((acc, item) => {
     const originalPrice =
@@ -46,7 +35,6 @@ const Receipt: React.FC<ReceiptProps> = ({
     return acc + originalPrice * item.quantity;
   }, 0);
 
-  console.log(originalSubtotal, "originalSubtotal");
   const displayTotal = customTotalPrice ?? totalPrice;
 
   return (
@@ -98,7 +86,6 @@ const Receipt: React.FC<ReceiptProps> = ({
         </thead>
         <tbody>
           {cart.map((item) => {
-            console.log("hola", item.price, "");
             const originalPrice =
               item.price !== undefined
                 ? item.price

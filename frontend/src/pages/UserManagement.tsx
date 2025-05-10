@@ -41,6 +41,7 @@ interface NewCustomer {
   name: string;
   phone: string;
   address?: string;
+  debtAmount?: number;
 }
 
 const UserManagement: React.FC = () => {
@@ -63,12 +64,14 @@ const UserManagement: React.FC = () => {
     name: "",
     phone: "",
     address: "",
+    debtAmount: 0,
   });
 
   const [editCustomer, setEditCustomer] = useState<NewCustomer>({
     name: "",
     phone: "",
     address: "",
+    debtAmount: 0,
   });
 
   const token = localStorage.getItem("token");
@@ -108,6 +111,7 @@ const UserManagement: React.FC = () => {
           name: "",
           phone: "",
           address: "",
+          debtAmount: 0,
         });
         fetchCustomers();
       }
@@ -123,6 +127,7 @@ const UserManagement: React.FC = () => {
       name: customer.name,
       phone: customer.phone,
       address: customer.address || "",
+      debtAmount: customer.debtAmount,
     });
     setIsEditCustomerModalOpen(true);
   };
@@ -132,8 +137,8 @@ const UserManagement: React.FC = () => {
     if (!selectedCustomer) return;
     const customer = {
       id: selectedCustomer.id,
-      ...editCustomer
-    }
+      ...editCustomer,
+    };
     try {
       const response = await axios.put(
         `${baseUrl}/api/customers/update`,
@@ -356,6 +361,24 @@ const UserManagement: React.FC = () => {
                   }
                 />
               </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  debt Amount*
+                </label>
+                <input
+                  type="number"
+                  required
+                  className="w-full border rounded-lg px-4 py-2 bg-white text-black"
+                  value={newCustomer.debtAmount}
+                  onChange={(e) =>
+                    setNewCustomer({
+                      ...newCustomer,
+                      debtAmount: Number(e.target.value),
+                    })
+                  }
+                />
+              </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1">
                   Address
@@ -422,6 +445,24 @@ const UserManagement: React.FC = () => {
                   }
                 />
               </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Debt Amount*
+                </label>
+                <input
+                  type="number"
+                  required
+                  className="w-full border rounded-lg px-4 py-2 bg-white text-black"
+                  value={editCustomer.debtAmount}
+                  onChange={(e) =>
+                    setEditCustomer({
+                      ...editCustomer,
+                      debtAmount: Number(e.target.value),
+                    })
+                  }
+                />
+              </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1">
                   Address
@@ -431,7 +472,10 @@ const UserManagement: React.FC = () => {
                   rows={3}
                   value={editCustomer.address}
                   onChange={(e) =>
-                    setEditCustomer({ ...editCustomer, address: e.target.value })
+                    setEditCustomer({
+                      ...editCustomer,
+                      address: e.target.value,
+                    })
                   }
                 />
               </div>

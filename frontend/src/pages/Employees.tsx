@@ -33,6 +33,7 @@ interface Staff {
   address?: string;
   isDeleted?: boolean;
   totalIncentives?: number;
+  remainingSalary?: number;
 }
 
 interface CustomJwtPayload extends JwtPayload {
@@ -322,12 +323,24 @@ const Employees: React.FC = () => {
                   <td className="p-3">
                     ₹
                     {(
-                      Number(staff?.salary ?? 0) +
-                      Number(staff?.totalIncentives ?? 0)
-                    ).toLocaleString("en-IN", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
+                      Number(staff.salary) + // Convert to number
+                      Number(staff.totalIncentives || 0)
+                    ) // Ensure number conversion
+                      .toLocaleString("en-IN", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    <div className="text-xs text-gray-500 mt-1">
+                      {staff.remainingSalary && staff.remainingSalary > 0
+                        ? `Remaining: ₹${Number(
+                            staff.remainingSalary
+                          ).toLocaleString("en-IN")}`
+                        : `Base: ₹${Number(staff.salary).toLocaleString(
+                            "en-IN"
+                          )} + Incentives: ₹${(
+                            Number(staff.totalIncentives) || 0
+                          ).toLocaleString("en-IN")}`}
+                    </div>
                   </td>
                   {/* <td className="p-3">
                     <span

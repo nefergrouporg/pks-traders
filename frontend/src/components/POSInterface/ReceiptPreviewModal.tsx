@@ -36,7 +36,6 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
   handleAutomaticPrintAndDownload,
   saleType = "retail", // Default to retail
 }) => {
-  console.log('preview', cart)
   const receiptRef = useRef<HTMLDivElement>(null);
 
   if (!isOpen) return null;

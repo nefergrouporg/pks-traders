@@ -32,11 +32,9 @@ const SalaryPaymentModal: React.FC<SalaryPaymentProps> = ({
   const [loading, setLoading] = useState(false);
   const token = localStorage.getItem("token");
 
-  console.log("Staff data:", staff);
-  // console.log("Payment date:", paymentDate);
-
   const remainingSalary = useMemo(() => {
-    return staff.remainingSalary || staff.salary - (staff.totalAdvances || 0);
+    const calculated = staff.salary - (staff.totalAdvances || 0);
+    return Math.max(calculated, 0);
   }, [staff]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -60,7 +58,6 @@ const SalaryPaymentModal: React.FC<SalaryPaymentProps> = ({
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      console.log("Payment response:", response.data);
       if (response.status === 201) {
         toast.success(`Payment processed for ${staff.username}`);
         onSuccess();

@@ -403,7 +403,6 @@ const POSInterface: React.FC = () => {
         finalAmount: customTotalPrice || totalPrice,
       };
 
-      console.log(saleData);
 
       const response = await axios.post(`${baseUrl}/api/sales`, saleData, {
         headers: {
@@ -638,7 +637,6 @@ const POSInterface: React.FC = () => {
     }
   };
 
-  console.log(cart);
 
   const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
   const totalAmount = cart.reduce((total, item) => {

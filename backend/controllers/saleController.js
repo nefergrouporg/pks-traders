@@ -48,8 +48,6 @@ exports.createSale = async (req, res) => {
           .json({ error: "Quantity is required for each item" });
     }
 
-    console.log(items)
-
     try {
       const transaction = await sequelize.transaction();
       const saleItems = [];
@@ -109,7 +107,6 @@ exports.createSale = async (req, res) => {
         );
       }
       const user = await User.findByPk(userId);
-      console.log(paymentMethod, customerId);
       
       if (paymentMethod === "debt") {
         const customer = await Customer.findByPk(customerId, { transaction });
@@ -169,7 +166,6 @@ exports.createSale = async (req, res) => {
         paymentQR,
         paymentId: payment.id,
       });
-      console.log("Sale created successfully:", sale.id);
     } catch (error) {
       await transaction.rollback();
       console.error("Sale creation failed:", error);

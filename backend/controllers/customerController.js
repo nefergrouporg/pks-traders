@@ -133,7 +133,7 @@ exports.editCustomer = async (req, res) => {
     if (!customer) {
       return res.status(404).json({ error: "Customer not found" });
     }
-
+    
     await Customer.update(
       {
         name: name,

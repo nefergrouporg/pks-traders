@@ -73,7 +73,6 @@ const StaffDetailsModal: React.FC<StaffDetailsModalProps> = ({
     }
   };
   if (!staff) return null;
-  console.log(salaryHistory)
   const handleDeleteStaff = async () => {
     if (!staffToDelete) return;
 
