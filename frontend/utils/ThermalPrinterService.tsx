@@ -1,14 +1,13 @@
 import {
+  Printer as ESCPrinter,
   Text,
   Line,
   Cut,
-  render as renderESC
+  render as renderESC,
 } from "react-thermal-printer";
 import moment from "moment";
-import escpos from "escpos";
-// Requiring the adapter and device based on your system
-import USB from "escpos-usb";
-// You might need to install node-gyp and rebuild for these dependencies
+import React from "react";
+import { toast } from "react-toastify";
 
 // Define a common interface for receipt data that matches your requirements
 interface ThermalReceiptData {
@@ -29,14 +28,20 @@ interface ThermalReceiptData {
   customTotalPrice?: number;
 }
 
+// Network printer configuration - only using WiFi as requested
+interface NetworkPrinterConfig {
+  address: string; // IP address
+  port: number; // Port number, typically 9100
+}
+
 /**
  * Service for handling thermal printing functionalities
  */
 export class ThermalPrinterService {
   private static instance: ThermalPrinterService;
-  private printerConfig = {
-    vendorId: 0x04b8, // Example Epson vendor ID - replace with your printer's vendor ID
-    productId: 0x0202 // Example Epson product ID - replace with your printer's product ID
+  private printerConfig: NetworkPrinterConfig = {
+    address: "192.168.1.100", // Default IP - should be configured
+    port: 9100, // Default port for most network printers
   };
 
   constructor() {
@@ -48,175 +53,195 @@ export class ThermalPrinterService {
   }
 
   /**
+   * Configure the printer connection
+   * @param config The printer configuration
+   */
+  configurePrinter(config: NetworkPrinterConfig): void {
+    this.printerConfig = config;
+  }
+
+  /**
    * Print receipt data to a thermal printer
    * @param receiptData The data to be printed
    * @returns Promise resolving to success or error message
    */
   async printReceipt(receiptData: ThermalReceiptData): Promise<string> {
-    const {
-      cart,
-      totalPrice,
-      saleId,
-      paymentMethod,
-      customer,
-      saleType,
-      customTotalPrice
-    } = receiptData;
-    
     try {
-      // Get USB device
-      const device = new USB(this.printerConfig);
-      
-      // Setup printer
-      return new Promise((resolve, reject) => {
-        try {
-          const printer = new escpos.Printer(device);
-          
-          // Open the device
-          device.open(async (error) => {
-            if (error) {
-              reject(`Failed to open device: ${error}`);
-              return;
-            }
-            
-            try {
-              // Format and print the receipt
-              this.formatReceipt(printer, receiptData);
-              
-              // Cut and finish
-              printer
-                .cut()
-                .close();
-                
-              resolve("Receipt printed successfully");
-            } catch (err) {
-              reject(`Error during printing: ${err}`);
-            }
-          });
-        } catch (err) {
-          reject(`Failed to create printer: ${err}`);
-        }
-      });
+      // First try using Web Serial API for direct connection
+      if (navigator && "serial" in navigator) {
+        return this.printWithWebSerial(receiptData);
+      } else {
+        // Fall back to network printing if Web Serial API is not available
+        return this.printWithNetworkPrinter(receiptData);
+      }
     } catch (error) {
       console.error("Thermal printing failed:", error);
-      return `Printing failed: ${error instanceof Error ? error.message : String(error)}`;
+      return `Printing failed: ${
+        error instanceof Error ? error.message : String(error)
+      }`;
     }
   }
 
   /**
-   * Helper method to format receipt content for printing
-   * @param printer Initialized printer instance
-   * @param receiptData Receipt data to format
+   * Print with Web Serial API (for USB connected thermal printers)
+   * @param receiptData Receipt data to print
+   * @returns Promise resolving to success or error message
    */
-  private formatReceipt(printer: any, receiptData: ThermalReceiptData): void {
-    const {
-      cart,
-      totalPrice,
-      saleId,
-      paymentMethod,
-      customer,
-      saleType,
-      customTotalPrice
-    } = receiptData;
+  private async printWithWebSerial(
+    receiptData: ThermalReceiptData
+  ): Promise<string> {
+    try {
+      // Generate receipt content using react-thermal-printer
+      const receiptTree = this.createReceiptTree(receiptData);
+      const escposData = await renderESC(receiptTree);
 
-    const displayTotal = customTotalPrice ?? totalPrice;
-    
-    // Store header
-    printer
-      .align("ct")
-      .style("b")
-      .size(1, 1) // Double size text
-      .text("PKS TRADERS")
-      .size(0, 0) // Normal size text
-      .style("normal")
-      .feed(1);
-      
-    // Receipt info
-    printer
-      .align("ct")
-      .text("--------------------------------")
-      .text(`Bill No: ${saleId}`)
-      .text(`Date: ${moment().format("DD/MM/YYYY")}`)
-      .text(`Time: ${moment().format("HH:mm:ss")}`);
-      
-    // Customer info if available
-    if (customer && customer.name) {
-      printer.text(`Customer: ${customer.name}`);
+      // Request port access
+      const port = await (navigator as any).serial.requestPort();
+      await port.open({ baudRate: 9600 });
+
+      // Write to the printer
+      const writer = port.writable?.getWriter();
+
+      if (!writer) {
+        throw new Error("Could not get writer for serial port");
+      }
+
+      await writer.write(escposData);
+      writer.releaseLock();
+      await port.close();
+
+      return "Receipt printed successfully via Web Serial API";
+    } catch (error) {
+      console.error("Serial printing error:", error);
+      throw new Error(
+        `Web Serial printing failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
     }
-    
-    printer
-      .text("--------------------------------")
-      .align("lt")
-      .style("b")
-      .text("ITEM          QTY    RATE    TOTAL")
-      .style("normal")
-      .text("--------------------------------");
-    
-    // Print items
-    cart.forEach((item, index) => {
-      const originalPrice =
-        item.price !== undefined
-          ? item.price
-          : saleType === "wholeSale"
-          ? item.wholeSalePrice ?? item.retailPrice
-          : item.retailPrice;
-      
-      // Format item name - truncate if too long
-      let name = item.name.toUpperCase();
-      if (name.length > 12) {
-        name = `${name.substring(0, 9)}...`;
+  }
+
+  /**
+   * Print with network printer
+   * @param receiptData Receipt data to print
+   * @returns Promise resolving to success or error message
+   */
+  private async printWithNetworkPrinter(
+    receiptData: ThermalReceiptData
+  ): Promise<string> {
+    try {
+      // For network printing, we'll use a simple fetch to a backend endpoint
+      // You'll need to implement this endpoint on your server
+      const response = await fetch("/api/print-receipt", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          printerConfig: this.printerConfig,
+          receiptData,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Network printing failed: ${errorText}`);
       }
-      
-      // Calculate item total
-      const itemTotal = originalPrice * item.quantity;
-      
-      // Format line with proper spacing for thermal printer
-      // First print item name on its own line if it's longer than 10 chars
-      if (item.name.length > 10) {
-        printer.text(`${name}`);
-        printer.text(`  ${item.quantity.toString().padStart(5)} ${originalPrice.toFixed(2).padStart(8)} ${itemTotal.toFixed(2).padStart(8)}`);
-      } else {
-        // Shorter items can fit on one line
-        printer.text(`${name.padEnd(12)} ${item.quantity.toString().padStart(5)} ${originalPrice.toFixed(2).padStart(8)} ${itemTotal.toFixed(2).padStart(8)}`);
-      }
-    });
-    
-    // Totals section
-    printer
-      .text("--------------------------------")
-      .align("rt")
-      .style("b")
-      .text(`BILL AMOUNT: ${displayTotal.toFixed(2)}`)
-      .style("normal");
-    
-    // Additional wholesale info if applicable
-    if (saleType === "wholeSale") {
-      const originalSubtotal = cart.reduce((acc, item) => {
-        const originalPrice =
-          saleType === "wholeSale" && item.price ? item.price : item.retailPrice;
-        return acc + originalPrice * item.quantity;
-      }, 0);
-      
-      printer.text(`Previous : ${originalSubtotal.toFixed(2)}`);
-      
-      if (customTotalPrice !== undefined) {
-        printer.text(`Net Amount: ${customTotalPrice.toFixed(2)}`);
-      }
+
+      const result = await response.json();
+      return result.message || "Receipt printed successfully via network";
+    } catch (error) {
+      console.error("Network printing error:", error);
+      throw new Error(
+        `Network printing failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
     }
-    
-    // Payment details
-    printer
-      .text(`Debt Amount: ${customer ? customer.debtAmount || "0.00" : "0.00"}`)
-      .text(`Paid : ${displayTotal.toFixed(2)}`)
-      .text(`Payment Method: ${paymentMethod}`);
-    
-    // Footer
-    printer
-      .feed(1)
-      .align("ct")
-      .text("Thank you for your business!")
-      .text("--------------------------------")
-      .feed(2); // Add extra space before cutting
+  }
+
+  /**
+   * Creates a React element tree for the receipt
+   * @param receiptData The receipt data
+   * @returns JSX element for the receipt
+   */
+  private createReceiptTree(receiptData: ThermalReceiptData) {
+  const {
+    cart,
+    totalPrice,
+    saleId,
+    paymentMethod,
+    customer,
+    saleType,
+    customTotalPrice,
+  } = receiptData;
+
+  const displayTotal = customTotalPrice ?? totalPrice;
+
+  return (
+    <ESCPrinter
+      type="epson"
+      width={42}
+      characterSet="slovenia"
+      initialize // Default initialization includes 0x1B 0x40
+    >
+      {/* Manual alignment and formatting */}
+      <Text align="left">
+        {/* Left alignment using built-in prop */}
+        <Text bold size={{ width: 1, height: 1 }} align="center">
+          PKS TRADERS
+        </Text>
+        <Line />
+
+        {/* Compact content */}
+        <Text align="center">Bill No: {saleId}</Text>
+        <Text align="center">{moment().format("DD/MM/YYYY HH:mm")}</Text>
+
+        {customer?.name && <Text>Customer: {customer.name}</Text>}
+
+        <Line />
+        <Text bold>ITEM       QTY  RATE   TOTAL</Text>
+        <Line />
+
+        {cart.map((item, idx) => {
+          const name = item.name.length > 10 
+            ? `${item.name.substring(0, 8)}..` 
+            : item.name;
+          const itemTotal = item.price * item.quantity;
+
+          return (
+            <Text key={idx}>
+              {name.padEnd(10)} {item.quantity.toString().padStart(3)}
+              {item.price.toFixed(2).padStart(7)}
+              {itemTotal.toFixed(2).padStart(8)}
+            </Text>
+          );
+        })}
+
+        <Line />
+        <Text align="right" bold>
+          TOTAL: {displayTotal.toFixed(2)}
+        </Text>
+
+        <Text>Paid via: {paymentMethod}</Text>
+        {customer?.debtAmount > 0 && <Text>Debt: {customer.debtAmount}</Text>}
+
+        <Text align="center">Thank you!</Text>
+        <Line />
+        <Cut />
+      </Text>
+    </ESCPrinter>
+  );
+}
+
+  /**
+   * Renders the receipt for display or other use
+   * @param receiptData Receipt data to render
+   * @returns Rendered ESC/POS data
+   */
+  async renderReceipt(receiptData: ThermalReceiptData): Promise<Uint8Array> {
+    const receiptTree = this.createReceiptTree(receiptData);
+    return await renderESC(receiptTree);
   }
 
   /**
@@ -225,37 +250,192 @@ export class ThermalPrinterService {
    */
   async checkPrinterStatus(): Promise<{ connected: boolean; message: string }> {
     try {
-      // Try to get USB device
-      const device = new USB(this.printerConfig);
-      
-      // Try to open the device to confirm connection
+      // For Web Serial API
+      if (navigator && "serial" in navigator) {
+        const ports = await (navigator as any).serial.getPorts();
+        if (ports.length > 0) {
+          return { connected: true, message: "USB printer is available" };
+        } else {
+          return {
+            connected: false,
+            message: "No USB printers found. Click 'Thermal Print' to connect.",
+          };
+        }
+      }
+
+      // For network printer
+      try {
+        const response = await fetch(
+          `/api/check-printer?ip=${this.printerConfig.address}`
+        );
+        if (response.ok) {
+          return { connected: true, message: "Network printer is available" };
+        } else {
+          return {
+            connected: false,
+            message: `Network printer not responding at ${this.printerConfig.address}`,
+          };
+        }
+      } catch (networkError) {
+        return {
+          connected: false,
+          message: `Network printer check failed: ${
+            networkError instanceof Error
+              ? networkError.message
+              : String(networkError)
+          }`,
+        };
+      }
+    } catch (error) {
+      return {
+        connected: false,
+        message: `Printer status check failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      };
+    }
+  }
+
+  /**
+   * Simple direct print function for browser testing
+   * @param receiptData Receipt data to print
+   */
+  async directPrint(receiptData: ThermalReceiptData): Promise<string> {
+    try {
+      // Create a temporary hidden iframe for printing
+      const printFrame = document.createElement("iframe");
+      printFrame.style.position = "fixed";
+      printFrame.style.right = "0";
+      printFrame.style.bottom = "0";
+      printFrame.style.width = "0";
+      printFrame.style.height = "0";
+      printFrame.style.border = "0";
+
+      document.body.appendChild(printFrame);
+
+      // Get the iframe's document
+      const frameDoc = printFrame.contentWindow?.document;
+
+      if (!frameDoc) {
+        throw new Error("Could not access print frame document");
+      }
+
+      frameDoc.open();
+
+      // Generate receipt content
+      const {
+        cart,
+        totalPrice,
+        saleId,
+        paymentMethod,
+        customer,
+        saleType,
+        customTotalPrice,
+      } = receiptData;
+
+      const displayTotal = customTotalPrice ?? totalPrice;
+
+      // Create a minimal HTML receipt - optimized to reduce blank space
+      frameDoc.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Receipt #${saleId}</title>
+            <style>
+              @page {
+                size: 80mm auto;
+                margin: 0;
+              }
+              body {
+                font-family: 'Courier New', monospace;
+                font-size: 10px; /* Smaller font */
+                line-height: 1.1; /* Tighter line spacing */
+                margin: 0;
+                padding: 3px;
+                width: 80mm;
+              }
+              .center { text-align: center; }
+              .right { text-align: right; }
+              .bold { font-weight: bold; }
+              .line { 
+                border-top: 1px dashed #000;
+                margin: 3px 0; /* Reduced margin */
+              }
+              .item-row {
+                display: flex;
+                justify-content: space-between;
+                margin: 1px 0; /* Very tight spacing */
+              }
+              .compact {
+                margin: 0;
+                padding: 0;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="center bold" style="font-size: 12px;">PKS TRADERS</div>
+            <div class="line"></div>
+            <div class="center compact">Bill No: ${saleId} | ${moment().format(
+        "DD/MM/YYYY HH:mm"
+      )}</div>
+            ${
+              customer && customer.name
+                ? `<div class="compact">Customer: ${customer.name}</div>`
+                : ""
+            }
+            <div class="line"></div>
+            <div class="bold compact">ITEM       QTY  RATE   TOTAL</div>
+            <div class="line"></div>
+            ${cart
+              .map((item) => {
+                const itemTotal = item.price * item.quantity;
+                let name = item.name;
+                if (name.length > 10) name = `${name.substring(0, 8)}..`;
+
+                return `<div class="item-row compact">${name.padEnd(
+                  10
+                )} ${item.quantity.toString().padStart(3)} ${item.price
+                  .toFixed(2)
+                  .padStart(6)} ${itemTotal.toFixed(2).padStart(6)}</div>`;
+              })
+              .join("")}
+            <div class="line"></div>
+            <div class="right bold compact">TOTAL: ${displayTotal.toFixed(
+              2
+            )}</div>
+            <div class="compact">Paid via: ${paymentMethod}</div>
+            ${
+              customer && customer.debtAmount && Number(customer.debtAmount) > 0
+                ? `<div class="compact">Debt: ${customer.debtAmount}</div>`
+                : ""
+            }
+            <div class="center compact" style="margin-top: 3px;">Thank you!</div>
+          </body>
+        </html>
+      `);
+
+      frameDoc.close();
+
+      // Print after content is loaded
       return new Promise((resolve) => {
-        device.open((error) => {
-          if (error) {
-            resolve({ 
-              connected: false, 
-              message: `Printer not available: ${error}` 
-            });
-            return;
-          }
-          
-          // Close the device after successful test
-          try {
-            device.close();
-            resolve({ connected: true, message: "Printer is connected and ready" });
-          } catch (closeError) {
-            resolve({ 
-              connected: true, 
-              message: "Printer is connected, but there was an issue closing the connection" 
-            });
-          }
-        });
+        printFrame.onload = () => {
+          setTimeout(() => {
+            printFrame.contentWindow?.focus();
+            printFrame.contentWindow?.print();
+
+            // Remove the iframe after printing
+            setTimeout(() => {
+              document.body.removeChild(printFrame);
+              resolve("Receipt sent to browser printing");
+            }, 500);
+          }, 300);
+        };
       });
     } catch (error) {
-      return { 
-        connected: false, 
-        message: `Printer not available: ${error instanceof Error ? error.message : String(error)}` 
-      };
+      console.error("Direct printing error:", error);
+      return `Direct printing failed: ${
+        error instanceof Error ? error.message : String(error)
+      }`;
     }
   }
 }

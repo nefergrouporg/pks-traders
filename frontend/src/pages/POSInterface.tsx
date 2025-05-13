@@ -9,6 +9,7 @@ import ReceiptPreviewModal from "../components/POSInterface/ReceiptPreviewModal"
 import moneyClipart from "../assets/cards_clipart.png";
 import cardsClipart from "../assets/cards_clipart.png";
 import { TrendingDown } from "lucide-react";
+import customer from "../../../backend/models/customer";
 
 interface Product {
   id: number;
@@ -35,6 +36,7 @@ interface CartItem {
   quantity: number;
   unitType: "pcs" | "kg";
   price: number;
+  stock: number;
 }
 
 export interface Customer {
@@ -224,7 +226,10 @@ const POSInterface: React.FC = () => {
     retailPrice: number;
     wholeSalePrice?: number;
     unitType: "pcs" | "kg";
+    stock: number;
   }) => {
+    if (product.stock <= 0) return toast.error("Product out of stock");
+
     const priceToUse =
       saleType === "wholeSale" && product.wholeSalePrice
         ? product.wholeSalePrice
@@ -242,28 +247,43 @@ const POSInterface: React.FC = () => {
               : item
           )
         : [
-            ...prevCart,
             {
               ...product,
               price: priceToUse,
               quantity: product.unitType === "pcs" ? 1 : 0,
             },
+            ...prevCart,
           ];
     });
   };
 
   const increaseQuantity = (productId: number) => {
     setCart((prevCart) =>
-      prevCart.map((item) =>
-        item.id === productId
-          ? {
-              ...item,
-              quantity: parseFloat(
-                (item.quantity + (item.unitType === "kg" ? 0.1 : 1)).toFixed(2)
-              ),
-            }
-          : item
-      )
+      prevCart.map((item) => {
+        if (item.id !== productId) return item;
+
+        // Increment logic based on unit type
+        const increment = item.unitType === "kg" ? 0.1 : 1;
+        const newQuantity = parseFloat((item.quantity + increment).toFixed(2));
+        console.log(newQuantity);
+        // For kg, ensure that the quantity doesn't exceed stock
+        if (item.unitType === "kg" && newQuantity > item.stock) {
+          toast.error("Cannot exceed available stock for this product");
+          return item;
+        }
+
+        // For pcs, ensure it doesn't exceed stock as well
+        if (item.unitType === "pcs" && newQuantity > item.stock) {
+          toast.error("Cannot exceed available stock for this product");
+          return item;
+        }
+
+        // Return the updated item with new quantity
+        return {
+          ...item,
+          quantity: newQuantity,
+        };
+      })
     );
   };
 
@@ -338,7 +358,7 @@ const POSInterface: React.FC = () => {
 
       const element = tempDiv.firstChild as HTMLElement;
 
-      element.style.width = "80mm";
+      element.style.width = "85mm";
       element.style.height = "auto";
 
       const canvas = await html2canvas(element, {
@@ -351,7 +371,7 @@ const POSInterface: React.FC = () => {
 
       document.body.removeChild(tempDiv);
 
-      const pdfWidth = 80;
+      const pdfWidth = 85;
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
       const pdf = new jsPDF({
@@ -369,7 +389,11 @@ const POSInterface: React.FC = () => {
         pdfHeight
       );
 
-      pdf.save(`receipt-${currentSaleId}.pdf`);
+      pdf.save(
+        `${
+          selectedCustomer?.name ? selectedCustomer.name : "receipt"
+        }-${currentSaleId}.pdf`
+      );
     } catch (error) {
       console.error("Failed to download receipt:", error);
       toast.error("Failed to download receipt. Please try again.");
@@ -402,7 +426,6 @@ const POSInterface: React.FC = () => {
         saleType,
         finalAmount: customTotalPrice || totalPrice,
       };
-
 
       const response = await axios.post(`${baseUrl}/api/sales`, saleData, {
         headers: {
@@ -637,7 +660,6 @@ const POSInterface: React.FC = () => {
     }
   };
 
-
   const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
   const totalAmount = cart.reduce((total, item) => {
     const price =
@@ -801,8 +823,6 @@ const POSInterface: React.FC = () => {
         totalPrice={customTotalPrice ? customTotalPrice : totalPrice}
         saleId={currentSaleId}
         paymentMethod={selectedPaymentMethod || ""}
-        onPrint={handlePrint}
-        onDownload={downloadReceiptAsPDF}
         customer={selectedCustomer}
         saleType={saleType}
       />
@@ -1242,12 +1262,17 @@ const POSInterface: React.FC = () => {
                             <input
                               type="number"
                               value={item.quantity}
-                              onChange={(e) =>
-                                updateQuantity(
-                                  item.id,
-                                  parseFloat(e.target.value) || 0
-                                )
-                              }
+                              onChange={(e) => {
+                                let newQuantity =
+                                  parseFloat(e.target.value) || 0;
+                                {
+                                  if (newQuantity > item.stock) {
+                                    toast.error("Quantity exceeds stock limit");
+                                    newQuantity = 0;
+                                  }
+                                }
+                                updateQuantity(item.id, newQuantity);
+                              }}
                               className="w-20 text-center border rounded-md py-1 px-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                               step={0.1}
                               min={0}
@@ -1460,7 +1485,7 @@ const POSInterface: React.FC = () => {
                   <span className="col-span-3 text-center">Quantity</span>
                   <span className="col-span-3 text-right">Amount</span>
                 </div>
-                <ul className="divide-y divide-gray-100">
+                <ul className="divide-y divide-gray-100 max-h-64 overflow-y-auto">
                   {cart.map((item) => (
                     <li
                       key={item.id}

@@ -47,9 +47,9 @@ exports.createSale = async (req, res) => {
           .status(400)
           .json({ error: "Quantity is required for each item" });
     }
-
+    let transaction
     try {
-      const transaction = await sequelize.transaction();
+      transaction = await sequelize.transaction();
       const saleItems = [];
       let totalAmount = 0;
 
@@ -63,7 +63,7 @@ exports.createSale = async (req, res) => {
         if (product.stock < item.quantity)
           throw new Error(`Insufficient stock for ${product.name}`);
 
-        if (product.wholeSalePrice == null || product.retailPrice == null)
+        if (product.retailPrice == null)
           throw new Error(`Price is missing for product ${product.name}`);
 
         product.stock -= item.quantity;
