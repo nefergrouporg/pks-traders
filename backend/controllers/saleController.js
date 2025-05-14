@@ -14,8 +14,14 @@ const { generatePaymentQR } = require("../utils/qrGenerator");
 exports.createSale = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { items, paymentMethod, customerId, saleType, finalAmount } =
-      req.body;
+    const {
+      items,
+      paymentMethod,
+      customerId,
+      saleType,
+      finalAmount,
+      saleDate,
+    } = req.body;
 
     if (!userId) return res.status(400).json({ error: "User ID is required" });
     if (!items || !items.length)
@@ -47,7 +53,7 @@ exports.createSale = async (req, res) => {
           .status(400)
           .json({ error: "Quantity is required for each item" });
     }
-    let transaction
+    let transaction;
     try {
       transaction = await sequelize.transaction();
       const saleItems = [];
@@ -80,13 +86,8 @@ exports.createSale = async (req, res) => {
         saleItems.push({
           productId: product.id,
           quantity: item.quantity,
-          price:
-            saleType === "wholeSale"
-              ? item.price
-              : product.retailPrice,
-          subtotal: saleType === "wholeSale"
-          ? item.price
-          : product.retailPrice,
+          price: saleType === "wholeSale" ? item.price : product.retailPrice,
+          subtotal: saleType === "wholeSale" ? item.price : product.retailPrice,
         });
       }
 
@@ -107,13 +108,13 @@ exports.createSale = async (req, res) => {
         );
       }
       const user = await User.findByPk(userId);
-      
+
       if (paymentMethod === "debt") {
         const customer = await Customer.findByPk(customerId, { transaction });
         customer.debtAmount += totalAmount;
         await customer.save({ transaction });
       }
-
+console.log(saleDate, "saleDate");
       const sale = await Sale.create(
         {
           totalAmount: totalAmount?.toFixed(2),
@@ -122,6 +123,9 @@ exports.createSale = async (req, res) => {
           saleType: saleType || "retail",
           customerId: customerId || null,
           branchId: user.branchId,
+          purchaseDate: saleDate
+            ? new Date(saleDate).toISOString().split("T")[0]
+            : new Date().toISOString().split("T")[0],
         },
         { transaction }
       );

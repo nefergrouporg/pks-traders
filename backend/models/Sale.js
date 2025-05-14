@@ -19,7 +19,7 @@ module.exports = (sequelize) => {
         allowNull: false,
       },
       purchaseDate: {
-        type: DataTypes.DATE,
+        type: DataTypes.DATEONLY,
         allowNull: true,
         defaultValue: DataTypes.NOW,
       },

@@ -130,8 +130,11 @@ export class ThermalPrinterService {
     receiptData: ThermalReceiptData
   ): Promise<string> {
     try {
+      // Generate receipt content using react-thermal-printer
+      const receiptTree = this.createReceiptTree(receiptData);
+      const escposData = await renderESC(receiptTree);
+
       // For network printing, we'll use a simple fetch to a backend endpoint
-      // You'll need to implement this endpoint on your server
       const response = await fetch("/api/print-receipt", {
         method: "POST",
         headers: {
@@ -140,6 +143,8 @@ export class ThermalPrinterService {
         body: JSON.stringify({
           printerConfig: this.printerConfig,
           receiptData,
+          // Include the ESC/POS raw data for direct printing
+          escposData: Array.from(escposData), // Convert to array for JSON serialization
         }),
       });
 
@@ -166,54 +171,67 @@ export class ThermalPrinterService {
    * @returns JSX element for the receipt
    */
   private createReceiptTree(receiptData: ThermalReceiptData) {
-  const {
-    cart,
-    totalPrice,
-    saleId,
-    paymentMethod,
-    customer,
-    saleType,
-    customTotalPrice,
-  } = receiptData;
+    const {
+      cart,
+      totalPrice,
+      saleId,
+      paymentMethod,
+      customer,
+      saleType,
+      customTotalPrice,
+    } = receiptData;
 
-  const displayTotal = customTotalPrice ?? totalPrice;
+    const displayTotal = customTotalPrice ?? totalPrice;
+    
+    // Calculate the optimal width for the content
+    // Most thermal printers are 58mm which fits 32-35 characters
+    // or 80mm which fits 48 characters
+    const isPaperNarrow = true; // Set to true for 58mm paper, false for 80mm paper
+    const characterWidth = isPaperNarrow ? 32 : 48;
 
-  return (
-    <ESCPrinter
-      type="epson"
-      width={42}
-      characterSet="slovenia"
-      initialize // Default initialization includes 0x1B 0x40
-    >
-      {/* Manual alignment and formatting */}
-      <Text align="left">
-        {/* Left alignment using built-in prop */}
+    // Define formatting constants
+    const QTY_WIDTH = 3;
+    const PRICE_WIDTH = 6;
+    const TOTAL_WIDTH = 6;
+    const ITEM_NAME_WIDTH = characterWidth - QTY_WIDTH - PRICE_WIDTH - TOTAL_WIDTH - 3; // 3 spaces for separators
+
+    return (
+      <ESCPrinter
+        type="epson"
+        width={characterWidth}
+        characterSet="slovenia"
+        initialize // Default initialization includes 0x1B 0x40
+      >
+        {/* Header with bold and centered text */}
         <Text bold size={{ width: 1, height: 1 }} align="center">
           PKS TRADERS
         </Text>
         <Line />
 
-        {/* Compact content */}
+        {/* Sale information */}
         <Text align="center">Bill No: {saleId}</Text>
         <Text align="center">{moment().format("DD/MM/YYYY HH:mm")}</Text>
 
         {customer?.name && <Text>Customer: {customer.name}</Text>}
 
         <Line />
-        <Text bold>ITEM       QTY  RATE   TOTAL</Text>
+        <Text bold>
+          {`ITEM${' '.repeat(ITEM_NAME_WIDTH - 4)} QTY PRICE TOTAL`}
+        </Text>
         <Line />
 
+        {/* Item details */}
         {cart.map((item, idx) => {
-          const name = item.name.length > 10 
-            ? `${item.name.substring(0, 8)}..` 
-            : item.name;
-          const itemTotal = item.price * item.quantity;
+          const name = item.name.length > ITEM_NAME_WIDTH 
+            ? `${item.name.substring(0, ITEM_NAME_WIDTH - 2)}..` 
+            : item.name.padEnd(ITEM_NAME_WIDTH);
+          const qty = item.quantity.toString().padStart(QTY_WIDTH);
+          const price = item.price.toFixed(2).padStart(PRICE_WIDTH);
+          const itemTotal = (item.price * item.quantity).toFixed(2).padStart(TOTAL_WIDTH);
 
           return (
             <Text key={idx}>
-              {name.padEnd(10)} {item.quantity.toString().padStart(3)}
-              {item.price.toFixed(2).padStart(7)}
-              {itemTotal.toFixed(2).padStart(8)}
+              {name} {qty} {price} {itemTotal}
             </Text>
           );
         })}
@@ -229,10 +247,9 @@ export class ThermalPrinterService {
         <Text align="center">Thank you!</Text>
         <Line />
         <Cut />
-      </Text>
-    </ESCPrinter>
-  );
-}
+      </ESCPrinter>
+    );
+  }
 
   /**
    * Renders the receipt for display or other use
@@ -297,12 +314,39 @@ export class ThermalPrinterService {
   }
 
   /**
-   * Simple direct print function for browser testing
+   * Improved direct print function for thermal printers
+   * Instead of using iframe HTML which doesn't translate well to thermal printers,
+   * this method uses the ESC/POS commands directly
    * @param receiptData Receipt data to print
    */
   async directPrint(receiptData: ThermalReceiptData): Promise<string> {
     try {
-      // Create a temporary hidden iframe for printing
+      // For direct printing, we'll use the same approach as Web Serial API
+      // but send it to the printer via another method
+      
+      // First check if we have a printer connected via Web Serial API
+      if (navigator && "serial" in navigator) {
+        const ports = await (navigator as any).serial.getPorts();
+        if (ports.length > 0) {
+          // If we have a connected printer, use Web Serial API
+          return this.printWithWebSerial(receiptData);
+        }
+      }
+      
+      // If no Web Serial API printer, try network printing
+      const status = await this.checkPrinterStatus();
+      if (status.connected) {
+        return this.printWithNetworkPrinter(receiptData);
+      }
+      
+      // If no printer is available, fallback to browser printing
+      // but warn the user that formatting may be limited
+      toast.warning("No thermal printer detected. Using browser print which may have limited formatting.");
+      
+      // Generate a printable HTML version that's optimized for thermal paper
+      const receiptHtml = this.generateThermalFriendlyHtml(receiptData);
+      
+      // Create a temporary iframe for printing
       const printFrame = document.createElement("iframe");
       printFrame.style.position = "fixed";
       printFrame.style.right = "0";
@@ -310,119 +354,24 @@ export class ThermalPrinterService {
       printFrame.style.width = "0";
       printFrame.style.height = "0";
       printFrame.style.border = "0";
-
       document.body.appendChild(printFrame);
-
-      // Get the iframe's document
+      
       const frameDoc = printFrame.contentWindow?.document;
-
       if (!frameDoc) {
         throw new Error("Could not access print frame document");
       }
-
+      
       frameDoc.open();
-
-      // Generate receipt content
-      const {
-        cart,
-        totalPrice,
-        saleId,
-        paymentMethod,
-        customer,
-        saleType,
-        customTotalPrice,
-      } = receiptData;
-
-      const displayTotal = customTotalPrice ?? totalPrice;
-
-      // Create a minimal HTML receipt - optimized to reduce blank space
-      frameDoc.write(`
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Receipt #${saleId}</title>
-            <style>
-              @page {
-                size: 80mm auto;
-                margin: 0;
-              }
-              body {
-                font-family: 'Courier New', monospace;
-                font-size: 10px; /* Smaller font */
-                line-height: 1.1; /* Tighter line spacing */
-                margin: 0;
-                padding: 3px;
-                width: 80mm;
-              }
-              .center { text-align: center; }
-              .right { text-align: right; }
-              .bold { font-weight: bold; }
-              .line { 
-                border-top: 1px dashed #000;
-                margin: 3px 0; /* Reduced margin */
-              }
-              .item-row {
-                display: flex;
-                justify-content: space-between;
-                margin: 1px 0; /* Very tight spacing */
-              }
-              .compact {
-                margin: 0;
-                padding: 0;
-              }
-            </style>
-          </head>
-          <body>
-            <div class="center bold" style="font-size: 12px;">PKS TRADERS</div>
-            <div class="line"></div>
-            <div class="center compact">Bill No: ${saleId} | ${moment().format(
-        "DD/MM/YYYY HH:mm"
-      )}</div>
-            ${
-              customer && customer.name
-                ? `<div class="compact">Customer: ${customer.name}</div>`
-                : ""
-            }
-            <div class="line"></div>
-            <div class="bold compact">ITEM       QTY  RATE   TOTAL</div>
-            <div class="line"></div>
-            ${cart
-              .map((item) => {
-                const itemTotal = item.price * item.quantity;
-                let name = item.name;
-                if (name.length > 10) name = `${name.substring(0, 8)}..`;
-
-                return `<div class="item-row compact">${name.padEnd(
-                  10
-                )} ${item.quantity.toString().padStart(3)} ${item.price
-                  .toFixed(2)
-                  .padStart(6)} ${itemTotal.toFixed(2).padStart(6)}</div>`;
-              })
-              .join("")}
-            <div class="line"></div>
-            <div class="right bold compact">TOTAL: ${displayTotal.toFixed(
-              2
-            )}</div>
-            <div class="compact">Paid via: ${paymentMethod}</div>
-            ${
-              customer && customer.debtAmount && Number(customer.debtAmount) > 0
-                ? `<div class="compact">Debt: ${customer.debtAmount}</div>`
-                : ""
-            }
-            <div class="center compact" style="margin-top: 3px;">Thank you!</div>
-          </body>
-        </html>
-      `);
-
+      frameDoc.write(receiptHtml);
       frameDoc.close();
-
+      
       // Print after content is loaded
       return new Promise((resolve) => {
         printFrame.onload = () => {
           setTimeout(() => {
             printFrame.contentWindow?.focus();
             printFrame.contentWindow?.print();
-
+            
             // Remove the iframe after printing
             setTimeout(() => {
               document.body.removeChild(printFrame);
@@ -437,6 +386,148 @@ export class ThermalPrinterService {
         error instanceof Error ? error.message : String(error)
       }`;
     }
+  }
+  
+  /**
+   * Generate HTML optimized for thermal printers
+   * @param receiptData Receipt data
+   * @returns HTML string
+   */
+  private generateThermalFriendlyHtml(receiptData: ThermalReceiptData): string {
+    const {
+      cart,
+      totalPrice,
+      saleId,
+      paymentMethod,
+      customer,
+      saleType,
+      customTotalPrice,
+    } = receiptData;
+
+    const displayTotal = customTotalPrice ?? totalPrice;
+    
+    // Calculate character spacing for thermal paper
+    const isPaperNarrow = true; // Set to true for 58mm paper, false for 80mm
+    const paperWidth = isPaperNarrow ? "58mm" : "80mm";
+    const characterWidth = isPaperNarrow ? 32 : 48;
+    
+    // Define column widths
+    const QTY_WIDTH = 3;
+    const PRICE_WIDTH = 6;
+    const TOTAL_WIDTH = 6;
+    const ITEM_NAME_WIDTH = characterWidth - QTY_WIDTH - PRICE_WIDTH - TOTAL_WIDTH - 3; // 3 spaces for separators
+    
+    // Generate item rows
+    let itemRows = "";
+    cart.forEach((item) => {
+      const name = item.name.length > ITEM_NAME_WIDTH 
+        ? `${item.name.substring(0, ITEM_NAME_WIDTH - 2)}..` 
+        : item.name.padEnd(ITEM_NAME_WIDTH);
+      const qty = item.quantity.toString().padStart(QTY_WIDTH);
+      const price = item.price.toFixed(2).padStart(PRICE_WIDTH);
+      const itemTotal = (item.price * item.quantity).toFixed(2).padStart(TOTAL_WIDTH);
+      
+      itemRows += `<div class="item-row">${name} ${qty} ${price} ${itemTotal}</div>`;
+    });
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Receipt #${saleId}</title>
+          <style>
+            @page {
+              size: ${paperWidth} auto;
+              margin: 0;
+            }
+            body {
+              font-family: 'Courier New', monospace;
+              font-size: 10px;
+              width: ${paperWidth};
+              margin: 0;
+              padding: 5px;
+              /* This is critical - ensure content will print correctly on thermal paper */
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            .header {
+              text-align: center;
+              font-weight: bold;
+              font-size: 12px;
+              margin-bottom: 5px;
+            }
+            .center {
+              text-align: center;
+            }
+            .right {
+              text-align: right;
+            }
+            .bold {
+              font-weight: bold;
+            }
+            .line {
+              border-top: 1px dashed #000;
+              margin: 5px 0;
+            }
+            .item-row {
+              white-space: pre; /* Critical for maintaining space-based formatting */
+              font-family: monospace;
+              line-height: 1.2;
+            }
+            .total {
+              text-align: right;
+              font-weight: bold;
+              margin-top: 5px;
+            }
+            /* Key thermal printer CSS */
+            @media print {
+              body {
+                width: ${paperWidth};
+                margin: 0;
+                padding: 0;
+              }
+              /* Force monospace and eliminate padding/margins */
+              * {
+                font-family: 'Courier New', monospace;
+                box-sizing: border-box;
+              }
+              /* Ensure space-based formatting is preserved */
+              .item-row {
+                white-space: pre;
+                font-family: monospace;
+              }
+              /* Ensure the content fits the thermal paper width */
+              .container {
+                width: 100%;
+                max-width: ${paperWidth};
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">PKS TRADERS</div>
+            <div class="line"></div>
+            <div class="center">Bill No: ${saleId}</div>
+            <div class="center">${moment().format("DD/MM/YYYY HH:mm")}</div>
+            ${customer && customer.name
+              ? `<div>Customer: ${customer.name}</div>`
+              : ''}
+            <div class="line"></div>
+            <div class="bold">ITEM${' '.repeat(ITEM_NAME_WIDTH - 4)} QTY PRICE TOTAL</div>
+            <div class="line"></div>
+            ${itemRows}
+            <div class="line"></div>
+            <div class="total">TOTAL: ${displayTotal.toFixed(2)}</div>
+            <div>Paid via: ${paymentMethod}</div>
+            ${customer && customer.debtAmount && Number(customer.debtAmount) > 0
+              ? `<div>Debt: ${customer.debtAmount}</div>`
+              : ''}
+            <div class="center" style="margin-top: 10px;">Thank you!</div>
+          </div>
+        </body>
+      </html>
+    `;
   }
 }
 

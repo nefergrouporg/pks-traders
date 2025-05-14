@@ -17,6 +17,7 @@ interface ReceiptProps {
   customer?: any;
   saleType: "retail" | "wholeSale";
   customTotalPrice?: number;
+  saleDate: string;
 }
 
 const Receipt: React.FC<ReceiptProps> = ({
@@ -27,6 +28,7 @@ const Receipt: React.FC<ReceiptProps> = ({
   customer,
   saleType = "retail",
   customTotalPrice,
+  saleDate
 }) => {
   // Get the price based on sale type for each item
   const originalSubtotal = cart.reduce((acc, item) => {

@@ -53,6 +53,7 @@ interface Sale {
   paymentMethod: string;
   customerId: number | null;
   saleType: "retail" | "wholeSale";
+  saleDate: string;
 }
 
 const POSInterface: React.FC = () => {
@@ -98,6 +99,10 @@ const POSInterface: React.FC = () => {
   const paymentReceivedRef = useRef<HTMLButtonElement>(null);
   const scanTimeout = useRef<NodeJS.Timeout | null>(null);
   const [customTotalPrice, setCustomTotalPrice] = useState<number | null>(null);
+  const [isEditingDate, setIsEditingDate] = useState(false);
+  const [saleDate, setSaleDate] = useState(
+    new Date().toISOString().split("T")[0]
+  ); // Default to current date
   const token = localStorage.getItem("token");
 
   const paymentOptions = [
@@ -358,7 +363,7 @@ const POSInterface: React.FC = () => {
 
       const element = tempDiv.firstChild as HTMLElement;
 
-      element.style.width = "85mm";
+      element.style.width = "80mm";
       element.style.height = "auto";
 
       const canvas = await html2canvas(element, {
@@ -371,7 +376,7 @@ const POSInterface: React.FC = () => {
 
       document.body.removeChild(tempDiv);
 
-      const pdfWidth = 85;
+      const pdfWidth = 80;
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
       const pdf = new jsPDF({
@@ -425,6 +430,7 @@ const POSInterface: React.FC = () => {
         customerId: selectedCustomer?.id || null,
         saleType,
         finalAmount: customTotalPrice || totalPrice,
+        saleDate: saleDate,
       };
 
       const response = await axios.post(`${baseUrl}/api/sales`, saleData, {
@@ -812,6 +818,7 @@ const POSInterface: React.FC = () => {
             paymentMethod={selectedPaymentMethod || ""}
             customer={selectedCustomer}
             saleType={saleType}
+            saleDate= {saleDate}
           />
         </div>
       </div>
@@ -825,6 +832,7 @@ const POSInterface: React.FC = () => {
         paymentMethod={selectedPaymentMethod || ""}
         customer={selectedCustomer}
         saleType={saleType}
+        saleDate= {saleDate}
       />
 
       <div className="flex space-x-2 mb-4 border-b border-gray-200">
@@ -1454,9 +1462,35 @@ const POSInterface: React.FC = () => {
 
           {/* Cart Items Section */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-700 mb-3">
-              Order Details
-            </h3>
+            <div className="flex justify-between">
+              <h3 className="text-lg font-semibold text-gray-700 mb-3">
+                Order Details
+              </h3>
+              {isEditingDate ? (
+                <input
+                  type="date"
+                  value={saleDate}
+                  onChange={(e) => setSaleDate(e.target.value)}
+                  onBlur={() => setIsEditingDate(false)}
+                  onKeyDown={(e) =>
+                    e.key === "Enter" && setIsEditingDate(false)
+                  }
+                  className="text-gray-500 px-2 py-1 border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  autoFocus
+                />
+              ) : (
+                <span
+                  className="text-gray-500 cursor-pointer hover:bg-gray-100 px-2 py-1 rounded"
+                  onClick={() => setIsEditingDate(true)}
+                >
+                  {new Date(saleDate).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </span>
+              )}
+            </div>
             {cart.length === 0 ? (
               <div className="py-8 flex flex-col items-center justify-center bg-gray-50 rounded-lg">
                 <svg

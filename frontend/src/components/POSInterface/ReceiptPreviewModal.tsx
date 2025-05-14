@@ -13,77 +13,99 @@ import { jsPDF } from "jspdf";
 import { toast } from "react-toastify";
 import { thermalPrinterService } from "../../../utils/ThermalPrinterService";
 
-// Improved CSS for thermal receipt styling - optimized for less blank space
+// Enhanced CSS for thermal receipt styling - optimized for printing
 const THERMAL_RECEIPT_STYLES = `
   @media print {
-  body * {
-    visibility: hidden;
+    /* Reset and base styles */
+    html, body {
+      width: 80mm !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      font-family: 'Courier New', monospace !important;
+      font-size: 10px !important;
+      line-height: 1.1 !important; /* Reduced line height for tighter spacing */
+      background-color: white !important;
+      color: black !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    
+    * {
+      box-sizing: border-box !important;
+      margin: 0 !important; /* Explicitly reset margins */
+      padding: 0 !important; /* Explicitly reset padding */
+    }
+
+    /* Hide all other content */
+    body * {
+      visibility: hidden;
+      display: none;
+    }
+
+    /* Show only receipt content */
+    .receipt-content,
+    .receipt-content * {
+      visibility: visible !important;
+      display: block !important;
+    }
+
+    .receipt-content {
+      position: absolute !important;
+      left: 0 !important;
+      top: 0 !important;
+      width: 80mm !important;
+      padding: 2px !important; /* Reduced padding */
+      margin: 0 !important;
+      font-family: 'Courier New', monospace !important;
+      font-size: 10px !important;
+      line-height: 1.1 !important;
+      color: black !important;
+      background-color: white !important;
+    }
+
+    /* Force specific page size for thermal printers */
+    @page {
+      size: 80mm auto !important;
+      margin: 0mm !important;
+      padding: 0mm !important;
+    }
+
+    /* Preserve text formatting */
+    .receipt-content p, 
+    .receipt-content div, 
+    .receipt-content span {
+      font-family: 'Courier New', monospace !important;
+      white-space: pre-wrap !important;
+      margin-bottom: 1px !important; /* Reduced margin */
+    }
+
+    /* Support for horizontal lines */
+    hr, .divider {
+      border-top: 1px dashed black !important;
+      margin: 2px 0 !important; /* Reduced margin */
+      visibility: visible !important;
+      display: block !important;
+      width: 100% !important;
+    }
+
+    /* Support for text alignment */
+    .text-center {
+      text-align: center !important;
+    }
+    
+    .text-right {
+      text-align: right !important;
+    }
+    
+    .text-bold {
+      font-weight: bold !important;
+    }
+
+    /* Hide buttons and controls */
+    button, .modal-buttons, .print-hidden, .preview-controls {
+      display: none !important;
+    }
   }
-
-  .receipt-content,
-  .receipt-content * {
-    visibility: visible;
-  }
-
-  .receipt-content {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 80mm !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    font-family: 'Courier New', monospace !important;
-    font-size: 10px !important;
-    line-height: 1 !important;
-  }
-
-  @page {
-    size: 80mm auto;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-
-  /* Remove all spacing */
-  * {
-    margin: 0 !important;
-    padding: 0 !important;
-    line-height: 1 !important;
-  }
-
-  /* Force monospace font for alignment */
-  p, div, span {
-    font-family: 'Courier New', monospace !important;
-    font-size: 10px !important;
-  }
-
-  /* Hide non-essential elements */
-  button, .modal-buttons, .print-hidden {
-    display: none !important;
-  }
-
-/* Preview styles */
-.receipt-container {
-  width: 80mm;
-  margin: 0 auto;
-  font-family: 'Courier New', monospace;
-  font-size: 10px;
-  line-height: 1;
-  padding: 0;
-}
-
-.receipt-container * {
-  margin: 0;
-  padding: 0;
-  line-height: 1;
-}
-
-.receipt-content p,
-.receipt-content div {
-  font-family: 'Courier New', monospace !important;
-  white-space: pre;
-}
-}
-
 `;
 
 interface Navigator {
@@ -128,6 +150,7 @@ interface ReceiptPreviewModalProps {
   customer?: any;
   saleType: "retail" | "wholeSale";
   customTotalPrice?: number;
+  saleDate : string
 }
 
 const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
@@ -140,6 +163,7 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
   customer,
   saleType = "retail",
   customTotalPrice,
+  saleDate
 }) => {
   const receiptRef = useRef<HTMLDivElement>(null);
   const printStylesRef = useRef<HTMLStyleElement | null>(null);
@@ -169,6 +193,7 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
   const handleBrowserPrint = () => {
     if (!receiptRef.current) return;
 
+    // Create a hidden iframe for printing
     const printFrame = document.createElement("iframe");
     printFrame.style.position = "fixed";
     printFrame.style.right = "0";
@@ -176,71 +201,108 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
     printFrame.style.width = "0";
     printFrame.style.height = "0";
     printFrame.style.border = "0";
-
+    printFrame.style.visibility = "hidden";
     document.body.appendChild(printFrame);
 
     const frameDoc = printFrame.contentWindow?.document;
 
     if (frameDoc) {
+      // Open document
       frameDoc.open();
 
-      // Clone the receipt content to modify for printing
+      // Clone the receipt content
       const receiptClone = receiptRef.current.cloneNode(true) as HTMLElement;
 
-      // Apply print-specific styles directly
-      receiptClone.style.width = "80mm";
-      receiptClone.style.margin = "0";
-      receiptClone.style.padding = "0";
-      receiptClone.style.fontFamily = "'Courier New', monospace";
-      receiptClone.style.fontSize = "10px";
-      receiptClone.style.lineHeight = "1";
-
-      // Remove any elements that shouldn't print
-      const buttons = receiptClone.querySelectorAll("button");
+      // Remove buttons/interactive elements
+      const buttons = receiptClone.querySelectorAll("button, .print-hidden");
       buttons.forEach((btn) => btn.remove());
 
+      // Write HTML with comprehensive styles
       frameDoc.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Receipt #${saleId}</title>
-          <style>
-            @page {
-              size: 80mm auto;
-              margin: 0 !important;
-              padding: 0 !important;
-            }
-            body {
-              margin: 0 !important;
-              padding: 0 !important;
-              width: 80mm !important;
-              font-family: 'Courier New', monospace !important;
-              font-size: 10px !important;
-              line-height: 1 !important;
-            }
-            * {
-              margin: 0 !important;
-              padding: 0 !important;
-              line-height: 1 !important;
-            }
-          </style>
-        </head>
-        <body>
-          ${receiptClone.outerHTML}
-        </body>
-      </html>
-    `);
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Receipt #${saleId}</title>
+            <style>
+              /* Essential print styles */
+              @page {
+                size: 80mm auto;
+                margin: 0mm !important;
+                padding: 0mm !important;
+              }
+              
+              html, body {
+                width: 80mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                font-family: 'Courier New', monospace !important;
+                font-size: 10px !important;
+                line-height: 1.2 !important;
+                background-color: white !important;
+                color: black !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              
+              * {
+                box-sizing: border-box !important;
+              }
+              
+              /* Receipt specific styles */
+              .receipt-content {
+                width: 80mm !important;
+                padding: 5px !important;
+                margin: 0 auto !important;
+                font-family: 'Courier New', monospace !important;
+                font-size: 10px !important;
+              }
+              
+              .receipt-content p, 
+              .receipt-content div, 
+              .receipt-content span {
+                font-family: 'Courier New', monospace !important;
+                white-space: pre-wrap !important;
+                margin-bottom: 2px !important;
+              }
+              
+              hr, .divider {
+                border-top: 1px dashed black !important;
+                margin: 3px 0 !important;
+                width: 100% !important;
+              }
+              
+              .text-center { text-align: center !important; }
+              .text-right { text-align: right !important; }
+              .text-bold { font-weight: bold !important; }
+            </style>
+          </head>
+          <body>
+            <div class="receipt-content">
+              ${receiptClone.innerHTML}
+            </div>
+          </body>
+        </html>
+      `);
 
       frameDoc.close();
 
+      // Ensure content is loaded before printing
       printFrame.onload = () => {
         setTimeout(() => {
-          printFrame.contentWindow?.focus();
-          printFrame.contentWindow?.print();
+          try {
+            // Focus and print
+            printFrame.contentWindow?.focus();
+            printFrame.contentWindow?.print();
 
-          setTimeout(() => {
+            // Cleanup after printing
+            setTimeout(() => {
+              document.body.removeChild(printFrame);
+            }, 500);
+          } catch (err) {
+            console.error("Print error:", err);
+            toast.error("Print failed. Please try again.");
             document.body.removeChild(printFrame);
-          }, 500);
+          }
         }, 300);
       };
     }
@@ -259,23 +321,24 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
       tempDiv.style.width = "80mm";
       tempDiv.style.fontFamily = "'Courier New', monospace";
       tempDiv.style.fontSize = "10px";
-      tempDiv.style.lineHeight = "1";
+      tempDiv.style.lineHeight = "1.2";
       tempDiv.style.backgroundColor = "#fff";
-      tempDiv.style.padding = "0";
+      tempDiv.style.padding = "5px";
       tempDiv.style.margin = "0";
+      tempDiv.style.border = "none";
 
       document.body.appendChild(tempDiv);
 
-      // Clone receipt content
+      // Clone receipt content and maintain styling
       const clonedContent = receiptRef.current.cloneNode(true) as HTMLElement;
       clonedContent.style.width = "100%";
       clonedContent.style.margin = "0";
-      clonedContent.style.padding = "0";
+      clonedContent.style.padding = "5px";
       clonedContent.style.overflow = "visible";
       clonedContent.style.maxHeight = "none"; // prevent clipping
 
       // Remove buttons or interactive elements
-      const buttons = clonedContent.querySelectorAll("button");
+      const buttons = clonedContent.querySelectorAll("button, .print-hidden");
       buttons.forEach((btn) => btn.remove());
 
       tempDiv.appendChild(clonedContent);
@@ -283,18 +346,21 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
       // Wait for layout/paint
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // Use html2canvas on the full hidden DOM (not visible screen)
+      // Use html2canvas with higher quality settings
       const canvas = await html2canvas(clonedContent, {
-        scale: 2,
+        scale: 3, // Higher scale for better quality
         backgroundColor: "#ffffff",
         useCORS: true,
+        logging: false,
+        imageTimeout: 0,
+        removeContainer: false,
       });
 
       // Clean up
       document.body.removeChild(tempDiv);
 
       // Calculate PDF size
-      const canvasDataURL = canvas.toDataURL("image/png");
+      const canvasDataURL = canvas.toDataURL("image/png", 1.0);
       const imgProps = {
         width: canvas.width,
         height: canvas.height,
@@ -306,6 +372,7 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
         orientation: "portrait",
         unit: "mm",
         format: [pdfWidth, pdfHeight],
+        compress: true,
       });
 
       pdf.addImage(canvasDataURL, "PNG", 0, 0, pdfWidth, pdfHeight);
@@ -318,10 +385,9 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
     }
   };
 
-  // Optimized thermal printing function
+  // Optimized thermal printing function with improved ESC/POS commands
   const handleThermalPrint = async () => {
     try {
-      // Prepare receipt data for the thermal printer service
       const receiptData = {
         cart,
         totalPrice,
@@ -331,51 +397,61 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
         saleType,
         customTotalPrice,
       };
-
-      // Use the thermal printer service to print
+      // Try the service first
       const result = await thermalPrinterService.printReceipt(receiptData);
 
       if (result.includes("success")) {
         toast.success("Receipt sent to thermal printer");
-      } else {
-        throw new Error(result);
+        return;
       }
-    } catch (error) {
-      console.error("Thermal printing failed:", error);
+    } catch (serviceError) {
+      console.error("Thermal printer service failed:", serviceError);
 
-      // Try direct Web Serial API as fallback
       try {
         if (navigator && "serial" in navigator && (navigator as any).serial) {
-          // Configure for thermal printer width
-          const columnWidth = 42; // Standard for many thermal printers
+          const columnWidth = 42; // Standard 42 columns for 80mm thermal printer
 
           const receiptTree = (
             <ESCPrinter
               type="epson"
               width={columnWidth}
               characterSet="slovenia"
+              initialize={true}
             >
-              {/* Initialize printer with compact settings */}
               <Text align="center" bold size={{ width: 1, height: 1 }}>
                 PKS TRADERS
               </Text>
-              <Line />
               <Text align="center">Bill No: {saleId}</Text>
-              <Text align="center">{new Date().toLocaleDateString()}</Text>
+              <Text align="center">
+                {new Date().toLocaleDateString()}{" "}
+                {new Date().toLocaleTimeString()}
+              </Text>
               <Line />
 
-              {/* Compact item display */}
+              <Text>
+                {"Item".padEnd(24)}
+                {"Qty".padEnd(5)}
+                {"Price".padEnd(8)}
+                {"Total"}
+              </Text>
+              <Line />
+
               {cart.map((item, idx) => {
-                const name =
-                  item.name.length > columnWidth - 16
-                    ? item.name.substring(0, columnWidth - 19) + "..."
-                    : item.name;
+                let name = item.name;
+                if (name.length > 23) {
+                  name = name.substring(0, 20) + "...";
+                }
+
+                const qtyStr = item.quantity.toString().padEnd(5);
+                const priceStr = item.price.toFixed(2).padEnd(8);
+                const totalStr = (item.quantity * item.price).toFixed(2);
 
                 return (
                   <Text key={idx}>
-                    {name.padEnd(columnWidth - 15)} {item.quantity}x
-                    {item.price?.toFixed(2)}=
-                    {(item.quantity * item.price).toFixed(2)}
+                    {name.padEnd(24)}
+                    {qtyStr}
+                    {priceStr}
+                    {totalStr}
                   </Text>
                 );
               })}
@@ -385,15 +461,15 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
                 TOTAL: {(customTotalPrice ?? totalPrice).toFixed(2)}
               </Text>
               <Text>Paid via: {paymentMethod}</Text>
-              <Text align="center">Thank you!</Text>
-
-              {/* Cut immediately after content */}
-              <Cut />
+              {customer && <Text>Customer: {customer.name}</Text>}
+              <Line />
+              <Text align="center">Thank you for your business!</Text>
+              <Text align="center">{new Date().toLocaleDateString()}</Text>
+              <Cut partial={false} />
             </ESCPrinter>
           );
 
           const escposData = await renderESC(receiptTree);
-
           const port = await (navigator as any).serial.requestPort();
           await port.open({ baudRate: 9600 });
           const writer = port.writable?.getWriter();
@@ -408,7 +484,12 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
           toast.error("Web Serial API not supported in this browser");
         }
       } catch (serialError) {
-        toast.error("Thermal printing failed. Check if printer is connected.");
+        console.error("Serial API error:", serialError);
+        toast.error(
+          "Thermal printing failed. Please check if printer is connected."
+        );
+        toast.info("Attempting to use browser printing instead...");
+        handleBrowserPrint();
       }
     }
   };
@@ -426,16 +507,10 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
           </button>
         </div>
 
-        {/* Receipt content with specific class for styling */}
+        {/* Receipt content with enhanced styling classes */}
         <div
           ref={receiptRef}
-          className="receipt-content border rounded-lg p-2 mb-4 max-h-[70vh] overflow-y-auto"
-          style={{
-            width: "80mm",
-            margin: "0 auto",
-            fontSize: "10px",
-            lineHeight: "1.1",
-          }}
+          className="receipt-content border rounded-lg p-2 mb-4 max-h-[70vh] overflow-y-auto receipt-container"
         >
           <Receipt
             cart={cart}
@@ -445,6 +520,7 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
             customer={customer}
             saleType={saleType}
             customTotalPrice={customTotalPrice}
+            saleDate={saleDate}
           />
         </div>
 
@@ -469,8 +545,8 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
           </button>
           <button
             onClick={() => {
-              downloadReceiptAsPDF();
-              setTimeout(handleThermalPrint, 300);
+              handleThermalPrint();
+              setTimeout(downloadReceiptAsPDF, 300);
             }}
             className="px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-900"
           >

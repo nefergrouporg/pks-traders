@@ -7,7 +7,7 @@ export interface Sale {
   id: number;
   totalAmount: number;
   paymentMethod: "cash" | "card" | "upi" | "debit";
-  createdAt: string;
+  purchaseDate: string;
   user: User;
   items: SaleItem[];
   Payment?: Payment;
@@ -203,7 +203,7 @@ const SalesList = () => {
                     Sale # {sale.id}
                   </h2>
                   <p className="text-sm text-gray-600">
-                    {new Date(sale.createdAt).toLocaleDateString()}
+                    {new Date(sale.purchaseDate).toLocaleDateString()}
                   </p>
                   <p className="mt-1 text-sm sm:text-base text-gray-600">
                     Sold by: {sale?.user?.username}
@@ -308,7 +308,7 @@ const SalesList = () => {
                     <div>
                       <p className="text-sm text-gray-600">
                         Date:{" "}
-                        {new Date(selectedSale.createdAt).toLocaleString()}
+                        {new Date(selectedSale.purchaseDate).toLocaleString()}
                       </p>
                       <p className="text-sm text-gray-600">
                         Sold by: {selectedSale.user?.username}
