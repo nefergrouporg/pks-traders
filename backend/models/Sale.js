@@ -14,10 +14,6 @@ module.exports = (sequelize) => {
         type: DataTypes.FLOAT,
         allowNull: false,
       },
-      paymentMethod: {
-        type: DataTypes.ENUM("cash", "card", "upi", "debt"),
-        allowNull: false,
-      },
       purchaseDate: {
         type: DataTypes.DATEONLY,
         allowNull: true,
@@ -28,9 +24,14 @@ module.exports = (sequelize) => {
         allowNull: false,
       },
       saleType: {
-        type: DataTypes.ENUM("wholeSale", "retail"),
+        type: DataTypes.ENUM("wholeSale", "retail", "hotel"),
         allowNull: false,
         defaultValue: "retail",
+      },
+      recievedAmount: {
+        type: DataTypes.FLOAT,
+        allowNull: false,
+        defaultValue: 0,
       },
       customerId: {
         type: DataTypes.INTEGER,
@@ -51,11 +52,15 @@ module.exports = (sequelize) => {
   );
 
   Sale.associate = (models) => {
-    Sale.belongsTo(models.Branch, { foreignKey: "branchId", as: 'branch' });
-    Sale.hasMany(models.SaleItem, { foreignKey: "saleId", as: 'items' });
+    Sale.belongsTo(models.Branch, { foreignKey: "branchId", as: "branch" });
+    Sale.hasMany(models.SaleItem, { foreignKey: "saleId", as: "items" });
     Sale.belongsTo(models.User, { foreignKey: "userId", as: "user" });
-    Sale.belongsTo(models.Customer, { foreignKey: "customerId", as: "customer" });
-    Sale.hasOne(models.Payment, { foreignKey: "saleId", as: 'payment' }); 
+    Sale.belongsTo(models.Customer, {
+      foreignKey: "customerId",
+      as: "customer",
+    });
+    Sale.hasMany(models.Payment, { foreignKey: "saleId", as: "payments" });
+    
   };
 
   return Sale;

@@ -6,7 +6,6 @@ import {
   render as renderESC,
 } from "react-thermal-printer";
 import moment from "moment";
-import React from "react";
 import { toast } from "react-toastify";
 
 // Define a common interface for receipt data that matches your requirements
@@ -26,11 +25,12 @@ interface ThermalReceiptData {
   customer?: any;
   saleType: "retail" | "wholeSale";
   customTotalPrice?: number;
+  saleDate: Date | string; 
 }
 
 // Network printer configuration - only using WiFi as requested
 interface NetworkPrinterConfig {
-  address: string; // IP address
+  address: string; 
   port: number; // Port number, typically 9100
 }
 
@@ -179,72 +179,86 @@ export class ThermalPrinterService {
       customer,
       saleType,
       customTotalPrice,
+      saleDate,
     } = receiptData;
 
     const displayTotal = customTotalPrice ?? totalPrice;
-    
-    // Calculate the optimal width for the content
-    // Most thermal printers are 58mm which fits 32-35 characters
-    // or 80mm which fits 48 characters
-    const isPaperNarrow = true; // Set to true for 58mm paper, false for 80mm paper
+
+    const isPaperNarrow = true; // true for 58mm, false for 80mm
     const characterWidth = isPaperNarrow ? 32 : 48;
 
-    // Define formatting constants
-    const QTY_WIDTH = 3;
-    const PRICE_WIDTH = 6;
-    const TOTAL_WIDTH = 6;
-    const ITEM_NAME_WIDTH = characterWidth - QTY_WIDTH - PRICE_WIDTH - TOTAL_WIDTH - 3; // 3 spaces for separators
+    // Column widths
+    const NO_WIDTH = 3;
+    const ITEM_NAME_WIDTH = 15;
+    const QTY_WIDTH = 4;
+    const RATE_WIDTH = 8;
+    const TOTAL_WIDTH = 8;
+
+    const timeStr = moment(saleDate).format("HH:mm:ss");
+    const dateStr = moment(saleDate).format("DD/MM/YYYY");
 
     return (
       <ESCPrinter
         type="epson"
         width={characterWidth}
         characterSet="slovenia"
-        initialize // Default initialization includes 0x1B 0x40
+        initialize
       >
-        {/* Header with bold and centered text */}
-        <Text bold size={{ width: 1, height: 1 }} align="center">
+        {/* Header */}
+        <Text align="center" bold size={{ width: 1, height: 1 }}>
           PKS TRADERS
         </Text>
         <Line />
 
-        {/* Sale information */}
         <Text align="center">Bill No: {saleId}</Text>
-        <Text align="center">{moment().format("DD/MM/YYYY HH:mm")}</Text>
-
-        {customer?.name && <Text>Customer: {customer.name}</Text>}
-
+        <Text align="center">Date: {dateStr}</Text>
+        <Text align="center">To : {customer?.name || "customer"}</Text>
         <Line />
-        <Text bold>
-          {`ITEM${' '.repeat(ITEM_NAME_WIDTH - 4)} QTY PRICE TOTAL`}
+
+        {/* Table Header */}
+        <Text>
+          {"NO".padEnd(NO_WIDTH)}
+          {"ITEM NAME".padEnd(ITEM_NAME_WIDTH)}
+          {"QTY".padEnd(QTY_WIDTH)}
+          {"RATE".padEnd(RATE_WIDTH)}
+          {"TOTAL".padEnd(TOTAL_WIDTH)}
         </Text>
         <Line />
 
-        {/* Item details */}
+        {/* Items */}
         {cart.map((item, idx) => {
-          const name = item.name.length > ITEM_NAME_WIDTH 
-            ? `${item.name.substring(0, ITEM_NAME_WIDTH - 2)}..` 
-            : item.name.padEnd(ITEM_NAME_WIDTH);
-          const qty = item.quantity.toString().padStart(QTY_WIDTH);
-          const price = item.price.toFixed(2).padStart(PRICE_WIDTH);
-          const itemTotal = (item.price * item.quantity).toFixed(2).padStart(TOTAL_WIDTH);
+          const no = String(idx + 1).padEnd(NO_WIDTH);
+          const name =
+            item.name.length > ITEM_NAME_WIDTH
+              ? item.name.substring(0, ITEM_NAME_WIDTH - 2) + ".."
+              : item.name.padEnd(ITEM_NAME_WIDTH);
+          const qty = String(item.quantity).padEnd(QTY_WIDTH);
+          const rate = item.price.toFixed(2).padEnd(RATE_WIDTH);
+          const total = (item.quantity * item.price)
+            .toFixed(2)
+            .padEnd(TOTAL_WIDTH);
 
           return (
             <Text key={idx}>
-              {name} {qty} {price} {itemTotal}
+              {no}
+              {name}
+              {qty}
+              {rate}
+              {total}
             </Text>
           );
         })}
 
         <Line />
+
+        {/* Bill Amount Section */}
         <Text align="right" bold>
-          TOTAL: {displayTotal.toFixed(2)}
+          BILL AMOUNT : {displayTotal.toFixed(2)}
         </Text>
+        <Text>Debt Amount: {customer?.debtAmount?.toFixed(2) || "0.00"}</Text>
+        <Text>Paid : {displayTotal.toFixed(2)}</Text>
+        <Text>Time : {timeStr}</Text>
 
-        <Text>Paid via: {paymentMethod}</Text>
-        {customer?.debtAmount > 0 && <Text>Debt: {customer.debtAmount}</Text>}
-
-        <Text align="center">Thank you!</Text>
         <Line />
         <Cut />
       </ESCPrinter>
@@ -323,7 +337,7 @@ export class ThermalPrinterService {
     try {
       // For direct printing, we'll use the same approach as Web Serial API
       // but send it to the printer via another method
-      
+
       // First check if we have a printer connected via Web Serial API
       if (navigator && "serial" in navigator) {
         const ports = await (navigator as any).serial.getPorts();
@@ -332,20 +346,22 @@ export class ThermalPrinterService {
           return this.printWithWebSerial(receiptData);
         }
       }
-      
+
       // If no Web Serial API printer, try network printing
       const status = await this.checkPrinterStatus();
       if (status.connected) {
         return this.printWithNetworkPrinter(receiptData);
       }
-      
+
       // If no printer is available, fallback to browser printing
       // but warn the user that formatting may be limited
-      toast.warning("No thermal printer detected. Using browser print which may have limited formatting.");
-      
+      toast.warning(
+        "No thermal printer detected. Using browser print which may have limited formatting."
+      );
+
       // Generate a printable HTML version that's optimized for thermal paper
       const receiptHtml = this.generateThermalFriendlyHtml(receiptData);
-      
+
       // Create a temporary iframe for printing
       const printFrame = document.createElement("iframe");
       printFrame.style.position = "fixed";
@@ -355,23 +371,23 @@ export class ThermalPrinterService {
       printFrame.style.height = "0";
       printFrame.style.border = "0";
       document.body.appendChild(printFrame);
-      
+
       const frameDoc = printFrame.contentWindow?.document;
       if (!frameDoc) {
         throw new Error("Could not access print frame document");
       }
-      
+
       frameDoc.open();
       frameDoc.write(receiptHtml);
       frameDoc.close();
-      
+
       // Print after content is loaded
       return new Promise((resolve) => {
         printFrame.onload = () => {
           setTimeout(() => {
             printFrame.contentWindow?.focus();
             printFrame.contentWindow?.print();
-            
+
             // Remove the iframe after printing
             setTimeout(() => {
               document.body.removeChild(printFrame);
@@ -387,7 +403,7 @@ export class ThermalPrinterService {
       }`;
     }
   }
-  
+
   /**
    * Generate HTML optimized for thermal printers
    * @param receiptData Receipt data
@@ -405,28 +421,32 @@ export class ThermalPrinterService {
     } = receiptData;
 
     const displayTotal = customTotalPrice ?? totalPrice;
-    
+
     // Calculate character spacing for thermal paper
     const isPaperNarrow = true; // Set to true for 58mm paper, false for 80mm
     const paperWidth = isPaperNarrow ? "58mm" : "80mm";
     const characterWidth = isPaperNarrow ? 32 : 48;
-    
+
     // Define column widths
     const QTY_WIDTH = 3;
     const PRICE_WIDTH = 6;
     const TOTAL_WIDTH = 6;
-    const ITEM_NAME_WIDTH = characterWidth - QTY_WIDTH - PRICE_WIDTH - TOTAL_WIDTH - 3; // 3 spaces for separators
-    
+    const ITEM_NAME_WIDTH =
+      characterWidth - QTY_WIDTH - PRICE_WIDTH - TOTAL_WIDTH - 3; // 3 spaces for separators
+
     // Generate item rows
     let itemRows = "";
     cart.forEach((item) => {
-      const name = item.name.length > ITEM_NAME_WIDTH 
-        ? `${item.name.substring(0, ITEM_NAME_WIDTH - 2)}..` 
-        : item.name.padEnd(ITEM_NAME_WIDTH);
+      const name =
+        item.name.length > ITEM_NAME_WIDTH
+          ? `${item.name.substring(0, ITEM_NAME_WIDTH - 2)}..`
+          : item.name.padEnd(ITEM_NAME_WIDTH);
       const qty = item.quantity.toString().padStart(QTY_WIDTH);
       const price = item.price.toFixed(2).padStart(PRICE_WIDTH);
-      const itemTotal = (item.price * item.quantity).toFixed(2).padStart(TOTAL_WIDTH);
-      
+      const itemTotal = (item.price * item.quantity)
+        .toFixed(2)
+        .padStart(TOTAL_WIDTH);
+
       itemRows += `<div class="item-row">${name} ${qty} ${price} ${itemTotal}</div>`;
     });
 
@@ -510,19 +530,25 @@ export class ThermalPrinterService {
             <div class="line"></div>
             <div class="center">Bill No: ${saleId}</div>
             <div class="center">${moment().format("DD/MM/YYYY HH:mm")}</div>
-            ${customer && customer.name
-              ? `<div>Customer: ${customer.name}</div>`
-              : ''}
+            ${
+              customer && customer.name
+                ? `<div>Customer: ${customer.name}</div>`
+                : ""
+            }
             <div class="line"></div>
-            <div class="bold">ITEM${' '.repeat(ITEM_NAME_WIDTH - 4)} QTY PRICE TOTAL</div>
+            <div class="bold">ITEM${" ".repeat(
+              ITEM_NAME_WIDTH - 4
+            )} QTY PRICE TOTAL</div>
             <div class="line"></div>
             ${itemRows}
             <div class="line"></div>
             <div class="total">TOTAL: ${displayTotal.toFixed(2)}</div>
             <div>Paid via: ${paymentMethod}</div>
-            ${customer && customer.debtAmount && Number(customer.debtAmount) > 0
-              ? `<div>Debt: ${customer.debtAmount}</div>`
-              : ''}
+            ${
+              customer && customer.debtAmount && Number(customer.debtAmount) > 0
+                ? `<div>Debt: ${customer.debtAmount}</div>`
+                : ""
+            }
             <div class="center" style="margin-top: 10px;">Thank you!</div>
           </div>
         </body>

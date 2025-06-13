@@ -55,7 +55,7 @@ exports.getSalesData = async (req, res) => {
 
 exports.getRecentTransactions = async (req, res) => {
   const transactions = await Sale.findAll({
-    include: [{ model: Payment, as: 'payment' }],
+    include: [{ model: Payment, as: 'payments' }],
     order: [["createdAt", "DESC"]],
     limit: 5,
   });

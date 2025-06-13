@@ -10,7 +10,7 @@ export interface Sale {
   purchaseDate: string;
   user: User;
   items: SaleItem[];
-  Payment?: Payment;
+  payments?: Payment[];
   customer?: Customer;
 }
 
@@ -36,6 +36,7 @@ export interface User {
 }
 
 export interface Payment {
+  amount: number;
   status: "pending" | "completed" | "failed";
   transactionId?: string;
   paymentMethod: "cash" | "card" | "upi" | "debit";
@@ -57,6 +58,7 @@ const SalesList = () => {
     const fetchSales = async () => {
       try {
         const response = await axios.get<Sale[]>(`${baseUrl}/api/sales`);
+        console.log(response.data[0]);
         setSales(response.data);
         setLoading(false);
       } catch (err) {
@@ -220,20 +222,28 @@ const SalesList = () => {
                   <p className="text-lg sm:text-xl font-bold text-blue-600">
                     ₹{sale.totalAmount.toFixed(2)}
                   </p>
-                  <p className="text-sm uppercase text-gray-600 mb-2">
-                    {sale.paymentMethod}
-                  </p>
-                  {sale.Payment && (
+
+                  {(sale?.payments?.length ?? 0) > 0 && (
+                    <div className="text-sm uppercase text-gray-600 mb-2 space-y-1">
+                      {(sale?.payments ?? []).map((payment, index) => (
+                        <p key={index}>
+                          {payment.paymentMethod} - ₹{payment.amount}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+
+                  {sale.payments?.[0] && (
                     <span
                       className={`px-2 py-1 rounded text-sm ${
-                        sale.Payment.status === "completed"
+                        sale.payments[0].status === "completed"
                           ? "bg-green-100 text-green-800"
-                          : sale.Payment.status === "pending"
+                          : sale.payments[0].status === "pending"
                           ? "bg-yellow-100 text-yellow-800"
                           : "bg-red-100 text-red-800"
                       }`}
                     >
-                      {sale.Payment.status}
+                      {sale.payments[0].status}
                     </span>
                   )}
                 </div>
@@ -326,18 +336,25 @@ const SalesList = () => {
                       <p className="text-sm uppercase text-gray-600">
                         Payment: {selectedSale.paymentMethod}
                       </p>
-                      {selectedSale.Payment && (
-                        <span
-                          className={`px-2 py-1 rounded text-sm ${
-                            selectedSale.Payment.status === "completed"
-                              ? "bg-green-100 text-green-800"
-                              : selectedSale.Payment.status === "pending"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : "bg-red-100 text-red-800"
-                          }`}
-                        >
-                          {selectedSale.Payment.status}
-                        </span>
+                      {(selectedSale.payments?.length ?? 0) > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {(selectedSale.payments ?? []).map(
+                            (payment, index) => (
+                              <span
+                                key={index}
+                                className={`px-2 py-1 rounded text-sm inline-block ${
+                                  payment.status === "completed"
+                                    ? "bg-green-100 text-green-800"
+                                    : payment.status === "pending"
+                                    ? "bg-yellow-100 text-yellow-800"
+                                    : "bg-red-100 text-red-800"
+                                }`}
+                              >
+                                ₹{payment.amount} - {payment.paymentMethod}
+                              </span>
+                            )
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>

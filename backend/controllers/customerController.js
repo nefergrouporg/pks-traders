@@ -85,7 +85,7 @@ exports.getCustomers = async (req, res) => {
             },
             {
               model: Payment,
-              as: "payment", // Alias for Payment
+              as: "payments",
               attributes: ["paymentMethod"],
             },
           ],

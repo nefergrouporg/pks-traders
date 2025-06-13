@@ -12,6 +12,7 @@ import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import { toast } from "react-toastify";
 import { thermalPrinterService } from "../../../utils/ThermalPrinterService";
+import moment from "moment";
 
 // Enhanced CSS for thermal receipt styling - optimized for printing
 const THERMAL_RECEIPT_STYLES = `
@@ -115,8 +116,8 @@ interface Navigator {
   };
 }
 interface SerialPort {
-  readonly readable: ReadableStream<Uint8Array>;
-  readonly writable: WritableStream<Uint8Array>;
+  readable: ReadableStream<Uint8Array> | null;
+  writable: WritableStream<Uint8Array> | null;
   open(options: SerialOptions): Promise<void>;
   close(): Promise<void>;
 }
@@ -150,7 +151,7 @@ interface ReceiptPreviewModalProps {
   customer?: any;
   saleType: "retail" | "wholeSale";
   customTotalPrice?: number;
-  saleDate : string
+  saleDate: string;
 }
 
 const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
@@ -163,7 +164,7 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
   customer,
   saleType = "retail",
   customTotalPrice,
-  saleDate
+  saleDate,
 }) => {
   const receiptRef = useRef<HTMLDivElement>(null);
   const printStylesRef = useRef<HTMLStyleElement | null>(null);
@@ -192,8 +193,6 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
   // Optimized browser printing function for thermal printers
   const handleBrowserPrint = () => {
     if (!receiptRef.current) return;
-
-    // Create a hidden iframe for printing
     const printFrame = document.createElement("iframe");
     printFrame.style.position = "fixed";
     printFrame.style.right = "0";
@@ -207,94 +206,203 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
     const frameDoc = printFrame.contentWindow?.document;
 
     if (frameDoc) {
-      // Open document
+      // Calculate original subtotal as per Receipt component
+      const originalSubtotal = cart.reduce((acc, item) => {
+        const originalPrice =
+          saleType === "wholeSale" && item.price
+            ? item.price
+            : item.retailPrice;
+        return acc + originalPrice * item.quantity;
+      }, 0);
+
+      const displayTotal = customTotalPrice ?? totalPrice;
+
+      // Format date and time using moment to match Receipt
+      const dateWithTime = `${saleDate}T${moment().format("HH:mm:ss")}`; // Add current time
+      const formattedDate = moment(dateWithTime).format("DD/MM/YYYY");
+      const formattedTime = moment(dateWithTime).format("HH:mm:ss");
+
       frameDoc.open();
-
-      // Clone the receipt content
-      const receiptClone = receiptRef.current.cloneNode(true) as HTMLElement;
-
-      // Remove buttons/interactive elements
-      const buttons = receiptClone.querySelectorAll("button, .print-hidden");
-      buttons.forEach((btn) => btn.remove());
-
-      // Write HTML with comprehensive styles
       frameDoc.write(`
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Receipt #${saleId}</title>
-            <style>
-              /* Essential print styles */
-              @page {
-                size: 80mm auto;
-                margin: 0mm !important;
-                padding: 0mm !important;
-              }
-              
-              html, body {
-                width: 80mm !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                font-family: 'Courier New', monospace !important;
-                font-size: 10px !important;
-                line-height: 1.2 !important;
-                background-color: white !important;
-                color: black !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-              }
-              
-              * {
-                box-sizing: border-box !important;
-              }
-              
-              /* Receipt specific styles */
-              .receipt-content {
-                width: 80mm !important;
-                padding: 5px !important;
-                margin: 0 auto !important;
-                font-family: 'Courier New', monospace !important;
-                font-size: 10px !important;
-              }
-              
-              .receipt-content p, 
-              .receipt-content div, 
-              .receipt-content span {
-                font-family: 'Courier New', monospace !important;
-                white-space: pre-wrap !important;
-                margin-bottom: 2px !important;
-              }
-              
-              hr, .divider {
-                border-top: 1px dashed black !important;
-                margin: 3px 0 !important;
-                width: 100% !important;
-              }
-              
-              .text-center { text-align: center !important; }
-              .text-right { text-align: right !important; }
-              .text-bold { font-weight: bold !important; }
-            </style>
-          </head>
-          <body>
-            <div class="receipt-content">
-              ${receiptClone.innerHTML}
-            </div>
-          </body>
-        </html>
-      `);
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Receipt #${saleId}</title>
+          <style>
+            @page {
+              size: 80mm auto;
+              margin: 0mm;
+              padding: 0mm;
+            }
 
+            html, body {
+              margin: 0;
+              padding: 0;
+              width: 80mm;
+              font-family: 'Courier New', monospace;
+              font-size: 12px;
+              line-height: 1.3;
+              background: #fff;
+              color: #000;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+
+            .section-header {
+              font-weight: bold;
+              font-size: 11px;
+              padding: 0 5mm;
+              margin-bottom: 4px;
+            }
+            
+            .receipt-content {
+              width: 72mm;
+              margin: 0 auto;
+              padding: 5px 0;
+            }
+
+            .text-center {
+              text-align: center;
+            }
+
+            .text-right {
+              text-align: right;
+            }
+
+            .text-bold {
+              font-size: 16px;
+              font-weight: bold;
+            }
+
+            .divider {
+              border-top: 1px dashed #000;
+              margin: 3px 0;
+            }
+
+            .section {
+              margin-bottom: 2px;
+            }
+
+            .table-header, .table-row {
+              display: grid;
+              grid-template-columns: 8% 38% 14% 20% 20%;
+              width: 100%;
+              font-family: 'Courier New', monospace;
+              font-size: 12px;
+              padding: 2px 0;
+            }
+
+            .table-header {
+              font-weight: bold;
+              border-bottom: 1px dashed #000;
+            }
+
+            .table-row {
+              font-weight: bold;
+              margin-bottom: 2px;
+            }
+
+            .total-section {
+              border-top: 1px dashed #000;
+              padding-top: 5px;
+              font-weight: bold;
+              margin-top: 5px;
+            }
+
+            .flex {
+              display: flex;
+              font-weight: bold;
+              justify-content: space-between;
+            }
+
+            .text-lg {
+              font-size: 14px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="receipt-content">
+            <div class="section text-center text-bold">PKS TRADERS</div>
+            <div class="section-header flex">
+              <span>Bill No: ${saleId}</span>
+              <span>Date: ${formattedDate}</span>
+            </div>
+            ${
+              customer
+                ? `<div class="section-header">Customer: ${
+                    customer.name || "No Name"
+                  }</div>`
+                : ""
+            }
+            <div class="divider"></div>
+
+            <div class="table-header">
+              <div>NO</div>
+              <div>ITEM NAME</div>
+              <div>QTY</div>
+              <div>RATE</div>
+              <div>TOTAL</div>
+            </div>
+            
+            ${cart
+              .map((item, idx) => {
+                const originalPrice =
+                  item.price !== undefined
+                    ? item.price
+                    : saleType === "wholeSale"
+                    ? item.wholeSalePrice ?? item.retailPrice
+                    : item.retailPrice;
+
+                const formattedName =
+                  item.name.length > 15
+                    ? `${item.name.substring(0, 15)}...`
+                    : item.name;
+
+                return `
+                <div class="table-row">
+                  <div>${idx + 1}</div>
+                  <div>${formattedName.toUpperCase()}</div>
+                  <div>${item.quantity}</div>
+                  <div>${originalPrice.toFixed(2)}</div>
+                  <div>${(originalPrice * item.quantity).toFixed(2)}</div>
+                </div>
+              `;
+              })
+              .join("")}
+            
+            <div class="total-section">
+              <div class="flex text-lg text-bold">
+                <span>BILL AMOUNT :</span>
+                <span>${displayTotal.toFixed(2)}</span>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="flex">
+                <span>Debt Amount:</span>
+                <span>${customer ? customer.debtAmount : "0.00"}</span>
+              </div>
+              <div class="flex">
+                <span>Paid :</span>
+                <span>${displayTotal.toFixed(2)}</span>
+              </div>
+            </div>
+
+            <div class="divider"></div>
+            <div class="section">
+              Time: ${formattedTime}
+            </div>
+          </div>
+        </body>
+      </html>
+    `);
       frameDoc.close();
 
-      // Ensure content is loaded before printing
       printFrame.onload = () => {
         setTimeout(() => {
           try {
-            // Focus and print
             printFrame.contentWindow?.focus();
             printFrame.contentWindow?.print();
-
-            // Cleanup after printing
             setTimeout(() => {
               document.body.removeChild(printFrame);
             }, 500);
@@ -386,113 +494,187 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
   };
 
   // Optimized thermal printing function with improved ESC/POS commands
-  const handleThermalPrint = async () => {
-    try {
-      const receiptData = {
-        cart,
-        totalPrice,
-        saleId,
-        paymentMethod,
-        customer,
-        saleType,
-        customTotalPrice,
-      };
-      // Try the service first
-      const result = await thermalPrinterService.printReceipt(receiptData);
+  // const handleThermalPrint = async () => {
+  //   try {
+  //     const receiptData = {
+  //       cart,
+  //       totalPrice,
+  //       saleId,
+  //       paymentMethod,
+  //       customer,
+  //       saleType,
+  //       customTotalPrice,
+  //     };
+  //     const result = await thermalPrinterService.printReceipt(receiptData);
 
-      if (result.includes("success")) {
-        toast.success("Receipt sent to thermal printer");
-        return;
-      }
-    } catch (serviceError) {
-      console.error("Thermal printer service failed:", serviceError);
+  //     if (result.includes("success")) {
+  //       toast.success("Receipt sent to thermal printer");
+  //       return;
+  //     }
+  //   } catch (serviceError) {
+  //     console.error("Thermal printer service failed:", serviceError);
 
-      try {
-        if (navigator && "serial" in navigator && (navigator as any).serial) {
-          const columnWidth = 42; // Standard 42 columns for 80mm thermal printer
+  //     try {
+  //       if (navigator && "serial" in navigator && navigator.serial) {
+  //         const columnWidth = 48; // TVS RP3160 GOLD, Font A, 80mm paper
+  //         const noWidth = 4; // "NO" (adjusted for spacing)
+  //         const nameWidth = 18; // "ITEM NAME" (adjusted to fit)
+  //         const qtyWidth = 6; // "QTY"
+  //         const priceWidth = 10; // "RATE"
+  //         const totalWidth = 10; // "TOTAL"
 
-          const receiptTree = (
-            <ESCPrinter
-              type="epson"
-              width={columnWidth}
-              characterSet="slovenia"
-              initialize={true}
-            >
-              <Text align="center" bold size={{ width: 1, height: 1 }}>
-                PKS TRADERS
-              </Text>
-              <Text align="center">Bill No: {saleId}</Text>
-              <Text align="center">
-                {new Date().toLocaleDateString()}{" "}
-                {new Date().toLocaleTimeString()}
-              </Text>
-              <Line />
+  //         // Calculate original subtotal as per Receipt component
+  //         const originalSubtotal = cart.reduce((acc, item) => {
+  //           const originalPrice =
+  //             saleType === "wholeSale" && item.price
+  //               ? item.price
+  //               : item.retailPrice;
+  //           return acc + originalPrice * item.quantity;
+  //         }, 0);
 
-              <Text>
-                {"Item".padEnd(24)}
-                {"Qty".padEnd(5)}
-                {"Price".padEnd(8)}
-                {"Total"}
-              </Text>
-              <Line />
+  //         const displayTotal = customTotalPrice ?? totalPrice;
 
-              {cart.map((item, idx) => {
-                let name = item.name;
-                if (name.length > 23) {
-                  name = name.substring(0, 20) + "...";
-                }
+  //         // Format date and time using moment to match Receipt
+  //         const formattedDate = moment(saleDate).format("DD/MM/YYYY");
+  //         const formattedTime = moment(saleDate).format("HH:mm:ss");
 
-                const qtyStr = item.quantity.toString().padEnd(5);
-                const priceStr = item.price.toFixed(2).padEnd(8);
-                const totalStr = (item.quantity * item.price).toFixed(2);
+  //         const receiptTree = (
+  //           <ESCPrinter
+  //             type="epson"
+  //             width={columnWidth}
+  //             initialize={true} // Omit characterSet to use default (likely PC437)
+  //           >
+  //             {/* Header */}
+  //             <Text align="center" bold>
+  //               PKS TRADERS
+  //             </Text>
+  //             <Text align="center">Bill No: {saleId}</Text>
+  //             <Text align="center">Date: {formattedDate}</Text>
+  //             {customer && (
+  //               <Text align="center">To: {customer.name || "No Name"}</Text>
+  //             )}
+  //             <Line />
 
-                return (
-                  <Text key={idx}>
-                    {name.padEnd(24)}
-                    {qtyStr}
-                    {priceStr}
-                    {totalStr}
-                  </Text>
-                );
-              })}
+  //             {/* Table Header */}
+  //             <Text align="left">
+  //               {"NO".padEnd(noWidth)}
+  //               {"ITEM NAME".padEnd(nameWidth)}
+  //               {"QTY".padEnd(qtyWidth)}
+  //               {"RATE".padEnd(priceWidth)}
+  //               {"TOTAL".padEnd(totalWidth)}
+  //             </Text>
+  //             <Line />
 
-              <Line />
-              <Text align="right" bold>
-                TOTAL: {(customTotalPrice ?? totalPrice).toFixed(2)}
-              </Text>
-              <Text>Paid via: {paymentMethod}</Text>
-              {customer && <Text>Customer: {customer.name}</Text>}
-              <Line />
-              <Text align="center">Thank you for your business!</Text>
-              <Text align="center">{new Date().toLocaleDateString()}</Text>
-              <Cut partial={false} />
-            </ESCPrinter>
-          );
+  //             {/* Table Rows */}
+  //             {cart.map((item, idx) => {
+  //               const noStr = (idx + 1).toString().padEnd(noWidth);
+  //               // Format item name to wrap if >18 chars (adjusted for thermal width)
+  //               const formattedName =
+  //                 item.name.length > nameWidth - 3
+  //                   ? `${item.name.substring(0, nameWidth - 3)}...`
+  //                   : item.name.padEnd(nameWidth);
+  //               const qtyStr = item.quantity.toString().padEnd(qtyWidth);
+  //               const originalPrice =
+  //                 item.price !== undefined
+  //                   ? item.price
+  //                   : saleType === "wholeSale"
+  //                   ? item.wholeSalePrice ?? item.retailPrice
+  //                   : item.retailPrice;
+  //               const priceStr = originalPrice.toFixed(2).padEnd(priceWidth);
+  //               const totalStr = (originalPrice * item.quantity)
+  //                 .toFixed(2)
+  //                 .padEnd(totalWidth);
 
-          const escposData = await renderESC(receiptTree);
-          const port = await (navigator as any).serial.requestPort();
-          await port.open({ baudRate: 9600 });
-          const writer = port.writable?.getWriter();
+  //               return (
+  //                 <Text key={idx} align="left">
+  //                   {noStr}
+  //                   {formattedName.toUpperCase()}
+  //                   {qtyStr}
+  //                   {priceStr}
+  //                   {totalStr}
+  //                 </Text>
+  //               );
+  //             })}
 
-          if (writer) {
-            await writer.write(escposData);
-            writer.releaseLock();
-            await port.close();
-            toast.success("Receipt printed successfully");
-          }
-        } else {
-          toast.error("Web Serial API not supported in this browser");
-        }
-      } catch (serialError) {
-        console.error("Serial API error:", serialError);
-        toast.error(
-          "Thermal printing failed. Please check if printer is connected."
-        );
-        toast.info("Attempting to use browser printing instead...");
-        handleBrowserPrint();
-      }
-    }
-  };
+  //             <Line />
+  //             {/* Total Section */}
+  //             <Text align="left">
+  //               {"BILL AMOUNT :".padEnd(
+  //                 columnWidth - displayTotal.toFixed(2).length
+  //               )}
+  //               {displayTotal.toFixed(2)}
+  //             </Text>
+
+  //             {/* Payment and Balance Info */}
+  //             {saleType === "wholeSale" && (
+  //               <>
+  //                 <Text align="left">
+  //                   {"Previous :".padEnd(
+  //                     columnWidth - originalSubtotal.toFixed(2).length
+  //                   )}
+  //                   {originalSubtotal.toFixed(2)}
+  //                 </Text>
+  //                 {customTotalPrice !== undefined && (
+  //                   <Text align="left">
+  //                     {"Net Amount:".padEnd(
+  //                       columnWidth - customTotalPrice.toFixed(2).length
+  //                     )}
+  //                     {customTotalPrice.toFixed(2)}
+  //                   </Text>
+  //                 )}
+  //               </>
+  //             )}
+  //             <Text align="left">
+  //               {"Debt Amount:".padEnd(
+  //                 columnWidth -
+  //                   (customer?.debtAmount || "0.00").toString().length
+  //               )}
+  //               {customer ? customer.debtAmount : "0.00"}
+  //             </Text>
+  //             <Text align="left">
+  //               {"Paid :".padEnd(columnWidth - displayTotal.toFixed(2).length)}
+  //               {displayTotal.toFixed(2)}
+  //             </Text>
+
+  //             <Line />
+  //             {/* Time */}
+  //             <Text align="left">Time: {formattedTime}</Text>
+  //             <Cut partial={false} />
+  //           </ESCPrinter>
+  //         );
+
+  //         const escposData = await renderESC(receiptTree);
+
+  //         const port = await (navigator as any).serial.requestPort();
+  //         await port.open({ baudRate: 115200 }); // For better clarity
+  //         const writer = port.writable?.getWriter();
+
+  //         if (writer) {
+  //           const densityCommand = new Uint8Array([
+  //             0x1d, 0x28, 0x45, 0x02, 0x00, 0x01, 0x02,
+  //           ]); // Example: high density
+  //           const finalData = new Uint8Array([
+  //             ...densityCommand,
+  //             ...escposData,
+  //           ]);
+  //           await writer.write(finalData);
+  //           writer.releaseLock();
+  //           await port.close();
+  //           toast.success("Receipt printed successfully");
+  //         }
+  //       } else {
+  //         toast.error("Web Serial API not supported in this browser");
+  //       }
+  //     } catch (serialError) {
+  //       console.error("Serial API error:", serialError);
+  //       toast.error(
+  //         "Thermal printing failed. Please check if printer is connected."
+  //       );
+  //       toast.info("Attempting to use browser printing instead...");
+  //       handleBrowserPrint();
+  //     }
+  //   }
+  // };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -535,22 +717,7 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
             onClick={handleBrowserPrint}
             className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
           >
-            Browser Print
-          </button>
-          <button
-            onClick={handleThermalPrint}
-            className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
-          >
             Thermal Print
-          </button>
-          <button
-            onClick={() => {
-              handleThermalPrint();
-              setTimeout(downloadReceiptAsPDF, 300);
-            }}
-            className="px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-900"
-          >
-            Print All
           </button>
         </div>
       </div>

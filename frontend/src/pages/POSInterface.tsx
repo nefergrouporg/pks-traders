@@ -340,18 +340,6 @@ const POSInterface: React.FC = () => {
     }
   };
 
-  const handlePrint = () => {
-    downloadReceiptAsPDF();
-    if (!receiptRef.current) return;
-    const printContents = receiptRef.current.innerHTML;
-    const originalContents = document.body.innerHTML;
-
-    document.body.innerHTML = printContents;
-    window.print();
-    document.body.innerHTML = originalContents;
-    window.location.reload();
-  };
-
   const downloadReceiptAsPDF = async () => {
     if (!receiptRef.current) return;
     try {
