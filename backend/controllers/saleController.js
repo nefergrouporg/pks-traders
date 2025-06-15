@@ -19,12 +19,10 @@ exports.createSale = async (req, res) => {
     if (!userId) return res.status(400).json({ error: "User ID is required" });
     if (!items || !items.length)
       return res.status(400).json({ error: "At least one item is required" });
-
-    if (!Array.isArray(payments) || payments.length === 0) {
+    if (!Array.isArray(payments) || payments.length === 0)
       return res
         .status(400)
         .json({ error: "At least one payment method is required" });
-    }
 
     const validPaymentMethods = ["cash", "card", "upi", "debt"];
     let totalPaid = 0;
@@ -73,38 +71,26 @@ exports.createSale = async (req, res) => {
       let totalAmount = 0;
 
       for (const item of items) {
-        const product = await Product.findByPk(item.productId, {
-          transaction,
-          attributes: ["id", "name", "wholeSalePrice", "retailPrice", "stock"], // ensure price is fetched
-        });
-
+        const product = await Product.findByPk(item.productId, { transaction });
         if (!product) throw new Error(`Product ${item.productId} not found`);
         if (product.stock < item.quantity)
           throw new Error(`Insufficient stock for ${product.name}`);
-
-        if (product.retailPrice == null)
-          throw new Error(`Price is missing for product ${product.name}`);
-
         product.stock -= item.quantity;
         await product.save({ transaction });
 
-        let itemTotal;
-        if (saleType === "wholeSale" || saleType === "hotel") {
-          itemTotal = item.price * item.quantity;
-        } else {
-          itemTotal = product.retailPrice * item.quantity;
-        }
+        let itemTotal =
+          (saleType === "wholeSale" || saleType === "hotel"
+            ? item.price
+            : product.retailPrice) * item.quantity;
         totalAmount += itemTotal;
-
-        // if (saleType === "hotel") {
-        //   totalAmount = finalAmount;
-        // }
-
         saleItems.push({
           productId: product.id,
           quantity: item.quantity,
-          price: saleType === "wholeSale" ? item.price : product.retailPrice,
-          subtotal: saleType === "wholeSale" ? item.price : product.retailPrice,
+          price:
+            saleType === "wholeSale" || saleType === "hotel"
+              ? item.price
+              : product.retailPrice,
+          subtotal: itemTotal,
         });
       }
 
@@ -126,21 +112,26 @@ exports.createSale = async (req, res) => {
       }
       const user = await User.findByPk(userId);
 
-      if (customerId) {
-        const customer = await Customer.findByPk(customerId, { transaction });
+      const customer = await Customer.findByPk(customerId, { transaction });
 
+      if (customerId) {
         const received = parseFloat(ReceivedAmount || 0);
         const totalDue = parseFloat(totalAmount.toFixed(2));
         const currentDebt = parseFloat(customer.debtAmount || 0);
-        const newDebt = currentDebt - (received - totalDue);
+        let newDebt = customer.debtAmount;
+        newDebt = currentDebt - (received - totalDue);
+        for (p of payments) {
+          if (p.method === "debt") {
+            newDebt = currentDebt + p.amount;
+          }
+        }
         customer.debtAmount = newDebt;
-
         await customer.save({ transaction });
       }
 
       const sale = await Sale.create(
         {
-          totalAmount: totalAmount?.toFixed(2),
+          totalAmount: totalAmount.toFixed(2),
           userId,
           saleType: saleType || "retail",
           customerId: customerId || null,
@@ -152,6 +143,7 @@ exports.createSale = async (req, res) => {
         },
         { transaction }
       );
+
       await Promise.all(
         saleItems.map((item) =>
           SaleItem.create(
@@ -165,34 +157,30 @@ exports.createSale = async (req, res) => {
       );
 
       const paymentQRs = [];
+      let createdPayments = [];
 
       for (const p of payments) {
         const payment = await Payment.create(
           {
             amount: parseFloat(p.amount).toFixed(2),
-            status: "completed",
+            status: p.method === "upi" ? "pending" : "completed",
             paymentMethod: p.method,
             saleId: sale.id,
             userId,
           },
           { transaction }
         );
-
+        createdPayments.push(payment);
         if (p.method === "upi") {
-          try {
-            const qr = await generatePaymentQR(sale.id, p.amount);
-            paymentQRs.push({ method: "upi", qr, amount: p.amount });
-          } catch (qrError) {
-            console.error("QR Generation failed:", qrError);
-          }
+          const qr = await generatePaymentQR(sale.id, p.amount);
+          paymentQRs.push({ method: "upi", qr, amount: p.amount });
         }
       }
 
       await transaction.commit();
-
       res.status(201).json({
         message: "Sale created successfully",
-        sale,
+        sale: { ...sale.toJSON(), payments: createdPayments },
         paymentQRs,
       });
     } catch (error) {
@@ -236,7 +224,7 @@ exports.getAllSales = async (req, res) => {
         {
           model: Customer,
           as: "customer",
-          attributes: ["name"],
+          attributes: ["name", "id"],
         },
         {
           model: Payment,
@@ -257,31 +245,43 @@ exports.editSale = async (req, res) => {
   const userId = req.user.id;
   const { items, payments, customerId, saleType, ReceivedAmount, saleDate } =
     req.body;
+  console.log(req.body);
 
+  // Basic validations
   if (!items || !items.length)
     return res.status(400).json({ error: "At least one item is required" });
 
-  if (!Array.isArray(payments) || payments.length === 0) {
+  if (!Array.isArray(payments) || payments.length === 0)
     return res
       .status(400)
       .json({ error: "At least one payment method is required" });
-  }
 
   const validPaymentMethods = ["cash", "card", "upi", "debt"];
+  let totalPaid = 0;
   for (const p of payments) {
     if (!validPaymentMethods.includes(p.method)) {
       return res
         .status(400)
         .json({ error: `Invalid payment method: ${p.method}` });
     }
+    totalPaid += parseFloat(p.amount || 0);
+  }
+
+  const validSaleTypes = ["wholeSale", "retail", "hotel"];
+  if (saleType && !validSaleTypes.includes(saleType)) {
+    return res.status(400).json({ error: "Invalid sale type" });
   }
 
   let transaction;
   try {
     transaction = await sequelize.transaction();
 
+    // Fetch the existing sale with items and payments
     const sale = await Sale.findByPk(saleId, {
-      include: [{ model: SaleItem, as: "items" }],
+      include: [
+        { model: SaleItem, as: "items" },
+        { model: Payment, as: "payments" },
+      ],
       transaction,
     });
 
@@ -289,6 +289,11 @@ exports.editSale = async (req, res) => {
       await transaction.rollback();
       return res.status(404).json({ error: "Sale not found" });
     }
+
+    // Calculate previous debt increase from existing payments
+    const previousDebtIncrease = sale.payments
+      .filter((p) => p.paymentMethod === "debt")
+      .reduce((sum, p) => sum + parseFloat(p.amount), 0);
 
     // Restore stock from old sale items
     for (const item of sale.items) {
@@ -302,12 +307,24 @@ exports.editSale = async (req, res) => {
     // Delete old sale items
     await SaleItem.destroy({ where: { saleId: sale.id }, transaction });
 
+    // Validate and process new items
     let totalAmount = 0;
-    const newSaleItems = [];
+    let newSaleItems = [];
+
     for (const item of items) {
+      if (!item.productId)
+        return res
+          .status(400)
+          .json({ error: "Product ID is required for each item" });
+
+      if (!item.quantity)
+        return res
+          .status(400)
+          .json({ error: "Quantity is required for each item" });
+
       const product = await Product.findByPk(item.productId, {
         transaction,
-        attributes: ["id", "name", "retailPrice", "wholeSalePrice", "stock"],
+        attributes: ["id", "name", "retailPrice", "stock"],
       });
 
       if (!product) throw new Error(`Product ${item.productId} not found`);
@@ -321,6 +338,7 @@ exports.editSale = async (req, res) => {
         saleType === "wholeSale" || saleType === "hotel"
           ? item.price
           : product.retailPrice;
+
       const itemTotal = price * item.quantity;
       totalAmount += itemTotal;
 
@@ -333,46 +351,58 @@ exports.editSale = async (req, res) => {
       });
     }
 
+    // Create updated sale items
     await SaleItem.bulkCreate(newSaleItems, { transaction });
 
     // Delete old payments
     await Payment.destroy({ where: { saleId: sale.id }, transaction });
 
     // Create new payments
+    const paymentQRs = [];
+    let createdPayments = [];
+
     for (const p of payments) {
-      await Payment.create(
+      const payment = await Payment.create(
         {
           amount: parseFloat(p.amount).toFixed(2),
-          status: "completed",
+          status: p.method === "upi" ? "pending" : "completed",
           paymentMethod: p.method,
           saleId: sale.id,
           userId,
         },
         { transaction }
       );
+      createdPayments.push(payment);
+
+      if (p.method === "upi") {
+        const qr = await generatePaymentQR(sale.id, p.amount);
+        paymentQRs.push({ method: "upi", qr, amount: p.amount });
+      }
     }
 
-    // Update customer debt
+    // Calculate new debt increase from updated payments
+    const newDebtIncrease = payments
+      .filter((p) => p.method === "debt")
+      .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+
+    // Handle customer debt and metadata
     if (customerId) {
       const customer = await Customer.findByPk(customerId, { transaction });
-
       if (!customer) {
         await transaction.rollback();
         return res.status(404).json({ error: "Customer not found" });
       }
 
-      const received = parseFloat(ReceivedAmount || 0);
-      const totalDue = parseFloat(totalAmount.toFixed(2));
       const currentDebt = parseFloat(customer.debtAmount || 0);
-      const newDebt = currentDebt - (received - totalDue);
+      // Adjust debt: subtract previous debt increase, add new debt increase
+      const newDebt = currentDebt - previousDebtIncrease + newDebtIncrease;
       customer.debtAmount = newDebt;
-
       await customer.save({ transaction });
 
       await Customer.update(
         {
           lastPurchaseDate: new Date(),
-          lastPurchaseAmount: totalDue,
+          lastPurchaseAmount: totalAmount,
         },
         { where: { id: customerId }, transaction }
       );
@@ -390,7 +420,11 @@ exports.editSale = async (req, res) => {
     await sale.save({ transaction });
 
     await transaction.commit();
-    res.status(200).json({ message: "Sale updated successfully", sale });
+    res.status(200).json({
+      message: "Sale updated successfully",
+      sale: { ...sale.toJSON(), payments: createdPayments },
+      paymentQRs,
+    });
   } catch (error) {
     if (transaction) await transaction.rollback();
     console.error("Sale update failed:", error);

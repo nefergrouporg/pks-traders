@@ -1,5 +1,21 @@
 const { Payment, Sale } = require("../models/index");
 
+exports.confirmPaymentById = async (req, res) => {
+  const paymentId = req.params.id;
+  try {
+    const payment = await Payment.findByPk(paymentId);
+    if (!payment) return res.status(404).json({ error: "Payment not found" });
+    if (payment.status !== "pending")
+      return res.status(400).json({ error: "Payment is not pending" });
+    payment.status = "completed";
+    await payment.save();
+    res.json({ message: "Payment confirmed" });
+  } catch (error) {
+    console.error("Payment confirmation failed:", error);
+    res.status(400).json({ error: error.message });
+  }
+};
+
 exports.confirmPayment = async (req, res) => {
   try {
     const { saleId, paymentMethod, upiTransactionId, cardApprovalCode } =
@@ -9,9 +25,9 @@ exports.confirmPayment = async (req, res) => {
       where: { saleId },
       include: [
         {
-          model: Sale, 
-          as: "sale", 
-          required: false, 
+          model: Sale,
+          as: "sale",
+          required: false,
         },
       ],
     });
@@ -38,8 +54,8 @@ exports.getPaymentBySaleId = async (req, res) => {
       include: [
         {
           model: Sale,
-          as: "sale", 
-          required: false, 
+          as: "sale",
+          required: false,
         },
       ],
     });

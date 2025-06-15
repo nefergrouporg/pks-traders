@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { baseUrl } from "../../utils/services";
+import EditSaleModal from "../components/EditSaleModal";
 
 // types.ts
 export interface Sale {
@@ -53,6 +54,20 @@ const SalesList = () => {
   // Modal states
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  const fetchSales = async () => {
+    try {
+      const response = await axios.get<Sale[]>(`${baseUrl}/api/sales`);
+      console.log(response.data[0]);
+      setSales(response.data);
+      setLoading(false);
+    } catch (err) {
+      console.error("Error fetching sales:", err);
+      setError("Failed to fetch sales data");
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     const fetchSales = async () => {
@@ -126,6 +141,16 @@ const SalesList = () => {
 
   const closeSaleDetailsModal = () => {
     setIsModalOpen(false);
+    setSelectedSale(null);
+  };
+
+  const openEditSaleModal = (sale: Sale) => {
+    setSelectedSale(sale);
+    setIsEditModalOpen(true);
+  };
+
+  const closeEditSaleModal = () => {
+    setIsEditModalOpen(false);
     setSelectedSale(null);
   };
 
@@ -437,7 +462,13 @@ const SalesList = () => {
               </div>
 
               {/* Modal Footer */}
-              <div className="sticky bottom-0 bg-gray-50 px-4 py-3 border-t flex justify-end">
+              <div className="sticky bottom-0 bg-gray-50 px-4 py-3 border-t flex justify-end space-x-2">
+                <button
+                  onClick={() => openEditSaleModal(selectedSale)}
+                  className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors"
+                >
+                  Edit Sale
+                </button>
                 <button
                   onClick={closeSaleDetailsModal}
                   className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
@@ -448,6 +479,15 @@ const SalesList = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Edit Sale Modal */}
+      {isEditModalOpen && selectedSale && (
+        <EditSaleModal
+          sale={selectedSale}
+          onClose={closeEditSaleModal}
+          onUpdate={() => fetchSales()} // Refresh sales list after update
+        />
       )}
 
       {/* Pagination Controls */}

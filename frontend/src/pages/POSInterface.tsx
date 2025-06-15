@@ -49,11 +49,29 @@ export interface Customer {
 
 interface Sale {
   id: number;
-  items: { productId: number; quantity: number }[];
-  paymentMethod: string;
+  items: {
+    productId: number;
+    quantity: number;
+    price: number;
+    total: number;
+  }[];
+  payments: Payment[];
   customerId: number | null;
-  saleType: "retail" | "wholeSale";
+  saleType: "retail" | "wholeSale" | "hotel";
   saleDate: string;
+}
+
+interface Payment {
+  id?: number;
+  method: "cash" | "card" | "upi" | "debt";
+  amount: number;
+  status?: "pending" | "completed" | "failed";
+  qr?: string;
+}
+
+interface LocalPayment {
+  method: "cash" | "card" | "upi" | "debt";
+  amount: number;
 }
 
 const POSInterface: React.FC = () => {
@@ -74,7 +92,9 @@ const POSInterface: React.FC = () => {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
     null
   );
-  const [saleType, setSaleType] = useState<"retail" | "wholeSale">("retail");
+  const [saleType, setSaleType] = useState<"retail" | "wholeSale" | "hotel">(
+    "retail"
+  );
   const [barcode, setBarcode] = useState<string>("");
   const [scanning, setScanning] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -100,6 +120,8 @@ const POSInterface: React.FC = () => {
   const scanTimeout = useRef<NodeJS.Timeout | null>(null);
   const [customTotalPrice, setCustomTotalPrice] = useState<number | null>(null);
   const [isEditingDate, setIsEditingDate] = useState(false);
+  const [localPayments, setLocalPayments] = useState<LocalPayment[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [saleDate, setSaleDate] = useState(
     new Date().toISOString().split("T")[0]
   ); // Default to current date
@@ -130,15 +152,27 @@ const POSInterface: React.FC = () => {
     },
     { method: "debt", label: "Debt", icon: <TrendingDown /> },
   ];
+  const totalPaid = localPayments.reduce((sum, p) => sum + p.amount, 0);
+
+  const availablePaymentOptions = selectedCustomer
+    ? paymentOptions
+    : paymentOptions.filter((option) => option.method !== "debt");
 
   const isCartValid = () => {
     return cart.length > 0 && cart.every((item) => item.quantity > 0);
   };
 
+  const saleTypes: Array<"retail" | "wholeSale" | "hotel"> = [
+    "retail",
+    "wholeSale",
+    "hotel",
+  ];
   const toggleSaleType = () => {
-    setSaleType((currentType) =>
-      currentType === "retail" ? "wholeSale" : "retail"
-    );
+    setSaleType((currentType) => {
+      const currentIndex = saleTypes.indexOf(currentType);
+      const nextIndex = (currentIndex + 1) % saleTypes.length;
+      return saleTypes[nextIndex];
+    });
   };
 
   const handlePreviewClose = () => {
@@ -179,220 +213,6 @@ const POSInterface: React.FC = () => {
     0
   );
 
-  const resetSaleState = () => {
-    setCart([]);
-    setCurrentSaleId(-1);
-    setIsSaleComplete(false);
-    setPendingSale(null);
-    setSelectedPaymentMethod(undefined);
-    setPaymentQR(null);
-    setShowReceipt(false);
-    setIsPreviewOpen(false);
-    setSelectedCustomer(null);
-    setSaleType("retail");
-    setScanning(false);
-    setBarcode("");
-    setSearchTerm("");
-    setFilteredProducts([]);
-    setProductSelectedIndex(-1);
-    setIsDropdownOpen(false);
-    setCartSelectedIndex(-1);
-    setActiveTab(0);
-    setHighlightedPaymentIndex(0);
-  };
-
-  const fetchCustomers = async () => {
-    try {
-      const response = await axios.get(`${baseUrl}/api/customers`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setCustomers(response.data.customers);
-    } catch (error) {
-      console.error("Error fetching customers:", error);
-      toast.error("Failed to load customers");
-    }
-  };
-
-  const loadProducts = async () => {
-    setIsProductsLoading(true);
-    try {
-      const response = await axios.get(`${baseUrl}/api/products`);
-      setProducts(response.data.products);
-    } catch (error) {
-      console.error("Error loading products:", error);
-    } finally {
-      setIsProductsLoading(false);
-    }
-  };
-
-  const addToCart = (product: {
-    id: number;
-    name: string;
-    retailPrice: number;
-    wholeSalePrice?: number;
-    unitType: "pcs" | "kg";
-    stock: number;
-  }) => {
-    if (product.stock <= 0) return toast.error("Product out of stock");
-
-    const priceToUse =
-      saleType === "wholeSale" && product.wholeSalePrice
-        ? product.wholeSalePrice
-        : product.retailPrice;
-    setCart((prevCart) => {
-      const existingItem = prevCart.find((item) => item.id === product.id);
-      return existingItem
-        ? prevCart.map((item) =>
-            item.id === product.id
-              ? {
-                  ...item,
-                  quantity:
-                    item.unitType === "pcs" ? item.quantity + 1 : item.quantity,
-                }
-              : item
-          )
-        : [
-            {
-              ...product,
-              price: priceToUse,
-              quantity: product.unitType === "pcs" ? 1 : 0,
-            },
-            ...prevCart,
-          ];
-    });
-  };
-
-  const increaseQuantity = (productId: number) => {
-    setCart((prevCart) =>
-      prevCart.map((item) => {
-        if (item.id !== productId) return item;
-
-        // Increment logic based on unit type
-        const increment = item.unitType === "kg" ? 0.1 : 1;
-        const newQuantity = parseFloat((item.quantity + increment).toFixed(2));
-        console.log(newQuantity);
-        // For kg, ensure that the quantity doesn't exceed stock
-        if (item.unitType === "kg" && newQuantity > item.stock) {
-          toast.error("Cannot exceed available stock for this product");
-          return item;
-        }
-
-        // For pcs, ensure it doesn't exceed stock as well
-        if (item.unitType === "pcs" && newQuantity > item.stock) {
-          toast.error("Cannot exceed available stock for this product");
-          return item;
-        }
-
-        // Return the updated item with new quantity
-        return {
-          ...item,
-          quantity: newQuantity,
-        };
-      })
-    );
-  };
-
-  const decreaseQuantity = (productId: number) => {
-    setCart((prevCart) =>
-      prevCart.map((item) =>
-        item.id === productId
-          ? {
-              ...item,
-              quantity: parseFloat(
-                Math.max(
-                  0,
-                  item.quantity - (item.unitType === "kg" ? 0.1 : 1)
-                ).toFixed(2)
-              ),
-            }
-          : item
-      )
-    );
-  };
-
-  const updateQuantity = (productId: number, newQuantity: number) => {
-    setCart((prevCart) =>
-      prevCart.map((item) =>
-        item.id === productId
-          ? { ...item, quantity: Math.max(newQuantity, 0) }
-          : item
-      )
-    );
-  };
-
-  const removeFromCart = (id: number) => {
-    setCart((prevCart) => prevCart.filter((item) => item.id !== id));
-  };
-
-  const handleBarcodeScan = async (barcodeValue: string) => {
-    try {
-      const response = await axios.get(
-        `${baseUrl}/api/products/${barcodeValue.trim()}`
-      );
-      if (response.data) {
-        addToCart(response.data);
-      } else {
-        toast.error("Product not found!");
-      }
-    } catch (error) {
-      console.error("API error:", error);
-      toast.error("Error scanning product");
-    }
-  };
-
-  const downloadReceiptAsPDF = async () => {
-    if (!receiptRef.current) return;
-    try {
-      const tempDiv = document.createElement("div");
-      tempDiv.style.position = "absolute";
-      tempDiv.style.left = "-9999px";
-      tempDiv.appendChild(receiptRef.current.cloneNode(true));
-      document.body.appendChild(tempDiv);
-
-      const element = tempDiv.firstChild as HTMLElement;
-
-      element.style.width = "80mm";
-      element.style.height = "auto";
-
-      const canvas = await html2canvas(element, {
-        scale: 3,
-        backgroundColor: "#ffffff",
-        logging: false,
-        width: 300,
-        windowWidth: 300,
-      });
-
-      document.body.removeChild(tempDiv);
-
-      const pdfWidth = 80;
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: [pdfWidth, pdfHeight],
-      });
-
-      pdf.addImage(
-        canvas.toDataURL("image/png"),
-        "PNG",
-        0,
-        0,
-        pdfWidth,
-        pdfHeight
-      );
-
-      pdf.save(
-        `${
-          selectedCustomer?.name ? selectedCustomer.name : "receipt"
-        }-${currentSaleId}.pdf`
-      );
-    } catch (error) {
-      console.error("Failed to download receipt:", error);
-      toast.error("Failed to download receipt. Please try again.");
-    }
-  };
-
   const createPendingSale = async (
     method: "cash" | "card" | "upi" | "debt"
   ) => {
@@ -401,11 +221,6 @@ const POSInterface: React.FC = () => {
         toast.error("Please select a customer for debt payment.");
         return;
       }
-
-      // const finalAmount =
-      //   saleType === "wholeSale" && customTotalPrice !== null
-      //     ? customTotalPrice
-      //     : totalPrice;
 
       const saleData = {
         items: cart.map((item) => ({
@@ -533,6 +348,295 @@ const POSInterface: React.FC = () => {
         toast.error("Failed to confirm UPI payment");
       }
     }
+  };
+
+  const resetSaleState = () => {
+    setCart([]);
+    setCurrentSaleId(-1);
+    setIsSaleComplete(false);
+    setPendingSale(null);
+    setLocalPayments([]);
+    setPayments([]);
+    setShowReceipt(false);
+    setIsPreviewOpen(false);
+    setSelectedCustomer(null);
+    setSaleType("retail");
+    setScanning(false);
+    setBarcode("");
+    setSearchTerm("");
+    setFilteredProducts([]);
+    setProductSelectedIndex(-1);
+    setIsDropdownOpen(false);
+    setCartSelectedIndex(-1);
+    setActiveTab(0);
+    setHighlightedPaymentIndex(0);
+  };
+
+  const fetchCustomers = async () => {
+    try {
+      const response = await axios.get(`${baseUrl}/api/customers`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCustomers(response.data.customers);
+    } catch (error) {
+      console.error("Error fetching customers:", error);
+      toast.error("Failed to load customers");
+    }
+  };
+
+  const loadProducts = async () => {
+    setIsProductsLoading(true);
+    try {
+      const response = await axios.get(`${baseUrl}/api/products`);
+      setProducts(response.data.products);
+    } catch (error) {
+      console.error("Error loading products:", error);
+    } finally {
+      setIsProductsLoading(false);
+    }
+  };
+
+  const addToCart = (product: Product) => {
+    if (product.stock <= 0) return toast.error("Product out of stock");
+    const priceToUse =
+      saleType === "wholeSale" && product.wholeSalePrice
+        ? product.wholeSalePrice
+        : product.retailPrice;
+    setCart((prevCart) => {
+      const existingItem = prevCart.find((item) => item.id === product.id);
+      return existingItem
+        ? prevCart.map((item) =>
+            item.id === product.id
+              ? {
+                  ...item,
+                  quantity:
+                    item.unitType === "pcs" ? item.quantity + 1 : item.quantity,
+                }
+              : item
+          )
+        : [
+            {
+              ...product,
+              price: priceToUse,
+              quantity: product.unitType === "pcs" ? 1 : 0,
+            },
+            ...prevCart,
+          ];
+    });
+  };
+
+  const increaseQuantity = (productId: number) => {
+    setCart((prevCart) =>
+      prevCart.map((item) => {
+        if (item.id !== productId) return item;
+        const increment = item.unitType === "kg" ? 0.1 : 1;
+        const newQuantity = parseFloat((item.quantity + increment).toFixed(2));
+        if (newQuantity > item.stock) {
+          toast.error("Cannot exceed available stock for this product");
+          return item;
+        }
+        return { ...item, quantity: newQuantity };
+      })
+    );
+  };
+
+  const decreaseQuantity = (productId: number) => {
+    setCart((prevCart) =>
+      prevCart.map((item) =>
+        item.id === productId
+          ? {
+              ...item,
+              quantity: parseFloat(
+                Math.max(
+                  0,
+                  item.quantity - (item.unitType === "kg" ? 0.1 : 1)
+                ).toFixed(2)
+              ),
+            }
+          : item
+      )
+    );
+  };
+
+  const updateQuantity = (productId: number, newQuantity: number) => {
+    setCart((prevCart) =>
+      prevCart.map((item) =>
+        item.id === productId
+          ? { ...item, quantity: Math.max(newQuantity, 0) }
+          : item
+      )
+    );
+  };
+
+  const removeFromCart = (id: number) =>
+    setCart((prevCart) => prevCart.filter((item) => item.id !== id));
+
+  const handleBarcodeScan = async (barcodeValue: string) => {
+    try {
+      const response = await axios.get(
+        `${baseUrl}/api/products/${barcodeValue.trim()}`
+      );
+      if (response.data) addToCart(response.data);
+      else toast.error("Product not found!");
+    } catch (error) {
+      console.error("API error:", error);
+      toast.error("Error scanning product");
+    }
+  };
+
+  const downloadReceiptAsPDF = async () => {
+    if (!receiptRef.current) return;
+    try {
+      const tempDiv = document.createElement("div");
+      tempDiv.style.position = "absolute";
+      tempDiv.style.left = "-9999px";
+      tempDiv.appendChild(receiptRef.current.cloneNode(true));
+      document.body.appendChild(tempDiv);
+
+      const element = tempDiv.firstChild as HTMLElement;
+      element.style.width = "80mm";
+      element.style.height = "auto";
+
+      const canvas = await html2canvas(element, {
+        scale: 3,
+        backgroundColor: "#ffffff",
+        logging: false,
+        width: 300,
+        windowWidth: 300,
+      });
+      document.body.removeChild(tempDiv);
+
+      const pdfWidth = 80;
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: [pdfWidth, pdfHeight],
+      });
+
+      pdf.addImage(
+        canvas.toDataURL("image/png"),
+        "PNG",
+        0,
+        0,
+        pdfWidth,
+        pdfHeight
+      );
+      pdf.save(
+        `${
+          selectedCustomer?.name ? selectedCustomer.name : "receipt"
+        }-${currentSaleId}.pdf`
+      );
+    } catch (error) {
+      console.error("Failed to download receipt:", error);
+      toast.error("Failed to download receipt. Please try again.");
+    }
+  };
+
+  const createSale = async () => {
+    if (!isCartValid()) return toast.error("Cart is invalid");
+    if (localPayments.some((p) => p.method === "debt" && !selectedCustomer))
+      return toast.error("Please select a customer for debt payment");
+
+    try {
+      const saleData = {
+        items: cart.map((item) => ({
+          productId: item.id,
+          quantity: item.quantity,
+          price: item.price,
+          total: item.price * item.quantity,
+        })),
+        payments: localPayments,
+        customerId: selectedCustomer?.id || null,
+        saleType,
+        ReceivedAmount: totalPaid,
+        saleDate,
+      };
+
+      const response = await axios.post(`${baseUrl}/api/sales`, saleData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        timeout: 10000,
+      });
+
+      if (response.status === 201) {
+        toast.success(response.data.message || "Sale created successfully");
+        setCurrentSaleId(response.data.sale.id);
+        setPendingSale(response.data.sale);
+        const returnedPayments = response.data.sale.payments.map((p: any) => ({
+          id: p.id,
+          method: p.paymentMethod,
+          amount: parseFloat(p.amount),
+          status: p.status,
+          qr: response.data.paymentQRs?.find(
+            (qr: any) =>
+              qr.method === "upi" && qr.amount === parseFloat(p.amount)
+          )?.qr,
+        }));
+        setPayments(returnedPayments);
+        if (returnedPayments.every((p) => p.status === "completed")) {
+          setIsSaleComplete(true);
+          showReceiptPreview();
+        }
+        loadProducts();
+      } else {
+        toast.error(response.data.message || "Failed to create sale");
+      }
+    } catch (error: any) {
+      console.error("Sale creation failed:", error);
+      toast.error(error.response?.data?.error || "Failed to create sale");
+    }
+  };
+
+  const confirmUPIPayment = async (paymentId: number) => {
+    try {
+      await axios.put(
+        `${baseUrl}/api/payments/${paymentId}/confirm`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      setPayments(
+        payments.map((p) =>
+          p.id === paymentId ? { ...p, status: "completed" } : p
+        )
+      );
+      if (
+        payments.every(
+          (p) =>
+            p.status === "completed" ||
+            (p.id === paymentId && p.status === "completed")
+        )
+      ) {
+        setIsSaleComplete(true);
+        showReceiptPreview();
+      }
+      toast.success("UPI payment confirmed!");
+    } catch (error) {
+      console.error("Payment confirmation failed:", error);
+      toast.error("Failed to confirm UPI payment");
+    }
+  };
+
+  const addPayment = () =>
+    setLocalPayments([...localPayments, { method: "cash", amount: 0 }]);
+
+  const removePayment = (index: number) =>
+    setLocalPayments(localPayments.filter((_, i) => i !== index));
+
+  const handleMethodChange = (index: number, method: string) => {
+    const newPayments = [...localPayments];
+    newPayments[index].method = method as "cash" | "card" | "upi" | "debt";
+    setLocalPayments(newPayments);
+  };
+
+  const handleAmountChange = (index: number, amount: string) => {
+    const newPayments = [...localPayments];
+    newPayments[index].amount = parseFloat(amount) || 0;
+    setLocalPayments(newPayments);
   };
 
   // Focus "Confirm Payment" button after selecting a non-UPI payment method
@@ -676,6 +780,8 @@ const POSInterface: React.FC = () => {
           const newPrice =
             saleType === "wholeSale" && item.price
               ? item.price
+              : saleType === "hotel" && item.price
+              ? item.price
               : product.retailPrice;
           return { ...item, price: newPrice };
         }
@@ -730,8 +836,6 @@ const POSInterface: React.FC = () => {
               );
             }
           }
-          // When activeTab === 2, do NOT call e.preventDefault()
-          // This allows the "Confirm Payment" button to handle Enter naturally
         } else if (e.key === "Backspace") {
           e.preventDefault();
           if (activeTab === 1) {
@@ -803,10 +907,10 @@ const POSInterface: React.FC = () => {
             cart={cart}
             totalPrice={customTotalPrice ? customTotalPrice : totalPrice}
             saleId={currentSaleId}
-            paymentMethod={selectedPaymentMethod || ""}
+            payments={payments}
             customer={selectedCustomer}
             saleType={saleType}
-            saleDate= {saleDate}
+            saleDate={saleDate}
           />
         </div>
       </div>
@@ -817,10 +921,10 @@ const POSInterface: React.FC = () => {
         cart={cart}
         totalPrice={customTotalPrice ? customTotalPrice : totalPrice}
         saleId={currentSaleId}
-        paymentMethod={selectedPaymentMethod || ""}
+        payments={payments} // Correct
         customer={selectedCustomer}
         saleType={saleType}
-        saleDate= {saleDate}
+        saleDate={saleDate}
       />
 
       <div className="flex space-x-2 mb-4 border-b border-gray-200">
@@ -880,6 +984,16 @@ const POSInterface: React.FC = () => {
                 }`}
               >
                 Wholesale
+              </button>
+              <button
+                onClick={() => setSaleType("hotel")}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                  saleType === "hotel"
+                    ? "bg-white text-blue-600 shadow-sm"
+                    : "text-gray-600 hover:text-gray-800"
+                }`}
+              >
+                Hotel
               </button>
             </div>
             <div className="ml-2 text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
@@ -1021,9 +1135,7 @@ const POSInterface: React.FC = () => {
 
       {activeTab === 1 && (
         <div className="space-y-6 p-6 bg-white rounded-lg shadow-lg">
-          {/* Search and Barcode Section */}
           <div className="flex flex-col sm:flex-row gap-5">
-            {/* Product Search */}
             <div className="flex-1 relative">
               <div className="relative">
                 <input
@@ -1112,7 +1224,6 @@ const POSInterface: React.FC = () => {
               )}
             </div>
 
-            {/* Barcode Scanner */}
             <div className="flex-shrink-0">
               <div className="relative">
                 <input
@@ -1126,11 +1237,8 @@ const POSInterface: React.FC = () => {
                   onClick={() => {
                     const newScanningState = !scanning;
                     setScanning((prev) => !prev);
-                    if (newScanningState) {
-                      setTimeout(() => {
-                        barcodeInputRef.current?.focus();
-                      }, 50);
-                    }
+                    if (newScanningState)
+                      setTimeout(() => barcodeInputRef.current?.focus(), 50);
                   }}
                   className={`px-6 py-3 rounded-lg transition-all duration-300 flex items-center space-x-2 ${
                     scanning
@@ -1162,7 +1270,6 @@ const POSInterface: React.FC = () => {
             </div>
           </div>
 
-          {/* Shopping Cart Section */}
           <div
             ref={cartRef}
             className="bg-gray-50 rounded-lg border border-gray-200 shadow-md p-4 flex flex-col h-96 overflow-hidden focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
@@ -1175,10 +1282,16 @@ const POSInterface: React.FC = () => {
                 className={`text-sm px-3 py-1 rounded-full font-medium ${
                   saleType === "wholeSale"
                     ? "bg-purple-100 text-purple-800"
+                    : saleType === "hotel"
+                    ? "bg-yellow-100 text-yellow-800"
                     : "bg-blue-100 text-blue-800"
                 }`}
               >
-                {saleType === "wholeSale" ? "Wholesale Price" : "Retail Price"}
+                {saleType === "wholeSale"
+                  ? "Wholesale Price"
+                  : saleType === "hotel"
+                  ? "Hotel Price"
+                  : "Retail Price"}
               </span>
             </div>
 
@@ -1204,13 +1317,22 @@ const POSInterface: React.FC = () => {
               </div>
             ) : (
               <>
-                <div className="flex justify-between text-sm font-semibold text-gray-600 border-b pb-2 px-2">
-                  <div className="flex-1">Item</div>
-                  <div className="w-24 text-center">Price</div>
-                  <div className="w-32 text-center">Quantity</div>
-                  <div className="w-24 text-right">Total</div>
-                  <div className="w-16 text-right"></div>
-                </div>
+                {saleType === "hotel" ? (
+                  <div className="flex justify-between text-sm font-semibold text-gray-600 border-b pb-2 px-2">
+                    <div className="flex-1">Item</div>
+                    <div className="w-32 text-center">Quantity</div>
+                    <div className="w-24 text-right">Total Price</div>
+                    <div className="w-16 text-right"></div>
+                  </div>
+                ) : (
+                  <div className="flex justify-between text-sm font-semibold text-gray-600 border-b pb-2 px-2">
+                    <div className="flex-1">Item</div>
+                    <div className="w-24 text-center">Price</div>
+                    <div className="w-32 text-center">Quantity</div>
+                    <div className="w-24 text-right">Total</div>
+                    <div className="w-16 text-right"></div>
+                  </div>
+                )}
 
                 <div className="flex-1 overflow-y-auto divide-y divide-gray-100 min-h-32">
                   {cart.map((item, index) => (
@@ -1223,17 +1345,65 @@ const POSInterface: React.FC = () => {
                           : ""
                       }`}
                     >
-                      <div className="flex-1 font-medium">{item.name}</div>
-                      <div className="w-24 text-center">
-                        {saleType === "wholeSale" ? (
-                          <div className="flex items-center justify-center">
-                            <span className="mr-1">₹</span>
+                      {saleType === "hotel" ? (
+                        <>
+                          <div className="flex-1 font-medium">{item.name}</div>
+                          <div className="w-32 text-center">
+                            {item.unitType === "kg" ? (
+                              <div className="relative">
+                                <input
+                                  type="number"
+                                  value={item.quantity}
+                                  onChange={(e) => {
+                                    let newQuantity =
+                                      parseFloat(e.target.value) || 0;
+                                    if (newQuantity > item.stock) {
+                                      toast.error(
+                                        "Quantity exceeds stock limit"
+                                      );
+                                      newQuantity = 0;
+                                    }
+                                    updateQuantity(item.id, newQuantity);
+                                  }}
+                                  className="w-20 text-center border rounded-md py-1 px-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  step={0.1}
+                                  min={0}
+                                />
+                                <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 pointer-events-none">
+                                  kg
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-center">
+                                <button
+                                  onClick={() => decreaseQuantity(item.id)}
+                                  className="w-8 h-8 rounded-l-md bg-gray-200 hover:bg-gray-300 flex items-center justify-center"
+                                >
+                                  -
+                                </button>
+                                <span className="w-12 text-center py-1 border-t border-b">
+                                  {item.quantity}
+                                </span>
+                                <button
+                                  onClick={() => increaseQuantity(item.id)}
+                                  className="w-8 h-8 rounded-r-md bg-gray-200 hover:bg-gray-300 flex items-center justify-center"
+                                >
+                                  +
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                          <div className="w-24 text-right">
                             <input
                               type="number"
-                              value={item.price}
+                              value={(item.price * item.quantity).toFixed(2)}
                               onChange={(e) => {
-                                const newPrice = parseFloat(e.target.value);
-                                if (!isNaN(newPrice) && newPrice >= 0) {
+                                const newTotal = parseFloat(e.target.value);
+                                if (!isNaN(newTotal) && newTotal >= 0) {
+                                  const newPrice =
+                                    item.quantity > 0
+                                      ? newTotal / item.quantity
+                                      : 0;
                                   setCart((prevCart) =>
                                     prevCart.map((cartItem) =>
                                       cartItem.id === item.id
@@ -1243,85 +1413,137 @@ const POSInterface: React.FC = () => {
                                   );
                                 }
                               }}
-                              className="w-16 text-center border rounded-md py-1 px-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="w-full text-right border rounded-md py-1 px-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                               step={0.01}
                               min={0}
                             />
                           </div>
-                        ) : (
-                          <span>₹{item.price.toFixed(2)}</span>
-                        )}
-                      </div>
-                      <div className="w-32 text-center">
-                        {item.unitType === "kg" ? (
-                          <div className="relative">
-                            <input
-                              type="number"
-                              value={item.quantity}
-                              onChange={(e) => {
-                                let newQuantity =
-                                  parseFloat(e.target.value) || 0;
-                                {
-                                  if (newQuantity > item.stock) {
-                                    toast.error("Quantity exceeds stock limit");
-                                    newQuantity = 0;
-                                  }
-                                }
-                                updateQuantity(item.id, newQuantity);
-                              }}
-                              className="w-20 text-center border rounded-md py-1 px-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              step={0.1}
-                              min={0}
-                            />
-                            <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 pointer-events-none">
-                              kg
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-center">
+                          <div className="w-16 text-right">
                             <button
-                              onClick={() => decreaseQuantity(item.id)}
-                              className="w-8 h-8 rounded-l-md bg-gray-200 hover:bg-gray-300 flex items-center justify-center"
+                              onClick={() => removeFromCart(item.id)}
+                              className="p-1 text-gray-500 hover:text-red-600 transition-colors duration-150 rounded-full hover:bg-red-50"
+                              title="Remove item"
                             >
-                              -
-                            </button>
-                            <span className="w-12 text-center py-1 border-t border-b">
-                              {item.quantity}
-                            </span>
-                            <button
-                              onClick={() => increaseQuantity(item.id)}
-                              className="w-8 h-8 rounded-r-md bg-gray-200 hover:bg-gray-300 flex items-center justify-center"
-                            >
-                              +
+                              <svg
+                                className="w-5 h-5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="2"
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                ></path>
+                              </svg>
                             </button>
                           </div>
-                        )}
-                      </div>
-                      <div className="w-24 text-right font-semibold">
-                        ₹{(item.price * item.quantity).toFixed(2)}
-                      </div>
-                      <div className="w-16 text-right">
-                        <button
-                          onClick={() => removeFromCart(item.id)}
-                          className="p-1 text-gray-500 hover:text-red-600 transition-colors duration-150 rounded-full hover:bg-red-50"
-                          title="Remove item"
-                        >
-                          <svg
-                            className="w-5 h-5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                            xmlns="http://www.w3.org/2000/svg"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                            ></path>
-                          </svg>
-                        </button>
-                      </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex-1 font-medium">{item.name}</div>
+                          <div className="w-24 text-center">
+                            {saleType === "wholeSale" ? (
+                              <div className="flex items-center justify-center">
+                                <span className="mr-1">₹</span>
+                                <input
+                                  type="number"
+                                  value={item.price}
+                                  onChange={(e) => {
+                                    const newPrice = parseFloat(e.target.value);
+                                    if (!isNaN(newPrice) && newPrice >= 0) {
+                                      setCart((prevCart) =>
+                                        prevCart.map((cartItem) =>
+                                          cartItem.id === item.id
+                                            ? { ...cartItem, price: newPrice }
+                                            : cartItem
+                                        )
+                                      );
+                                    }
+                                  }}
+                                  className="w-16 text-center border rounded-md py-1 px-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  step={0.01}
+                                  min={0}
+                                />
+                              </div>
+                            ) : (
+                              <span>₹{item.price.toFixed(2)}</span>
+                            )}
+                          </div>
+                          <div className="w-32 text-center">
+                            {item.unitType === "kg" ? (
+                              <div className="relative">
+                                <input
+                                  type="number"
+                                  value={item.quantity}
+                                  onChange={(e) => {
+                                    let newQuantity =
+                                      parseFloat(e.target.value) || 0;
+                                    if (newQuantity > item.stock) {
+                                      toast.error(
+                                        "Quantity exceeds stock limit"
+                                      );
+                                      newQuantity = 0;
+                                    }
+                                    updateQuantity(item.id, newQuantity);
+                                  }}
+                                  className="w-20 text-center border rounded-md py-1 px-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  step={0.1}
+                                  min={0}
+                                />
+                                <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 pointer-events-none">
+                                  kg
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-center">
+                                <button
+                                  onClick={() => decreaseQuantity(item.id)}
+                                  className="w-8 h-8 rounded-l-md bg-gray-200 hover:bg-gray-300 flex items-center justify-center"
+                                >
+                                  -
+                                </button>
+                                <span className="w-12 text-center py-1 border-t border-b">
+                                  {item.quantity}
+                                </span>
+                                <button
+                                  onClick={() => increaseQuantity(item.id)}
+                                  className="w-8 h-8 rounded-r-md bg-gray-200 hover:bg-gray-300 flex items-center justify-center"
+                                >
+                                  +
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                          <div className="w-24 text-right font-semibold">
+                            ₹{(item.price * item.quantity).toFixed(2)}
+                          </div>
+                          <div className="w-16 text-right">
+                            <button
+                              onClick={() => removeFromCart(item.id)}
+                              className="p-1 text-gray-500 hover:text-red-600 transition-colors duration-150 rounded-full hover:bg-red-50"
+                              title="Remove item"
+                            >
+                              <svg
+                                className="w-5 h-5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="2"
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                ></path>
+                              </svg>
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1343,13 +1565,11 @@ const POSInterface: React.FC = () => {
                   <div className="mt-4 flex justify-end">
                     <button
                       onClick={() => {
-                        if (isCartValid()) {
-                          setActiveTab(2);
-                        } else {
+                        if (isCartValid()) setActiveTab(2);
+                        else
                           toast.error(
                             "Cart must have at least one item with quantity greater than zero."
                           );
-                        }
                       }}
                       disabled={!isCartValid()}
                       className={`px-6 py-2 rounded-lg transition-colors duration-150 flex items-center ${
@@ -1404,8 +1624,7 @@ const POSInterface: React.FC = () => {
       )}
 
       {activeTab === 2 && (
-        <div className="p-6 bg-white rounded-lg shadow-lg border border-gray-100">
-          {/* Header Section */}
+        <div className="p-6 bg-white rounded-lg shadow-lg border border-gray-100 overflow-auto">
           <div className="flex justify-between items-center mb-6 pb-3 border-b border-gray-100">
             <h2 className="text-2xl font-bold text-gray-800">Sale Summary</h2>
             <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium capitalize">
@@ -1413,7 +1632,6 @@ const POSInterface: React.FC = () => {
             </span>
           </div>
 
-          {/* Customer Info Card */}
           <div className="p-4 bg-gray-50 rounded-lg mb-6">
             <div className="flex items-center">
               <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
@@ -1448,7 +1666,6 @@ const POSInterface: React.FC = () => {
             </div>
           </div>
 
-          {/* Cart Items Section */}
           <div className="mb-6">
             <div className="flex justify-between">
               <h3 className="text-lg font-semibold text-gray-700 mb-3">
@@ -1496,9 +1713,6 @@ const POSInterface: React.FC = () => {
                   />
                 </svg>
                 <p className="text-gray-500">No items in cart</p>
-                <button className="mt-3 text-sm text-blue-600 hover:text-blue-800">
-                  Add Products
-                </button>
               </div>
             ) : (
               <div className="border rounded-lg overflow-hidden">
@@ -1529,83 +1743,134 @@ const POSInterface: React.FC = () => {
             )}
           </div>
 
-          {/* Total and Payment Section */}
           <div className="space-y-4">
             <div className="flex justify-between items-center pt-4 border-t border-gray-100">
               <span className="text-gray-600 font-medium">Total Amount</span>
               <span className="text-xl font-bold text-gray-800">
                 ₹
                 {customTotalPrice
-                  ? customTotalPrice?.toFixed(2)
+                  ? customTotalPrice.toFixed(2)
                   : totalPrice.toFixed(2)}
               </span>
             </div>
 
             <div className="mt-6">
-              <h3 className="text-lg font-semibold mb-2">
-                Select Payment Method
-              </h3>
-              <div
-                ref={paymentMethodsRef}
-                tabIndex={0}
-                onKeyDown={handlePaymentKeyDown}
-                className="focus:outline-none"
-              >
-                <div className="grid grid-cols-2 gap-4">
-                  {paymentOptions.map((option, index) => (
-                    <button
-                      key={option.method}
-                      onClick={() =>
-                        handlePaymentMethodSelect(
-                          option.method as "cash" | "card" | "upi" | "debt"
-                        )
+              <h3 className="text-lg font-semibold mb-2">Payment Methods</h3>
+              <div className="space-y-4">
+                {localPayments.map((payment, index) => (
+                  <div key={index} className="flex items-center space-x-2">
+                    <select
+                      value={payment.method}
+                      onChange={(e) =>
+                        handleMethodChange(index, e.target.value)
                       }
-                      className={`p-4 border rounded-lg flex flex-col items-center justify-center focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                        selectedPaymentMethod === option.method
-                          ? "border-blue-500 bg-blue-50"
-                          : index === highlightedPaymentIndex
-                          ? "border-blue-300 bg-blue-50"
-                          : "border-gray-200"
-                      }`}
+                      className="border rounded px-2 py-1"
                     >
-                      {option.icon}
-                      <span className="mt-2">{option.label}</span>
+                      {availablePaymentOptions.map((option) => (
+                        <option key={option.method} value={option.method}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      value={payment.amount}
+                      onChange={(e) =>
+                        handleAmountChange(index, e.target.value)
+                      }
+                      className="border rounded px-2 py-1 w-24"
+                      min="0"
+                      step="0.01"
+                    />
+                    <button
+                      onClick={() => removePayment(index)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      Remove
                     </button>
-                  ))}
-                </div>
+                  </div>
+                ))}
+                <button
+                  onClick={addPayment}
+                  className="text-blue-600 hover:text-blue-800"
+                >
+                  + Add Payment Method
+                </button>
+              </div>
+              <div className="mt-2">
+                <p>Total Paid: ₹{totalPaid.toFixed(2)}</p>
+                {selectedCustomer === null ? (
+                  <p
+                    className={
+                      totalPaid === totalPrice
+                        ? "text-green-500"
+                        : "text-red-500"
+                    }
+                  >
+                    {totalPaid === totalPrice
+                      ? "Payment matches total"
+                      : "Payment does not match total"}
+                  </p>
+                ) : (
+                  <p
+                    className={
+                      totalPaid === totalPrice
+                        ? "text-green-500"
+                        : totalPaid < totalPrice
+                        ? "text-orange-500"
+                        : "text-blue-500"
+                    }
+                  >
+                    {totalPaid === totalPrice
+                      ? "Payment matches total"
+                      : totalPaid < totalPrice
+                      ? `Remaining to pay: ₹${(totalPrice - totalPaid).toFixed(
+                          2
+                        )}`
+                      : `Overpayment: ₹${(totalPaid - totalPrice).toFixed(2)}`}
+                  </p>
+                )}
               </div>
             </div>
 
-            {selectedPaymentMethod && (
+            {localPayments.length > 0 && (
+              <button
+                onClick={createSale}
+                disabled={
+                  !isCartValid() ||
+                  (selectedCustomer === null && totalPaid !== totalPrice)
+                }
+                className="w-full px-4 py-3 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:text-gray-500"
+              >
+                Proceed to Payment
+              </button>
+            )}
+
+            {payments.some(
+              (p) => p.status === "pending" && p.method === "upi"
+            ) && (
               <div className="mt-6">
-                {selectedPaymentMethod === "upi" && paymentQR ? (
-                  <div className="text-center">
-                    <h4 className="text-lg font-semibold mb-2">
-                      Scan QR Code for UPI Payment
-                    </h4>
-                    <img
-                      src={paymentQR}
-                      alt="QR Code"
-                      className="mx-auto h-40 w-40 border-2 border-gray-300 rounded-lg"
-                    />
-                    <button
-                      ref={paymentReceivedRef}
-                      onClick={handleConfirmUPI}
-                      className="mt-4 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-                    >
-                      Payment Received
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    ref={confirmPaymentRef}
-                    onClick={handleConfirmPayment}
-                    className="w-full px-4 py-3 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:text-gray-500 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                    disabled={!isCartValid()}
-                  >
-                    Confirm Payment
-                  </button>
-                )}
+                <h4 className="text-lg font-semibold mb-2">
+                  Confirm UPI Payments
+                </h4>
+                {payments
+                  .filter((p) => p.status === "pending" && p.method === "upi")
+                  .map((payment) => (
+                    <div key={payment.id} className="text-center mb-4">
+                      <p>Amount: ₹{payment.amount.toFixed(2)}</p>
+                      <img
+                        src={payment.qr}
+                        alt="QR Code"
+                        className="mx-auto h-40 w-40 border-2 border-gray-300 rounded-lg"
+                      />
+                      <button
+                        onClick={() => confirmUPIPayment(payment.id!)}
+                        className="mt-2 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+                      >
+                        Payment Received
+                      </button>
+                    </div>
+                  ))}
               </div>
             )}
           </div>

@@ -1,6 +1,15 @@
 import React from "react";
 import moment from "moment";
 
+// Define Payment interface
+interface Payment {
+  method: "cash" | "card" | "upi" | "debt";
+  amount: number;
+  status?: "pending" | "completed" | "failed";
+  qr?: string;
+  id?: number;
+}
+
 interface ReceiptProps {
   cart: Array<{
     id: number;
@@ -13,8 +22,12 @@ interface ReceiptProps {
   }>;
   totalPrice: number;
   saleId: number;
-  paymentMethod: string;
-  customer?: any;
+  payments: Payment[]; // Updated from paymentMethod: string
+  customer?: {
+    id: number;
+    name: string | null;
+    debtAmount: string | number;
+  };
   saleType: "retail" | "wholeSale";
   customTotalPrice?: number;
   saleDate: string;
@@ -24,20 +37,38 @@ const Receipt: React.FC<ReceiptProps> = ({
   cart,
   totalPrice,
   saleId,
-  paymentMethod,
+  payments,
   customer,
   saleType = "retail",
   customTotalPrice,
-  saleDate
+  saleDate,
 }) => {
-  // Get the price based on sale type for each item
-  const originalSubtotal = cart.reduce((acc, item) => {
-    const originalPrice =
-      saleType === "wholeSale" && item.price ? item.price : item.retailPrice;
-    return acc + originalPrice * item.quantity;
-  }, 0);
+  // Use totalPrice as the bill amount (customTotalPrice is optional for wholesale adjustments)
+  const billAmount = customTotalPrice ?? totalPrice;
 
-  const displayTotal = customTotalPrice ?? totalPrice;
+  // Calculate previous debt
+  const previousDebt = customer
+    ? parseFloat((customer.debtAmount as string) || "0")
+    : 0;
+
+  // Calculate received amount (sum of non-debt payments)
+  const received = (payments || [])
+    .filter((p) => p.method !== "debt")
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
+
+  const debtAdded = (payments || [])
+    .filter((p) => p.method === "debt")
+    .reduce((sum, p) => sum + parseFloat(p.amount.toString() || "0"), 0);
+
+  // Calculate unpaid amount (if received is less than bill amount)
+  const unpaid = Math.max(0, billAmount - received);
+
+  // Calculate updated debt
+  //   const updatedDebt = previousDebt + debtAdded + unpaid;
+  const updatedDebt = previousDebt + billAmount - received;
+
+  // Calculate net amount (total amount to be paid including debt)
+  const netAmount = previousDebt + billAmount;
 
   return (
     <div className="min-w-[300px] max-w-[400px] mx-auto p-4 bg-white text-black font-mono">
@@ -45,11 +76,10 @@ const Receipt: React.FC<ReceiptProps> = ({
       <div className="text-center mb-2">
         <h1 className="text-xl font-bold tracking-wider">PKS TRADERS</h1>
         <div className="text-xs">
-          {/* <p>GSTIN: 32CEUPM084GN1ZX PH: 9847359760</p> */}
           <div className="border-t border-b border-dashed my-1 py-1">
-            <p>Bill No:{saleId}</p>
-            <p>Date:{moment().format("DD/MM/YYYY")}</p>
-            {customer && <p>To : {customer.name || "No Name"}</p>}
+            <p>Bill No: {saleId}</p>
+            <p>Date: {moment(saleDate).format("DD/MM/YYYY")}</p>
+            {customer && <p>To: {customer.name || "No Name"}</p>}
           </div>
         </div>
       </div>
@@ -66,26 +96,19 @@ const Receipt: React.FC<ReceiptProps> = ({
       {/* Cart items */}
       <div className="text-xs mb-2">
         {cart.map((item, index) => {
-          const originalPrice =
-            item.price !== undefined
-              ? item.price
-              : saleType === "wholeSale"
-              ? item.wholeSalePrice ?? item.retailPrice
-              : item.retailPrice;
-          
-          // Format the item name to wrap if needed
-          const formattedName = item.name.length > 20
-            ? `${item.name.substring(0, 20)}\n${item.name.substring(20)}`
-            : item.name;
-            
+          const price = item.price; // Use the price from the cart item
           return (
             <div key={item.id} className="flex py-1">
               <div className="w-8 text-left">{index + 1}</div>
-              <div className="flex-1 text-left uppercase">{formattedName}</div>
+              <div className="flex-1 text-left uppercase">
+                {item.name.length > 20
+                  ? `${item.name.substring(0, 20)}\n${item.name.substring(20)}`
+                  : item.name}
+              </div>
               <div className="w-12 text-right">{item.quantity}</div>
-              <div className="w-16 text-right">{originalPrice.toFixed(2)}</div>
+              <div className="w-16 text-right">{price.toFixed(2)}</div>
               <div className="w-20 text-right">
-                {(originalPrice * item.quantity).toFixed(2)}
+                {(price * item.quantity).toFixed(2)}
               </div>
             </div>
           );
@@ -96,39 +119,39 @@ const Receipt: React.FC<ReceiptProps> = ({
       <div className="border-t border-dashed pt-2 mb-1">
         <div className="flex justify-between text-lg font-bold">
           <div>BILL AMOUNT :</div>
-          <div>{displayTotal.toFixed(2)}</div>
+          <div>{billAmount.toFixed(2)}</div>
         </div>
       </div>
 
       {/* Payment and balance information */}
       <div className="text-xs">
-        {saleType === "wholeSale" && (
+        {customer && (
           <>
             <div className="flex justify-between">
-              <span>Previous :</span>
-              <span>{originalSubtotal.toFixed(2)}</span>
+              <span>PREVIOUS:</span>
+              <span>{previousDebt.toFixed(2)}</span>
             </div>
-            {customTotalPrice !== undefined && (
-              <div className="flex justify-between">
-                <span>Net Amount:</span>
-                <span>{customTotalPrice.toFixed(2)}</span>
-              </div>
-            )}
+            <div className="flex justify-between">
+              <span>NET AMOUNT:</span>
+              <span>{netAmount.toFixed(2)}</span>
+            </div>
           </>
         )}
         <div className="flex justify-between">
-          <span>Debt Amount:</span>
-          <span>{customer ? customer.debtAmount : "0.00"}</span>
+          <span>REC AMOUNT:</span>
+          <span>{received.toFixed(2)}</span>
         </div>
-        <div className="flex justify-between">
-          <span>Paid :</span>
-          <span>{displayTotal.toFixed(2)}</span>
-        </div>
+        {customer && (
+          <div className="flex justify-between">
+            <span>BALANCE:</span>
+            <span>{updatedDebt.toFixed(2)}</span>
+          </div>
+        )}
       </div>
 
       {/* Time */}
       <div className="text-xs border-t border-dashed mt-4 pt-1">
-        <div>Time : {moment().format("HH:mm:ss")}</div>
+        <div>Time: {moment().format("HH:mm:ss")}</div>
       </div>
     </div>
   );
