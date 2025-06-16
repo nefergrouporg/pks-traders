@@ -22,13 +22,13 @@ interface ReceiptProps {
   }>;
   totalPrice: number;
   saleId: number;
-  payments: Payment[]; // Updated from paymentMethod: string
+  payments: Payment[];
   customer?: {
     id: number;
     name: string | null;
     debtAmount: string | number;
   };
-  saleType: "retail" | "wholeSale";
+  saleType: "retail" | "wholeSale" | "hotel"; // Updated to include "hotel"
   customTotalPrice?: number;
   saleDate: string;
 }
@@ -43,7 +43,7 @@ const Receipt: React.FC<ReceiptProps> = ({
   customTotalPrice,
   saleDate,
 }) => {
-  // Use totalPrice as the bill amount (customTotalPrice is optional for wholesale adjustments)
+  // Use totalPrice as the bill amount (customTotalPrice is optional for adjustments)
   const billAmount = customTotalPrice ?? totalPrice;
 
   // Calculate previous debt
@@ -64,7 +64,6 @@ const Receipt: React.FC<ReceiptProps> = ({
   const unpaid = Math.max(0, billAmount - received);
 
   // Calculate updated debt
-  //   const updatedDebt = previousDebt + debtAdded + unpaid;
   const updatedDebt = previousDebt + billAmount - received;
 
   // Calculate net amount (total amount to be paid including debt)
@@ -89,7 +88,7 @@ const Receipt: React.FC<ReceiptProps> = ({
         <div className="w-8 text-left">NO</div>
         <div className="flex-1 text-left">ITEM NAME</div>
         <div className="w-12 text-right">QTY</div>
-        <div className="w-16 text-right">RATE</div>
+        {saleType !== "hotel" && <div className="w-16 text-right">RATE</div>}
         <div className="w-20 text-right">TOTAL</div>
       </div>
 
@@ -106,7 +105,9 @@ const Receipt: React.FC<ReceiptProps> = ({
                   : item.name}
               </div>
               <div className="w-12 text-right">{item.quantity}</div>
-              <div className="w-16 text-right">{price.toFixed(2)}</div>
+              {saleType !== "hotel" && (
+                <div className="w-16 text-right">{price.toFixed(2)}</div>
+              )}
               <div className="w-20 text-right">
                 {(price * item.quantity).toFixed(2)}
               </div>

@@ -108,30 +108,6 @@ const THERMAL_RECEIPT_STYLES = `
   }
 `;
 
-interface Navigator {
-  serial: {
-    getPorts(): Promise<SerialPort[]>;
-    requestPort(options?: SerialPortRequestOptions): Promise<SerialPort>;
-  };
-}
-interface SerialPort {
-  readable: ReadableStream<Uint8Array> | null;
-  writable: WritableStream<Uint8Array> | null;
-  open(options: SerialOptions): Promise<void>;
-  close(): Promise<void>;
-}
-interface SerialPortRequestOptions {
-  filters?: { usbVendorId?: number; usbProductId?: number }[];
-}
-interface SerialOptions {
-  baudRate: number;
-  dataBits?: 7 | 8;
-  stopBits?: 1 | 2;
-  parity?: "none" | "even" | "odd";
-  bufferSize?: number;
-  flowControl?: "none" | "hardware";
-}
-
 interface ReceiptPreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -148,7 +124,7 @@ interface ReceiptPreviewModalProps {
   saleId: number;
   payments: Payment[];
   customer?: any;
-  saleType: "retail" | "wholeSale";
+  saleType: "retail" | "wholeSale" | "hotel"; // Updated to include "hotel"
   customTotalPrice?: number;
   saleDate: string;
 }
@@ -202,21 +178,23 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
       // Calculate values to match Receipt.tsx
       const paymentsArray = payments || [];
       const received = paymentsArray
-        .filter(p => p.method !== "debt")
+        .filter((p) => p.method !== "debt")
         .reduce((sum, p) => sum + (p.amount || 0), 0);
       const debtAdded = paymentsArray
-        .filter(p => p.method === "debt")
+        .filter((p) => p.method === "debt")
         .reduce((sum, p) => sum + (p.amount || 0), 0);
       const billAmount = customTotalPrice ?? totalPrice;
       const previousDebt = customer ? parseFloat(customer.debtAmount || "0") : 0;
       const unpaid = Math.max(0, billAmount - received);
-      // const updatedDebt = previousDebt + debtAdded + unpaid;
-      const updatedDebt = (previousDebt + billAmount) - received;
+      const updatedDebt = previousDebt + billAmount - received;
       const netAmount = previousDebt + billAmount;
 
       const dateWithTime = `${saleDate}T${moment().format("HH:mm:ss")}`;
       const formattedDate = moment(dateWithTime).format("DD/MM/YYYY");
       const formattedTime = moment(dateWithTime).format("HH:mm:ss");
+
+      // Define grid columns based on saleType
+      const gridColumns = saleType === "hotel" ? "8% 48% 14% 30%" : "8% 38% 14% 20% 20%";
 
       frameDoc.open();
       frameDoc.write(`
@@ -272,7 +250,6 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
               }
               .table-header, .table-row {
                 display: grid;
-                grid-template-columns: 8% 38% 14% 20% 20%;
                 width: 100%;
                 font-family: 'Courier New', monospace;
                 font-size: 12px;
@@ -316,33 +293,27 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
               }
               <div class="divider"></div>
 
-              <div class="table-header">
+              <div class="table-header" style="grid-template-columns: ${gridColumns};">
                 <div>NO</div>
                 <div>ITEM NAME</div>
                 <div>QTY</div>
-                <div>RATE</div>
+                ${saleType !== "hotel" ? "<div>RATE</div>" : ""}
                 <div>TOTAL</div>
               </div>
               
               ${cart
                 .map((item, idx) => {
-                  const originalPrice =
-                    item.price !== undefined
-                      ? item.price
-                      : saleType === "wholeSale"
-                      ? item.wholeSalePrice ?? item.retailPrice
-                      : item.retailPrice;
+                  const originalPrice = item.price;
                   const formattedName =
                     item.name.length > 15
                       ? `${item.name.substring(0, 15)}...`
                       : item.name;
-
                   return `
-                    <div class="table-row">
+                    <div class="table-row" style="grid-template-columns: ${gridColumns};">
                       <div>${idx + 1}</div>
                       <div>${formattedName.toUpperCase()}</div>
                       <div>${item.quantity}</div>
-                      <div>${originalPrice.toFixed(2)}</div>
+                      ${saleType !== "hotel" ? `<div>${originalPrice.toFixed(2)}</div>` : ""}
                       <div>${(originalPrice * item.quantity).toFixed(2)}</div>
                     </div>
                   `;
