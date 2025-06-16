@@ -127,6 +127,7 @@ interface ReceiptPreviewModalProps {
   saleType: "retail" | "wholeSale" | "hotel"; // Updated to include "hotel"
   customTotalPrice?: number;
   saleDate: string;
+  autoDownloadPDF?: boolean;
 }
 
 const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
@@ -140,9 +141,11 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
   saleType = "retail",
   customTotalPrice,
   saleDate,
+  autoDownloadPDF = false,
 }) => {
   const receiptRef = useRef<HTMLDivElement>(null);
   const printStylesRef = useRef<HTMLStyleElement | null>(null);
+  const hasAutoDownloaded = useRef(false);
 
   useEffect(() => {
     const styleElement = document.createElement("style");
@@ -157,6 +160,28 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (
+      isOpen &&
+      autoDownloadPDF &&
+      !hasAutoDownloaded.current &&
+      receiptRef.current
+    ) {
+      // Add a small delay to ensure the modal content is fully rendered
+      const timer = setTimeout(() => {
+        downloadReceiptAsPDF();
+        hasAutoDownloaded.current = true;
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+
+    // Reset the flag when modal closes
+    if (!isOpen) {
+      hasAutoDownloaded.current = false;
+    }
+  }, [isOpen, autoDownloadPDF]);
 
   if (!isOpen) return null;
 
@@ -184,7 +209,9 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
         .filter((p) => p.method === "debt")
         .reduce((sum, p) => sum + (p.amount || 0), 0);
       const billAmount = customTotalPrice ?? totalPrice;
-      const previousDebt = customer ? parseFloat(customer.debtAmount || "0") : 0;
+      const previousDebt = customer
+        ? parseFloat(customer.debtAmount || "0")
+        : 0;
       const unpaid = Math.max(0, billAmount - received);
       const updatedDebt = previousDebt + billAmount - received;
       const netAmount = previousDebt + billAmount;
@@ -194,7 +221,8 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
       const formattedTime = moment(dateWithTime).format("HH:mm:ss");
 
       // Define grid columns based on saleType
-      const gridColumns = saleType === "hotel" ? "8% 48% 14% 30%" : "8% 38% 14% 20% 20%";
+      const gridColumns =
+        saleType === "hotel" ? "8% 48% 14% 30%" : "8% 38% 14% 20% 20%";
 
       frameDoc.open();
       frameDoc.write(`
@@ -288,7 +316,9 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
               </div>
               ${
                 customer
-                  ? `<div class="section-header">Customer: ${customer.name || "No Name"}</div>`
+                  ? `<div class="section-header">Customer: ${
+                      customer.name || "No Name"
+                    }</div>`
                   : ""
               }
               <div class="divider"></div>
@@ -313,7 +343,11 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
                       <div>${idx + 1}</div>
                       <div>${formattedName.toUpperCase()}</div>
                       <div>${item.quantity}</div>
-                      ${saleType !== "hotel" ? `<div>${originalPrice.toFixed(2)}</div>` : ""}
+                      ${
+                        saleType !== "hotel"
+                          ? `<div>${originalPrice.toFixed(2)}</div>`
+                          : ""
+                      }
                       <div>${(originalPrice * item.quantity).toFixed(2)}</div>
                     </div>
                   `;
@@ -328,7 +362,9 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
               </div>
 
               <div class="section">
-                ${customer ? `
+                ${
+                  customer
+                    ? `
                   <div class="flex">
                     <span>PREVIOUS:</span>
                     <span>${previousDebt.toFixed(2)}</span>
@@ -337,17 +373,23 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
                     <span>NET AMOUNT:</span>
                     <span>${netAmount.toFixed(2)}</span>
                   </div>
-                ` : ""}
+                `
+                    : ""
+                }
                 <div class="flex">
                   <span>REC AMOUNT:</span>
                   <span>${received.toFixed(2)}</span>
                 </div>
-                ${customer ? `
+                ${
+                  customer
+                    ? `
                   <div class="flex">
                     <span>BALANCE:</span>
                     <span>${updatedDebt.toFixed(2)}</span>
                   </div>
-                ` : ""}
+                `
+                    : ""
+                }
               </div>
 
               <div class="divider"></div>
@@ -391,7 +433,6 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
       tempDiv.style.fontSize = "10px";
       tempDiv.style.lineHeight = "1.2";
       tempDiv.style.backgroundColor = "#fff";
-      tempDiv.style.padding = "5px";
       tempDiv.style.margin = "0";
       tempDiv.style.border = "none";
 
