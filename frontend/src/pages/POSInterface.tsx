@@ -925,6 +925,7 @@ const POSInterface: React.FC = () => {
         customer={selectedCustomer}
         saleType={saleType}
         saleDate={saleDate}
+        autoDownloadPDF = {true}
       />
 
       <div className="flex space-x-2 mb-4 border-b border-gray-200">
