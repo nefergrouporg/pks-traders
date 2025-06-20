@@ -399,7 +399,8 @@ const POSInterface: React.FC = () => {
   const addToCart = (product: Product) => {
     if (product.stock <= 0) return toast.error("Product out of stock");
     const priceToUse =
-      saleType === "wholeSale" && product.wholeSalePrice
+      (saleType === "wholeSale" || saleType === "hotel") &&
+      product.wholeSalePrice
         ? product.wholeSalePrice
         : product.retailPrice;
     setCart((prevCart) => {
@@ -1318,22 +1319,13 @@ const POSInterface: React.FC = () => {
               </div>
             ) : (
               <>
-                {saleType === "hotel" ? (
-                  <div className="flex justify-between text-sm font-semibold text-gray-600 border-b pb-2 px-2">
-                    <div className="flex-1">Item</div>
-                    <div className="w-32 text-center">Quantity</div>
-                    <div className="w-24 text-right">Total Price</div>
-                    <div className="w-16 text-right"></div>
-                  </div>
-                ) : (
-                  <div className="flex justify-between text-sm font-semibold text-gray-600 border-b pb-2 px-2">
-                    <div className="flex-1">Item</div>
-                    <div className="w-24 text-center">Price</div>
-                    <div className="w-32 text-center">Quantity</div>
-                    <div className="w-24 text-right">Total</div>
-                    <div className="w-16 text-right"></div>
-                  </div>
-                )}
+                <div className="flex justify-between text-sm font-semibold text-gray-600 border-b pb-2 px-2">
+                  <div className="flex-1">Item</div>
+                  <div className="w-24 text-center">Price</div>
+                  <div className="w-32 text-center">Quantity</div>
+                  <div className="w-24 text-right">Total</div>
+                  <div className="w-16 text-right"></div>
+                </div>
 
                 <div className="flex-1 overflow-y-auto divide-y divide-gray-100 min-h-32">
                   {cart.map((item, index) => (
@@ -1346,65 +1338,17 @@ const POSInterface: React.FC = () => {
                           : ""
                       }`}
                     >
-                      {saleType === "hotel" ? (
-                        <>
-                          <div className="flex-1 font-medium">{item.name}</div>
-                          <div className="w-32 text-center">
-                            {item.unitType === "kg" ? (
-                              <div className="relative">
-                                <input
-                                  type="number"
-                                  value={item.quantity}
-                                  onChange={(e) => {
-                                    let newQuantity =
-                                      parseFloat(e.target.value) || 0;
-                                    if (newQuantity > item.stock) {
-                                      toast.error(
-                                        "Quantity exceeds stock limit"
-                                      );
-                                      newQuantity = 0;
-                                    }
-                                    updateQuantity(item.id, newQuantity);
-                                  }}
-                                  className="w-20 text-center border rounded-md py-1 px-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  step={0.1}
-                                  min={0}
-                                />
-                                <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 pointer-events-none">
-                                  kg
-                                </span>
-                              </div>
-                            ) : (
-                              <div className="flex items-center justify-center">
-                                <button
-                                  onClick={() => decreaseQuantity(item.id)}
-                                  className="w-8 h-8 rounded-l-md bg-gray-200 hover:bg-gray-300 flex items-center justify-center"
-                                >
-                                  -
-                                </button>
-                                <span className="w-12 text-center py-1 border-t border-b">
-                                  {item.quantity}
-                                </span>
-                                <button
-                                  onClick={() => increaseQuantity(item.id)}
-                                  className="w-8 h-8 rounded-r-md bg-gray-200 hover:bg-gray-300 flex items-center justify-center"
-                                >
-                                  +
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                          <div className="w-24 text-right">
+                      <div className="flex-1 font-medium">{item.name}</div>
+                      <div className="w-24 text-center">
+                        {saleType === "wholeSale" || saleType === "hotel" ? (
+                          <div className="flex items-center justify-center">
+                            <span className="mr-1">₹</span>
                             <input
                               type="number"
-                              value={(item.price * item.quantity).toFixed(2)}
+                              value={item.price}
                               onChange={(e) => {
-                                const newTotal = parseFloat(e.target.value);
-                                if (!isNaN(newTotal) && newTotal >= 0) {
-                                  const newPrice =
-                                    item.quantity > 0
-                                      ? newTotal / item.quantity
-                                      : 0;
+                                const newPrice = parseFloat(e.target.value);
+                                if (!isNaN(newPrice) && newPrice >= 0) {
                                   setCart((prevCart) =>
                                     prevCart.map((cartItem) =>
                                       cartItem.id === item.id
@@ -1414,137 +1358,83 @@ const POSInterface: React.FC = () => {
                                   );
                                 }
                               }}
-                              className="w-full text-right border rounded-md py-1 px-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="w-16 text-center border rounded-md py-1 px-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                               step={0.01}
                               min={0}
                             />
                           </div>
-                          <div className="w-16 text-right">
+                        ) : (
+                          <span>₹{item.price.toFixed(2)}</span>
+                        )}
+                      </div>
+                      <div className="w-32 text-center">
+                        {item.unitType === "kg" ? (
+                          <div className="relative">
+                            <input
+                              type="number"
+                              value={item.quantity}
+                              onChange={(e) => {
+                                let newQuantity =
+                                  parseFloat(e.target.value) || 0;
+                                if (newQuantity > item.stock) {
+                                  toast.error("Quantity exceeds stock limit");
+                                  newQuantity = 0;
+                                }
+                                updateQuantity(item.id, newQuantity);
+                              }}
+                              className="w-20 text-center border rounded-md py-1 px-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              step={0.1}
+                              min={0}
+                            />
+                            <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 pointer-events-none">
+                              kg
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center">
                             <button
-                              onClick={() => removeFromCart(item.id)}
-                              className="p-1 text-gray-500 hover:text-red-600 transition-colors duration-150 rounded-full hover:bg-red-50"
-                              title="Remove item"
+                              onClick={() => decreaseQuantity(item.id)}
+                              className="w-8 h-8 rounded-l-md bg-gray-200 hover:bg-gray-300 flex items-center justify-center"
                             >
-                              <svg
-                                className="w-5 h-5"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                                xmlns="http://www.w3.org/2000/svg"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth="2"
-                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                ></path>
-                              </svg>
+                              -
+                            </button>
+                            <span className="w-12 text-center py-1 border-t border-b">
+                              {item.quantity}
+                            </span>
+                            <button
+                              onClick={() => increaseQuantity(item.id)}
+                              className="w-8 h-8 rounded-r-md bg-gray-200 hover:bg-gray-300 flex items-center justify-center"
+                            >
+                              +
                             </button>
                           </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="flex-1 font-medium">{item.name}</div>
-                          <div className="w-24 text-center">
-                            {saleType === "wholeSale" ? (
-                              <div className="flex items-center justify-center">
-                                <span className="mr-1">₹</span>
-                                <input
-                                  type="number"
-                                  value={item.price}
-                                  onChange={(e) => {
-                                    const newPrice = parseFloat(e.target.value);
-                                    if (!isNaN(newPrice) && newPrice >= 0) {
-                                      setCart((prevCart) =>
-                                        prevCart.map((cartItem) =>
-                                          cartItem.id === item.id
-                                            ? { ...cartItem, price: newPrice }
-                                            : cartItem
-                                        )
-                                      );
-                                    }
-                                  }}
-                                  className="w-16 text-center border rounded-md py-1 px-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  step={0.01}
-                                  min={0}
-                                />
-                              </div>
-                            ) : (
-                              <span>₹{item.price.toFixed(2)}</span>
-                            )}
-                          </div>
-                          <div className="w-32 text-center">
-                            {item.unitType === "kg" ? (
-                              <div className="relative">
-                                <input
-                                  type="number"
-                                  value={item.quantity}
-                                  onChange={(e) => {
-                                    let newQuantity =
-                                      parseFloat(e.target.value) || 0;
-                                    if (newQuantity > item.stock) {
-                                      toast.error(
-                                        "Quantity exceeds stock limit"
-                                      );
-                                      newQuantity = 0;
-                                    }
-                                    updateQuantity(item.id, newQuantity);
-                                  }}
-                                  className="w-20 text-center border rounded-md py-1 px-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  step={0.1}
-                                  min={0}
-                                />
-                                <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 pointer-events-none">
-                                  kg
-                                </span>
-                              </div>
-                            ) : (
-                              <div className="flex items-center justify-center">
-                                <button
-                                  onClick={() => decreaseQuantity(item.id)}
-                                  className="w-8 h-8 rounded-l-md bg-gray-200 hover:bg-gray-300 flex items-center justify-center"
-                                >
-                                  -
-                                </button>
-                                <span className="w-12 text-center py-1 border-t border-b">
-                                  {item.quantity}
-                                </span>
-                                <button
-                                  onClick={() => increaseQuantity(item.id)}
-                                  className="w-8 h-8 rounded-r-md bg-gray-200 hover:bg-gray-300 flex items-center justify-center"
-                                >
-                                  +
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                          <div className="w-24 text-right font-semibold">
-                            ₹{(item.price * item.quantity).toFixed(2)}
-                          </div>
-                          <div className="w-16 text-right">
-                            <button
-                              onClick={() => removeFromCart(item.id)}
-                              className="p-1 text-gray-500 hover:text-red-600 transition-colors duration-150 rounded-full hover:bg-red-50"
-                              title="Remove item"
-                            >
-                              <svg
-                                className="w-5 h-5"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                                xmlns="http://www.w3.org/2000/svg"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth="2"
-                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                ></path>
-                              </svg>
-                            </button>
-                          </div>
-                        </>
-                      )}
+                        )}
+                      </div>
+                      <div className="w-24 text-right font-semibold">
+                        ₹{(item.price * item.quantity).toFixed(2)}
+                      </div>
+                      <div className="w-16 text-right">
+                        <button
+                          onClick={() => removeFromCart(item.id)}
+                          className="p-1 text-gray-500 hover:text-red-600 transition-colors duration-150 rounded-full hover:bg-red-50"
+                          title="Remove item"
+                        >
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            ></path>
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>

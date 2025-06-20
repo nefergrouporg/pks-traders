@@ -127,7 +127,7 @@ interface ReceiptPreviewModalProps {
   saleType: "retail" | "wholeSale" | "hotel"; // Updated to include "hotel"
   customTotalPrice?: number;
   saleDate: string;
-  autoDownloadPDF?: boolean; 
+  autoDownloadPDF?: boolean;
 }
 
 const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
