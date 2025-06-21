@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import {
   Printer as ESCPrinter,
   Text,
@@ -146,6 +146,44 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
   const receiptRef = useRef<HTMLDivElement>(null);
   const printStylesRef = useRef<HTMLStyleElement | null>(null);
   const hasAutoDownloaded = useRef(false);
+  const [focusedButtonIndex, setFocusedButtonIndex] = useState(0);
+  const downloadRef = useRef<HTMLButtonElement>(null);
+  const printRef = useRef<HTMLButtonElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      switch (e.key) {
+        case "ArrowRight":
+          e.preventDefault();
+          setFocusedButtonIndex((prev) => (prev + 1) % 3);
+          break;
+        case "ArrowLeft":
+          e.preventDefault();
+          setFocusedButtonIndex((prev) => (prev - 1 + 3) % 3);
+          break;
+        case "Enter":
+          e.preventDefault();
+          if (focusedButtonIndex === 0 && downloadRef.current) {
+            downloadRef.current.click();
+          } else if (focusedButtonIndex === 1 && printRef.current) {
+            printRef.current.click();
+          } else if (focusedButtonIndex === 2 && closeRef.current) {
+            closeRef.current.click();
+          }
+          break;
+        case "Escape":
+          e.preventDefault();
+          onClose();
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, focusedButtonIndex, onClose]);
 
   useEffect(() => {
     const styleElement = document.createElement("style");
@@ -160,6 +198,16 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    // Focus the first button when modal opens
+    if (downloadRef.current) {
+      downloadRef.current.focus();
+      setFocusedButtonIndex(0);
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (
@@ -493,10 +541,16 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold">Receipt Preview</h2>
           <button
+            ref={closeRef}
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-2xl"
+            className={`text-gray-500 hover:text-gray-700 text-base sm:text-lg font-medium px-3 py-1.5 rounded-md transition
+              ${focusedButtonIndex === 2 ? "ring-2 ring-blue-500" : ""}`}
+            tabIndex={-1}
           >
-            ×
+            ×{" "}
+            <span className="text-sm text-gray-400 ml-1">
+              (or press Escape)
+            </span>
           </button>
         </div>
 
@@ -518,14 +572,22 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
 
         <div className="flex flex-wrap justify-end gap-2">
           <button
+            ref={downloadRef}
             onClick={downloadReceiptAsPDF}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            className={`px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 ${
+              focusedButtonIndex === 0 ? "ring-2 ring-blue-500" : ""
+            }`}
+            tabIndex={-1}
           >
             Download PDF
           </button>
           <button
+            ref={printRef}
             onClick={handleBrowserPrint}
-            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+            className={`px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 ${
+              focusedButtonIndex === 1 ? "ring-2 ring-blue-500" : ""
+            }`}
+            tabIndex={-1}
           >
             Thermal Print
           </button>

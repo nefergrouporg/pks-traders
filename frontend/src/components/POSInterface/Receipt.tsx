@@ -27,7 +27,7 @@ interface ReceiptProps {
     id: number;
     name: string | null;
     debtAmount: string | number;
-  };
+  } | null
   saleType: "retail" | "wholeSale" | "hotel"; // Updated to include "hotel"
   customTotalPrice?: number;
   saleDate: string;

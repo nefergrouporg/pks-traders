@@ -45,6 +45,7 @@ export interface Customer {
   phone: string;
   email?: string;
   address?: string;
+  debtAmount?: number;
 }
 
 interface Sale {
@@ -125,6 +126,8 @@ const POSInterface: React.FC = () => {
   const [saleDate, setSaleDate] = useState(
     new Date().toISOString().split("T")[0]
   ); // Default to current date
+  const [customerSelectedIndex, setCustomerSelectedIndex] =
+    useState<number>(-1);
   const token = localStorage.getItem("token");
 
   const paymentOptions = [
@@ -177,6 +180,28 @@ const POSInterface: React.FC = () => {
 
   const handlePreviewClose = () => {
     setIsPreviewOpen(false);
+    const billAmount = customTotalPrice ?? totalPrice;
+    const received = localPayments
+      .filter((p) => p.method !== "debt")
+      .reduce((sum, p) => sum + p.amount, 0);
+    const newDebt =
+      (selectedCustomer?.debtAmount || 0) + (billAmount - received);
+
+    // Update selected customer state
+    if (selectedCustomer) {
+      const updatedCustomer = {
+        ...selectedCustomer,
+        debtAmount: newDebt,
+      };
+      setSelectedCustomer(updatedCustomer);
+
+      // Update customers list
+      setCustomers((prevCustomers) =>
+        prevCustomers.map((c) =>
+          c.id === updatedCustomer.id ? updatedCustomer : c
+        )
+      );
+    }
     if (isSaleComplete) resetSaleState();
   };
 
@@ -189,7 +214,23 @@ const POSInterface: React.FC = () => {
     if (e.key === "Escape") {
       setCustomerSearch("");
       setCustomerSearchResults([]);
+      setCustomerSelectedIndex(-1); // Reset highlighted index on escape
       customerSearchRef.current?.blur();
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setCustomerSelectedIndex((prev) =>
+        prev < customerSearchResults.length - 1 ? prev + 1 : prev
+      );
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setCustomerSelectedIndex((prev) => (prev > 0 ? prev - 1 : 0));
+    } else if (e.key === "Enter" && customerSelectedIndex >= 0) {
+      e.preventDefault();
+      const selectedCustomer = customerSearchResults[customerSelectedIndex];
+      setSelectedCustomer(selectedCustomer);
+      setCustomerSearch("");
+      setCustomerSearchResults([]);
+      setCustomerSelectedIndex(-1); // Reset highlighted index after selection
     }
   };
 
@@ -212,143 +253,6 @@ const POSInterface: React.FC = () => {
     (total, item) => total + item.price * item.quantity,
     0
   );
-
-  const createPendingSale = async (
-    method: "cash" | "card" | "upi" | "debt"
-  ) => {
-    try {
-      if (method === "debt" && selectedCustomer?.id === null) {
-        toast.error("Please select a customer for debt payment.");
-        return;
-      }
-
-      const saleData = {
-        items: cart.map((item) => ({
-          productId: item.id,
-          quantity: item.quantity,
-          price: item.price,
-          total: item.price * item.quantity,
-        })),
-        paymentMethod: method.toLowerCase(),
-        customerId: selectedCustomer?.id || null,
-        saleType,
-        finalAmount: customTotalPrice || totalPrice,
-        saleDate: saleDate,
-      };
-
-      const response = await axios.post(`${baseUrl}/api/sales`, saleData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        timeout: 10000,
-      });
-
-      if (response.status === 201) {
-        toast.success(response.data.message || "Sale created successfully");
-        setCurrentSaleId(response.data.sale.id);
-        setPendingSale(response.data.sale);
-        if (method === "upi" && response.data.paymentQR) {
-          setPaymentQR(response.data.paymentQR);
-        } else {
-          await confirmPayment(response.data.sale.id, method);
-        }
-        loadProducts();
-        return { sale: response.data.sale, paymentQR: response.data.paymentQR };
-      } else {
-        toast.error(response.data.message || "Failed to create sale");
-        return null;
-      }
-    } catch (error: any) {
-      console.error("Sale creation failed:", error);
-      toast.error(error.response?.data?.error || "Failed to create sale");
-      throw error;
-    }
-  };
-
-  const confirmPayment = async (
-    saleId: number,
-    paymentMethod: "cash" | "card" | "upi" | "debt"
-  ) => {
-    try {
-      await axios.post(`${baseUrl}/api/payments/confirm`, { saleId });
-      toast.success("Payment confirmed!");
-      setIsSaleComplete(true);
-
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      downloadReceiptAsPDF();
-
-      setShowReceipt(true);
-      setIsPreviewOpen(true);
-    } catch (error) {
-      console.error("Payment confirmation failed:", error);
-      toast.error("Failed to confirm payment. Please try again.");
-    }
-  };
-
-  const handlePaymentKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "ArrowRight") {
-      e.preventDefault();
-      setHighlightedPaymentIndex((prev) => (prev + 1) % paymentOptions.length);
-    } else if (e.key === "ArrowLeft") {
-      e.preventDefault();
-      setHighlightedPaymentIndex(
-        (prev) => (prev - 1 + paymentOptions.length) % paymentOptions.length
-      );
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      const method = paymentOptions[highlightedPaymentIndex].method as
-        | "cash"
-        | "card"
-        | "upi"
-        | "debt";
-      handlePaymentMethodSelect(method);
-    }
-  };
-
-  const handlePaymentMethodSelect = async (
-    method: "cash" | "card" | "upi" | "debt"
-  ) => {
-    if (method === "debt" && !selectedCustomer) {
-      toast.error("Please select a customer for debt payment.");
-      return;
-    }
-    setSelectedPaymentMethod(method);
-    if (method === "upi") {
-      try {
-        const response = await createPendingSale(method);
-        if (response?.paymentQR) {
-          setPaymentQR(response.paymentQR);
-        }
-      } catch (error) {
-        toast.error("Failed to generate UPI QR code");
-        setSelectedPaymentMethod(undefined);
-      }
-    }
-  };
-
-  const handleConfirmPayment = async () => {
-    if (!selectedPaymentMethod || selectedPaymentMethod === "upi") return;
-    try {
-      await createPendingSale(selectedPaymentMethod);
-      setIsSaleComplete(true);
-      showReceiptPreview();
-    } catch (error) {
-      toast.error("Failed to process payment");
-    }
-  };
-
-  const handleConfirmUPI = async () => {
-    if (currentSaleId > 0) {
-      try {
-        await confirmPayment(currentSaleId, "upi");
-        setIsSaleComplete(true);
-        showReceiptPreview();
-      } catch (error) {
-        toast.error("Failed to confirm UPI payment");
-      }
-    }
-  };
 
   const resetSaleState = () => {
     setCart([]);
@@ -576,11 +480,13 @@ const POSInterface: React.FC = () => {
               qr.method === "upi" && qr.amount === parseFloat(p.amount)
           )?.qr,
         }));
+
         setPayments(returnedPayments);
         if (returnedPayments.every((p) => p.status === "completed")) {
           setIsSaleComplete(true);
           showReceiptPreview();
         }
+
         loadProducts();
       } else {
         toast.error(response.data.message || "Failed to create sale");
@@ -742,6 +648,7 @@ const POSInterface: React.FC = () => {
       setCartSelectedIndex((prev) => Math.max(prev - 1, -1));
     } else if (cartSelectedIndex >= 0 && cartSelectedIndex < cart.length) {
       const item = cart[cartSelectedIndex];
+
       switch (e.key) {
         case "+":
           increaseQuantity(item.id);
@@ -750,10 +657,33 @@ const POSInterface: React.FC = () => {
           decreaseQuantity(item.id);
           break;
         case "d":
+        case "D":
           removeFromCart(item.id);
-          setCartSelectedIndex((prev) =>
-            prev >= cart.length - 1 ? prev - 1 : prev
+          setCartSelectedIndex((prev) => Math.max(prev - 1, 0));
+          break;
+        case "p":
+        case "P":
+          e.preventDefault();
+          const priceInput = document.getElementById(`price-input-${item.id}`);
+          if (priceInput) {
+            priceInput.focus();
+            (priceInput as HTMLInputElement).select();
+          }
+          break;
+        case "q":
+        case "Q":
+          e.preventDefault();
+          const quantityInput = document.getElementById(
+            `quantity-input-${item.id}`
           );
+          if (quantityInput) {
+            quantityInput.focus();
+            (quantityInput as HTMLInputElement).select();
+          }
+          break;
+        case "Enter":
+          if (isCartValid()) setActiveTab(2);
+          else toast.error("Cart must have at least one item");
           break;
       }
     }
@@ -817,13 +747,59 @@ const POSInterface: React.FC = () => {
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      const activeElement = document.activeElement?.tagName.toLowerCase();
-      if (activeElement !== "input" && activeElement !== "textarea") {
-        if (scanning) {
-          setScanning(false);
-          return;
+      // Skip handling if preview modal is open
+      if (isPreviewOpen) return;
+
+      const activeElement = document.activeElement;
+      const activeTag = activeElement?.tagName.toLowerCase();
+      const isInputOrTextarea =
+        activeTag === "input" || activeTag === "textarea";
+      const isBarcodeInput = activeElement === barcodeInputRef.current;
+      const isPaymentInput =
+        activeElement?.className?.includes?.("payment-input");
+
+      // Handle 'p' key for product search
+      if (
+        e.key === "p" &&
+        activeTab === 1 &&
+        (!isInputOrTextarea || isBarcodeInput)
+      ) {
+        e.preventDefault();
+        setScanning(false);
+        setBarcode("");
+        if (scanTimeout.current) {
+          clearTimeout(scanTimeout.current);
+          scanTimeout.current = null;
         }
-        if (e.key === "Enter") {
+        if (productSearchRef.current) {
+          productSearchRef.current.focus();
+        }
+        return;
+      }
+
+      // Handle 's' key for scanning
+      else if (e.key === "s") {
+        if (activeTab === 1) {
+          setScanning((prev) => !prev);
+          setBarcode("");
+          if (!scanning) barcodeInputRef.current?.focus();
+        }
+      }
+
+      // Only handle other keys when not focused on input/textarea
+      if (!isInputOrTextarea || isPaymentInput) {
+        // Navigation keys (Backspace) - skip if focused on input
+        if (e.key === "Backspace" && !isInputOrTextarea) {
+          e.preventDefault();
+          if (activeTab === 1) {
+            setActiveTab(0);
+          } else if (activeTab === 2) {
+            setActiveTab(1);
+          }
+        }
+
+        // Submit payment with Enter
+        else if (e.key === "Enter") {
           if (activeTab === 0) {
             e.preventDefault();
             setActiveTab(1);
@@ -836,31 +812,20 @@ const POSInterface: React.FC = () => {
                 "Cart must have at least one item with quantity greater than zero."
               );
             }
-          }
-        } else if (e.key === "Backspace") {
-          e.preventDefault();
-          if (activeTab === 1) {
-            setActiveTab(0);
           } else if (activeTab === 2) {
-            setActiveTab(1);
+            e.preventDefault();
+            const proceedButton = document.getElementById(
+              "proceed-to-payment-button"
+            );
+            if (proceedButton && !proceedButton.hasAttribute("disabled")) {
+              proceedButton.click();
+            }
           }
-        } else {
+        }
+
+        // Other keys
+        else {
           switch (e.key) {
-            case "s":
-              if (activeTab === 1) {
-                setScanning((prev) => !prev);
-                setBarcode("");
-                if (!scanning) barcodeInputRef.current?.focus();
-              }
-              break;
-            case "p":
-              if (activeTab === 1) {
-                e.preventDefault();
-                if (productSearchRef.current) {
-                  productSearchRef.current.focus();
-                }
-              }
-              break;
             case "c":
               if (activeTab === 0) {
                 e.preventDefault();
@@ -875,13 +840,47 @@ const POSInterface: React.FC = () => {
             case "k":
               if (activeTab === 1) cartRef.current?.focus();
               break;
+            case "a":
+              if (activeTab === 2) {
+                e.preventDefault();
+                addPayment();
+              }
+              break;
+            case "ArrowDown":
+              if (activeTab === 2) {
+                e.preventDefault();
+                const inputs = document.querySelectorAll(".payment-input");
+                if (inputs.length > 0) {
+                  const currentIndex = Array.from(inputs).findIndex(
+                    (el) => el === document.activeElement
+                  );
+                  const nextIndex = (currentIndex + 1) % inputs.length;
+                  (inputs[nextIndex] as HTMLElement).focus();
+                }
+              }
+              break;
+            case "ArrowUp":
+              if (activeTab === 2) {
+                e.preventDefault();
+                const inputs = document.querySelectorAll(".payment-input");
+                if (inputs.length > 0) {
+                  const currentIndex = Array.from(inputs).findIndex(
+                    (el) => el === document.activeElement
+                  );
+                  const nextIndex =
+                    (currentIndex - 1 + inputs.length) % inputs.length;
+                  (inputs[nextIndex] as HTMLElement).focus();
+                }
+              }
+              break;
           }
         }
       }
     };
+
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
-  }, [activeTab, cart, scanning]);
+  }, [activeTab, cart, scanning, isSaleComplete, localPayments, isPreviewOpen]);
 
   useEffect(() => {
     if (cartSelectedIndex >= 0 && cartSelectedIndex < cart.length) {
@@ -926,7 +925,7 @@ const POSInterface: React.FC = () => {
         customer={selectedCustomer}
         saleType={saleType}
         saleDate={saleDate}
-        autoDownloadPDF = {true}
+        autoDownloadPDF={true}
       />
 
       <div className="flex space-x-2 mb-4 border-b border-gray-200">
@@ -1091,9 +1090,10 @@ const POSInterface: React.FC = () => {
                       setSelectedCustomer(customer);
                       setCustomerSearch("");
                       setCustomerSearchResults([]);
+                      setCustomerSelectedIndex(-1); // Reset highlighted index on click
                     }}
                     className={`px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0 ${
-                      index === 0 ? "bg-gray-50" : ""
+                      index === customerSelectedIndex ? "bg-blue-100" : ""
                     }`}
                     tabIndex={0}
                     onKeyDown={(e) => {
@@ -1101,6 +1101,7 @@ const POSInterface: React.FC = () => {
                         setSelectedCustomer(customer);
                         setCustomerSearch("");
                         setCustomerSearchResults([]);
+                        setCustomerSelectedIndex(-1); // Reset highlighted index
                       }
                     }}
                   >
@@ -1139,135 +1140,159 @@ const POSInterface: React.FC = () => {
         <div className="space-y-6 p-6 bg-white rounded-lg shadow-lg">
           <div className="flex flex-col sm:flex-row gap-5">
             <div className="flex-1 relative">
-              <div className="relative">
-                <input
-                  ref={productSearchRef}
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyDown={handleProductKeyDown}
-                  placeholder="Search products by name or barcode"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pl-10"
-                />
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-500">
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    ></path>
-                  </svg>
-                </span>
-                <span className="absolute inset-y-0 right-0 flex items-center pr-3 text-sm text-gray-500">
-                  Press P to focus
-                </span>
+              <div className="text-xs text-gray-500 mb-1 flex items-center gap-1">
+                <span>Press</span>
+                <kbd className="px-1.5 py-0.5 bg-gray-200 rounded text-gray-700 font-mono">
+                  P
+                </kbd>
+                <span>to focus search,</span>
+                <kbd className="px-1.5 py-0.5 bg-gray-200 rounded text-gray-700 font-mono">
+                  S
+                </kbd>
+                <span>to toggle scanning</span>
               </div>
+              <div className="flex items-cente gap-4 w-full">
+                {/* Search Input Container */}
+                <div className="flex-1 relative">
+                  <input
+                    ref={productSearchRef}
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onKeyDown={handleProductKeyDown}
+                    placeholder="Search products by name or barcode"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pl-10"
+                  />
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-500">
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      ></path>
+                    </svg>
+                  </span>
+                  <span className="absolute inset-y-0 right-0 flex items-center pr-3 text-sm text-gray-500">
+                    <kbd className="px-1.5 py-0.5 bg-gray-200 rounded text-gray-700 font-mono">
+                      P
+                    </kbd>
+                  </span>
 
-              {isDropdownOpen && (
-                <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                  {filteredProducts.length > 0 ? (
-                    filteredProducts.map((product, index) => (
-                      <div
-                        key={product.id}
-                        className={`px-4 py-3 cursor-pointer hover:bg-blue-50 transition-colors duration-150 ${
-                          index === productSelectedIndex ? "bg-blue-100" : ""
-                        }`}
-                        onClick={() => handleSelectProduct(product)}
-                        tabIndex={0}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") handleSelectProduct(product);
-                        }}
-                      >
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium">{product?.name}</span>
-                          <span className="font-semibold text-blue-700">
-                            ₹
-                            {(saleType === "wholeSale" &&
-                            product?.wholeSalePrice
-                              ? product?.wholeSalePrice
-                              : product?.retailPrice
-                            ).toFixed(2)}
-                          </span>
-                        </div>
-                        <div className="text-sm text-gray-600 mt-1 flex items-center">
-                          <span
-                            className={`mr-2 inline-block h-2 w-2 rounded-full ${
-                              product?.stock > 10
-                                ? "bg-green-500"
-                                : product?.stock > 0
-                                ? "bg-yellow-500"
-                                : "bg-red-500"
+                  {/* Product Dropdown */}
+                  {isDropdownOpen && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {filteredProducts.length > 0 ? (
+                        filteredProducts.map((product, index) => (
+                          <div
+                            key={product.id}
+                            className={`px-4 py-3 cursor-pointer hover:bg-blue-50 transition-colors duration-150 ${
+                              index === productSelectedIndex
+                                ? "bg-blue-100"
+                                : ""
                             }`}
-                          ></span>
-                          <span>
-                            {product?.stock} {product?.unitType}{" "}
-                            {product?.stock <= 5 && product?.stock > 0
-                              ? "(Low Stock)"
-                              : product?.stock === 0
-                              ? "(Out of Stock)"
-                              : ""}
-                          </span>
+                            onClick={() => handleSelectProduct(product)}
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter")
+                                handleSelectProduct(product);
+                            }}
+                          >
+                            <div className="flex justify-between items-center">
+                              <span className="font-medium">
+                                {product?.name}
+                              </span>
+                              <span className="font-semibold text-blue-700">
+                                ₹
+                                {(saleType === "wholeSale" &&
+                                product?.wholeSalePrice
+                                  ? product?.wholeSalePrice
+                                  : product?.retailPrice
+                                ).toFixed(2)}
+                              </span>
+                            </div>
+                            <div className="text-sm text-gray-600 mt-1 flex items-center">
+                              <span
+                                className={`mr-2 inline-block h-2 w-2 rounded-full ${
+                                  product?.stock > 10
+                                    ? "bg-green-500"
+                                    : product?.stock > 0
+                                    ? "bg-yellow-500"
+                                    : "bg-red-500"
+                                }`}
+                              ></span>
+                              <span>
+                                {product?.stock} {product?.unitType}{" "}
+                                {product?.stock <= 5 && product?.stock > 0
+                                  ? "(Low Stock)"
+                                  : product?.stock === 0
+                                  ? "(Out of Stock)"
+                                  : ""}
+                              </span>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="px-4 py-3 text-gray-500 text-center">
+                          No products found
                         </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="px-4 py-3 text-gray-500 text-center">
-                      No products found
+                      )}
                     </div>
                   )}
                 </div>
-              )}
-            </div>
 
-            <div className="flex-shrink-0">
-              <div className="relative">
-                <input
-                  ref={barcodeInputRef}
-                  type="text"
-                  onChange={handleBarcodeInputChange}
-                  autoFocus={scanning}
-                  className="absolute opacity-0"
-                />
-                <button
-                  onClick={() => {
-                    const newScanningState = !scanning;
-                    setScanning((prev) => !prev);
-                    if (newScanningState)
-                      setTimeout(() => barcodeInputRef.current?.focus(), 50);
-                  }}
-                  className={`px-6 py-3 rounded-lg transition-all duration-300 flex items-center space-x-2 ${
-                    scanning
-                      ? "bg-red-500 hover:bg-red-600 text-white"
-                      : "bg-blue-600 hover:bg-blue-700 text-white"
-                  }`}
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
+                {/* Barcode Scan Button Container */}
+                <div className="flex-shrink-0 relative">
+                  <input
+                    ref={barcodeInputRef}
+                    type="text"
+                    onChange={handleBarcodeInputChange}
+                    autoFocus={scanning}
+                    className="absolute opacity-0"
+                  />
+                  <button
+                    onClick={() => {
+                      const newScanningState = !scanning;
+                      setScanning((prev) => !prev);
+                      if (newScanningState)
+                        setTimeout(() => barcodeInputRef.current?.focus(), 50);
+                    }}
+                    className={`px-4 py-2 rounded-lg transition-all duration-300 flex items-center space-x-2 ${
+                      scanning
+                        ? "bg-red-500 hover:bg-red-600 text-white"
+                        : "bg-blue-600 hover:bg-blue-700 text-white"
+                    }`}
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
-                    ></path>
-                  </svg>
-                  <span>
-                    {scanning
-                      ? "Scanning... (Click anywhere to stop)"
-                      : "Scan Barcode"}
-                  </span>
-                </button>
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
+                      ></path>
+                    </svg>
+                    <span>
+                      {scanning
+                        ? "Scanning... (Click to stop)"
+                        : "Scan Barcode"}
+                    </span>
+                    <span className="ml-1 bg-blue-800 text-white text-xs px-1.5 py-0.5 rounded">
+                      S
+                    </span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1280,42 +1305,33 @@ const POSInterface: React.FC = () => {
           >
             <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-200">
               <h2 className="text-lg font-bold text-gray-800">Shopping Cart</h2>
-              <span
-                className={`text-sm px-3 py-1 rounded-full font-medium ${
-                  saleType === "wholeSale"
-                    ? "bg-purple-100 text-purple-800"
+              <div className="flex items-center gap-2">
+                <span
+                  className={`text-sm px-3 py-1 rounded-full font-medium ${
+                    saleType === "wholeSale"
+                      ? "bg-purple-100 text-purple-800"
+                      : saleType === "hotel"
+                      ? "bg-yellow-100 text-yellow-800"
+                      : "bg-blue-100 text-blue-800"
+                  }`}
+                >
+                  {saleType === "wholeSale"
+                    ? "Wholesale Price"
                     : saleType === "hotel"
-                    ? "bg-yellow-100 text-yellow-800"
-                    : "bg-blue-100 text-blue-800"
-                }`}
-              >
-                {saleType === "wholeSale"
-                  ? "Wholesale Price"
-                  : saleType === "hotel"
-                  ? "Hotel Price"
-                  : "Retail Price"}
-              </span>
+                    ? "Hotel Price"
+                    : "Retail Price"}
+                </span>
+                <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                  <kbd className="px-1.5 py-0.5 bg-gray-200 rounded text-gray-700 font-mono">
+                    T
+                  </kbd>
+                </div>
+              </div>
             </div>
 
             {cart.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center text-gray-500">
-                <svg
-                  className="w-16 h-16 mb-4 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
-                  ></path>
-                </svg>
-                <p className="text-center">
-                  Your cart is empty. Add products to get started.
-                </p>
+                {/* ... empty cart UI ... */}
               </div>
             ) : (
               <>
@@ -1334,16 +1350,19 @@ const POSInterface: React.FC = () => {
                       id={`cart-item-${index}`}
                       className={`flex justify-between items-center py-3 px-2 ${
                         index === cartSelectedIndex
-                          ? "bg-blue-50 rounded-md"
+                          ? "bg-blue-50 rounded-md ring-2 ring-blue-300"
                           : ""
                       }`}
                     >
                       <div className="flex-1 font-medium">{item.name}</div>
+
+                      {/* Price Field */}
                       <div className="w-24 text-center">
                         {saleType === "wholeSale" || saleType === "hotel" ? (
                           <div className="flex items-center justify-center">
                             <span className="mr-1">₹</span>
                             <input
+                              id={`price-input-${item.id}`}
                               type="number"
                               value={item.price}
                               onChange={(e) => {
@@ -1371,6 +1390,7 @@ const POSInterface: React.FC = () => {
                         {item.unitType === "kg" ? (
                           <div className="relative">
                             <input
+                              id={`quantity-input-${item.id}`}
                               type="number"
                               value={item.quantity}
                               onChange={(e) => {
@@ -1395,6 +1415,7 @@ const POSInterface: React.FC = () => {
                             <button
                               onClick={() => decreaseQuantity(item.id)}
                               className="w-8 h-8 rounded-l-md bg-gray-200 hover:bg-gray-300 flex items-center justify-center"
+                              title="Decrease quantity (-)"
                             >
                               -
                             </button>
@@ -1404,6 +1425,7 @@ const POSInterface: React.FC = () => {
                             <button
                               onClick={() => increaseQuantity(item.id)}
                               className="w-8 h-8 rounded-r-md bg-gray-200 hover:bg-gray-300 flex items-center justify-center"
+                              title="Increase quantity (+)"
                             >
                               +
                             </button>
@@ -1417,7 +1439,7 @@ const POSInterface: React.FC = () => {
                         <button
                           onClick={() => removeFromCart(item.id)}
                           className="p-1 text-gray-500 hover:text-red-600 transition-colors duration-150 rounded-full hover:bg-red-50"
-                          title="Remove item"
+                          title="Remove item (D)"
                         >
                           <svg
                             className="w-5 h-5"
@@ -1483,30 +1505,71 @@ const POSInterface: React.FC = () => {
                           d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
                         ></path>
                       </svg>
-                      Checkout
+                      Checkout <span className="ml-1 text-xs">(Enter)</span>
                     </button>
                   </div>
                 </div>
 
-                <div className="mt-3 bg-blue-50 p-2 rounded-md text-xs text-blue-700 flex items-center">
-                  <svg
-                    className="w-4 h-4 mr-1 flex-shrink-0"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    ></path>
-                  </svg>
-                  <span>
-                    Press K to focus cart, arrow keys to navigate, + or - to
-                    adjust quantity, D to remove item
-                  </span>
+                <div className="mt-3 bg-blue-50 p-2 rounded-md text-xs text-blue-700">
+                  <div className="grid grid-cols-2 gap-1">
+                    <div className="flex items-center">
+                      <kbd className="mr-1 px-1.5 py-0.5 bg-gray-200 rounded text-gray-700 font-mono">
+                        K
+                      </kbd>
+                      Focus cart
+                    </div>
+                    <div className="flex items-center">
+                      <kbd className="mr-1 px-1.5 py-0.5 bg-gray-200 rounded text-gray-700 font-mono">
+                        ↑
+                      </kbd>
+                      <kbd className="mr-1 px-1.5 py-0.5 bg-gray-200 rounded text-gray-700 font-mono">
+                        ↓
+                      </kbd>
+                      Navigate items
+                    </div>
+                    <div className="flex items-center">
+                      <kbd className="mr-1 px-1.5 py-0.5 bg-gray-200 rounded text-gray-700 font-mono">
+                        +
+                      </kbd>
+                      Increase quantity
+                    </div>
+                    <div className="flex items-center">
+                      <kbd className="mr-1 px-1.5 py-0.5 bg-gray-200 rounded text-gray-700 font-mono">
+                        -
+                      </kbd>
+                      Decrease quantity
+                    </div>
+                    <div className="flex items-center">
+                      <kbd className="mr-1 px-1.5 py-0.5 bg-gray-200 rounded text-gray-700 font-mono">
+                        D
+                      </kbd>
+                      Remove item
+                    </div>
+                    <div className="flex items-center">
+                      <kbd className="mr-1 px-1.5 py-0.5 bg-gray-200 rounded text-gray-700 font-mono">
+                        P
+                      </kbd>
+                      Edit price
+                    </div>
+                    <div className="flex items-center">
+                      <kbd className="mr-1 px-1.5 py-0.5 bg-gray-200 rounded text-gray-700 font-mono">
+                        Q
+                      </kbd>
+                      Edit quantity
+                    </div>
+                    <div className="flex items-center">
+                      <kbd className="mr-1 px-1.5 py-0.5 bg-gray-200 rounded text-gray-700 font-mono">
+                        T
+                      </kbd>
+                      Toggle sale type
+                    </div>
+                    <div className="flex items-center">
+                      <kbd className="mr-1 px-1.5 py-0.5 bg-gray-200 rounded text-gray-700 font-mono">
+                        Enter
+                      </kbd>
+                      Checkout
+                    </div>
+                  </div>
                 </div>
               </>
             )}
@@ -1650,29 +1713,41 @@ const POSInterface: React.FC = () => {
               <div className="space-y-4">
                 {localPayments.map((payment, index) => (
                   <div key={index} className="flex items-center space-x-2">
-                    <select
-                      value={payment.method}
-                      onChange={(e) =>
-                        handleMethodChange(index, e.target.value)
-                      }
-                      className="border rounded px-2 py-1"
-                    >
-                      {availablePaymentOptions.map((option) => (
-                        <option key={option.method} value={option.method}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      type="number"
-                      value={payment.amount}
-                      onChange={(e) =>
-                        handleAmountChange(index, e.target.value)
-                      }
-                      className="border rounded px-2 py-1 w-24"
-                      min="0"
-                      step="0.01"
-                    />
+                    <div className="flex flex-col">
+                      <select
+                        value={payment.method}
+                        onChange={(e) =>
+                          handleMethodChange(index, e.target.value)
+                        }
+                        className="border rounded px-2 py-1 payment-input"
+                      >
+                        {availablePaymentOptions.map((option) => (
+                          <option key={option.method} value={option.method}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="text-[10px] text-gray-500 ml-1 mt-0.5">
+                        ⬅️ ➡️ change payment methods
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col">
+                      <input
+                        type="number"
+                        value={payment.amount}
+                        onChange={(e) =>
+                          handleAmountChange(index, e.target.value)
+                        }
+                        className="border rounded px-2 py-1 w-24 payment-input"
+                        min="0"
+                        step="0.01"
+                      />
+                      <span className="text-[10px] text-gray-500 ml-1 mt-0.5">
+                        🔼 🔽 change fields
+                      </span>
+                    </div>
+
                     <button
                       onClick={() => removePayment(index)}
                       className="text-red-500 hover:text-red-700"
@@ -1681,11 +1756,13 @@ const POSInterface: React.FC = () => {
                     </button>
                   </div>
                 ))}
+
                 <button
                   onClick={addPayment}
-                  className="text-blue-600 hover:text-blue-800"
+                  className="px-4 py-2 text-sm font-medium text-blue-600 transition duration-200 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 hover:text-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1"
                 >
-                  + Add Payment Method
+                  + Add Payment Method{" "}
+                  <span className="text-xs text-gray-500">(or press 'a')</span>
                 </button>
               </div>
               <div className="mt-2">
@@ -1726,6 +1803,7 @@ const POSInterface: React.FC = () => {
 
             {localPayments.length > 0 && (
               <button
+                id="proceed-to-payment-button"
                 onClick={createSale}
                 disabled={
                   !isCartValid() ||
