@@ -1341,143 +1341,142 @@ const POSInterface: React.FC = () => {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-12 gap-2 text-sm font-semibold text-gray-600 border-b pb-2 px-2">
-                  <div className="col-span-4 sm:col-span-3">Item</div>
-                  <div className="col-span-2 sm:col-span-2 text-center">
-                    Price
-                  </div>
-                  <div className="col-span-3 sm:col-span-3 text-center">
-                    Quantity
-                  </div>
-                  <div className="col-span-2 sm:col-span-2 text-right">
-                    Total
-                  </div>
-                  <div className="col-span-1 sm:col-span-2 text-right"></div>
-                </div>
-
-                <div className="flex-1 overflow-y-auto divide-y divide-gray-100 min-h-32">
-                  {cart.map((item, index) => (
-                    <div
-                      key={item.id}
-                      id={`cart-item-${index}`}
-                      className={`grid grid-cols-12 gap-2 items-center py-3 px-2 ${
-                        index === cartSelectedIndex
-                          ? "bg-blue-50 rounded-md ring-2 ring-blue-300"
-                          : ""
-                      }`}
-                    >
-                      <div className="col-span-4 sm:col-span-3 font-medium text-sm sm:text-base">
-                        {item.name}
-                      </div>
-
-                      {/* Price Field */}
-                      <div className="col-span-2 sm:col-span-2 text-center">
-                        {saleType === "wholeSale" || saleType === "hotel" ? (
-                          <div className="flex items-center justify-center">
-                            <span className="mr-1">₹</span>
-                            <input
-                              id={`price-input-${item.id}`}
-                              type="number"
-                              value={item.price}
-                              onChange={(e) => {
-                                const newPrice = parseFloat(e.target.value);
-                                if (!isNaN(newPrice) && newPrice >= 0) {
-                                  setCart((prevCart) =>
-                                    prevCart.map((cartItem) =>
-                                      cartItem.id === item.id
-                                        ? { ...cartItem, price: newPrice }
-                                        : cartItem
-                                    )
-                                  );
-                                }
-                              }}
-                              className="w-16 sm:w-20 text-center border rounded-md py-1 px-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              step={0.01}
-                              min={0}
-                            />
-                          </div>
-                        ) : (
-                          <span className="text-sm sm:text-base">
-                            ₹{item.price.toFixed(2)}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="col-span-3 sm:col-span-3 text-center">
-                        {item.unitType === "kg" ? (
-                          <div className="relative">
-                            <input
-                              id={`quantity-input-${item.id}`}
-                              type="number"
-                              value={item.quantity}
-                              onChange={(e) => {
-                                let newQuantity =
-                                  parseFloat(e.target.value) || 0;
-                                if (newQuantity > item.stock) {
-                                  toast.error("Quantity exceeds stock limit");
-                                  newQuantity = 0;
-                                }
-                                updateQuantity(item.id, newQuantity);
-                              }}
-                              className="w-20 sm:w-24 text-center border rounded-md py-1 px-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              step={0.1}
-                              min={0}
-                            />
-                            <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 pointer-events-none text-sm">
-                              kg
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-center">
-                            <button
-                              onClick={() => decreaseQuantity(item.id)}
-                              className="w-10 h-10 sm:w-8 sm:h-8 rounded-l-md bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-lg sm:text-base"
-                              title="Decrease quantity (-)"
-                            >
-                              -
-                            </button>
-                            <span className="w-12 sm:w-16 text-center py-1 border-t border-b text-sm sm:text-base">
-                              {item.quantity}
-                            </span>
-                            <button
-                              onClick={() => increaseQuantity(item.id)}
-                              className="w-10 h-10 sm:w-8 sm:h-8 rounded-r-md bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-lg sm:text-base"
-                              title="Increase quantity (+)"
-                            >
-                              +
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="col-span-2 sm:col-span-2 text-right font-semibold text-sm sm:text-base">
-                        ₹{(item.price * item.quantity).toFixed(2)}
-                      </div>
-
-                      <div className="col-span-1 sm:col-span-2 text-right">
-                        <button
-                          onClick={() => removeFromCart(item.id)}
-                          className="p-2 sm:p-1 text-gray-500 hover:text-red-600 transition-colors duration-150 rounded-full hover:bg-red-50"
-                          title="Remove item (D)"
+                <div className="overflow-y-auto flex-1 min-h-32">
+                  <table className="w-full text-sm text-gray-600 divide-y divide-gray-100">
+                    <thead className="font-semibold border-b border-gray-200">
+                      <tr>
+                        <th className="py-2 px-2 text-left w-1/4">Item</th>
+                        <th className="py-2 px-2 text-center w-1/6">Price</th>
+                        <th className="py-2 px-2 text-center w-1/4">
+                          Quantity
+                        </th>
+                        <th className="py-2 px-2 text-right w-1/6">Total</th>
+                        <th className="py-2 px-2 text-right w-1/12"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {cart.map((item, index) => (
+                        <tr
+                          key={item.id}
+                          id={`cart-item-${index}`}
+                          className={`${
+                            index === cartSelectedIndex
+                              ? "bg-blue-50 rounded-md ring-2 ring-blue-300"
+                              : ""
+                          }`}
                         >
-                          <svg
-                            className="w-5 h-5 sm:w-4 sm:h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                            xmlns="http://www.w3.org/2000/svg"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                            ></path>
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                          <td className="py-3 px-2 font-medium text-sm sm:text-base">
+                            {item.name}
+                          </td>
+                          <td className="py-3 px-2 text-center">
+                            {saleType === "wholeSale" ||
+                            saleType === "hotel" ? (
+                              <div className="flex items-center justify-center">
+                                <span className="mr-1">₹</span>
+                                <input
+                                  id={`price-input-${item.id}`}
+                                  type="number"
+                                  value={item.price}
+                                  onChange={(e) => {
+                                    const newPrice = parseFloat(e.target.value);
+                                    if (!isNaN(newPrice) && newPrice >= 0) {
+                                      setCart((prevCart) =>
+                                        prevCart.map((cartItem) =>
+                                          cartItem.id === item.id
+                                            ? { ...cartItem, price: newPrice }
+                                            : cartItem
+                                        )
+                                      );
+                                    }
+                                  }}
+                                  className="w-16 sm:w-20 text-center border rounded-md py-1 px-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  step={0.01}
+                                  min={0}
+                                />
+                              </div>
+                            ) : (
+                              <span className="text-sm sm:text-base">
+                                ₹{item.price.toFixed(2)}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-2 text-center">
+                            {item.unitType === "kg" ? (
+                              <div className="relative">
+                                <input
+                                  id={`quantity-input-${item.id}`}
+                                  type="number"
+                                  value={item.quantity}
+                                  onChange={(e) => {
+                                    let newQuantity =
+                                      parseFloat(e.target.value) || 0;
+                                    if (newQuantity > item.stock) {
+                                      toast.error(
+                                        "Quantity exceeds stock limit"
+                                      );
+                                      newQuantity = 0;
+                                    }
+                                    updateQuantity(item.id, newQuantity);
+                                  }}
+                                  className="w-20 sm:w-24 text-center border rounded-md py-1 px-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  step={0.1}
+                                  min={0}
+                                />
+                                <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 pointer-events-none text-sm">
+                                  kg
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-center">
+                                <button
+                                  onClick={() => decreaseQuantity(item.id)}
+                                  className="w-8 h-8 sm:w-8 sm:h-8 rounded-l-md bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-base"
+                                  title="Decrease quantity (-)"
+                                >
+                                  -
+                                </button>
+                                <span className="w-12 sm:w-16 text-center py-1 border-t border-b text-sm sm:text-base">
+                                  {item.quantity}
+                                </span>
+                                <button
+                                  onClick={() => increaseQuantity(item.id)}
+                                  className="w-8 h-8 sm:w-8 sm:h-8 rounded-r-md bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-base"
+                                  title="Increase quantity (+)"
+                                >
+                                  +
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-3 px-2 text-right font-semibold text-sm sm:text-base">
+                            ₹{(item.price * item.quantity).toFixed(2)}
+                          </td>
+                          <td className="py-3 px-2 text-right">
+                            <button
+                              onClick={() => removeFromCart(item.id)}
+                              className="p-2 sm:p-1 text-gray-500 hover:text-red-600 transition-colors duration-150 rounded-full hover:bg-red-50"
+                              title="Remove item (D)"
+                            >
+                              <svg
+                                className="w-5 h-5 sm:w-4 sm:h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="2"
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                ></path>
+                              </svg>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
 
                 <div className="mt-4 pt-4 border-t border-gray-200">
