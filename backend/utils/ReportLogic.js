@@ -35,7 +35,7 @@ exports.getReportDataLogic = async (startDate, endDate) => {
         "period",
       ],
       [sequelize.fn("SUM", sequelize.col("totalAmount")), "totalSales"],
-      [sequelize.fn("COUNT", sequelize.col("id")), "transactionCount"],
+      [sequelize.fn("COUNT", sequelize.col("Sale.id")), "transactionCount"],
       // Payment method breakdowns
       [
         sequelize.literal(
@@ -73,6 +73,13 @@ exports.getReportDataLogic = async (startDate, endDate) => {
         ),
         "upiTransactions",
       ],
+    ],
+    include: [
+      {
+        model: Payment,
+        as: "payments",
+        attributes: [],
+      },
     ],
     where: whereConditions,
     group: [sequelize.literal("1")],
