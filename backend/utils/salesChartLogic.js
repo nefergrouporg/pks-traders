@@ -1,5 +1,5 @@
 const { Op } = require("sequelize");
-const { sequelize, Sale } = require("../models/index");
+const { sequelize, Sale, Payment } = require("../models/index");
 const { toZonedTime, format } = require("date-fns-tz");
 
 exports.getSalesChartDataLogic = async (period, paymentMethod) => {
@@ -78,22 +78,38 @@ exports.getSalesChartDataLogic = async (period, paymentMethod) => {
       [
         sequelize.fn(
           "TO_CHAR",
-          sequelize.literal(`"createdAt" AT TIME ZONE 'UTC'`),
+          sequelize.literal(`"Sale"."createdAt" AT TIME ZONE 'UTC'`),
           groupByFormat
         ),
         "period",
       ],
-      [sequelize.fn("SUM", sequelize.col("totalAmount")), "total"],
+      [sequelize.fn("SUM", sequelize.col("Sale.totalAmount")), "total"],
     ],
-    where: whereConditions,
+    include: [
+      {
+        model: Payment,
+        as: "payments",
+        where:
+          paymentMethod && paymentMethod !== "all"
+            ? { paymentMethod: paymentMethod }
+            : undefined,
+        attributes: [],
+        required: paymentMethod && paymentMethod !== "all" ? true : false,
+      },
+    ],
+    where: {
+      createdAt: { [Op.between]: [startDate, endDate] },
+    },
     group: ["period"],
     order: [[sequelize.literal("period"), "ASC"]],
+    raw: true,
   });
 
+  console.log("Sales Data:", salesData);
   // Create sales map
   const salesMap = new Map();
   salesData.forEach((item) => {
-    salesMap.set(item.get("period"), parseFloat(item.get("total")));
+    salesMap.set(item.period, parseFloat(item.total));
   });
 
   const timeZone = "Asia/Kolkata";
