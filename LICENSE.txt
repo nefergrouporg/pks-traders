@@ -1,0 +1,7 @@
+Proprietary License
+
+Copyright (c) 2025 Ebrahim Badusha
+
+All rights reserved. This POS system, including all source code, designs, and modifications, is the property of Ebrahim Badusha. No part of this code may be reused, republished, or resold without written permission.
+
+Unauthorized use will result in legal action under the Copyright Act, 1957.
