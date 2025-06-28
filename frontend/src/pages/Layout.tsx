@@ -29,19 +29,19 @@ type Tab = {
 };
 
 const Layout: React.FC = () => {
-  const { role, setRole, setUsername } = useAuth();
+  const { role, setRole, setUsername, username, setBranch, branch } = useAuth();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const currentPath = location.pathname;
-  const { username } = useAuth();
 
   // Logout function
   const handleLogout = () => {
     localStorage.removeItem("token");
     setRole(null);
     setUsername(null);
+    setBranch(null);
     navigate("/login");
   };
 
@@ -133,11 +133,9 @@ const Layout: React.FC = () => {
 
       {/* Sidebar - Hidden on small screens */}
       <div
-        className={`fixed inset-y-0 left-0 bg-gray-200 shadow-lg z-50 transform transition-transform duration-300 ease-in-out flex flex-col w-64 overflow-y-auto md:overflow-visible ${
-          isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } md:relative md:translate-x-0 ${
-          isSidebarCollapsed ? "md:w-16" : "md:w-64"
-        }`}
+        className={`fixed inset-y-0 left-0 bg-gray-200 shadow-lg z-50 transform transition-transform duration-300 ease-in-out flex flex-col w-64 overflow-y-auto md:overflow-visible ${isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          } md:relative md:translate-x-0 ${isSidebarCollapsed ? "md:w-16" : "md:w-64"
+          }`}
       >
         <div className="p-4 flex justify-between items-center">
           <button
@@ -165,11 +163,10 @@ const Layout: React.FC = () => {
               <Link
                 key={tab.id}
                 to={tab.path}
-                className={`flex items-center p-4 ${
-                  currentPath.includes(tab.path)
+                className={`flex items-center p-4 ${currentPath.includes(tab.path)
                     ? "bg-blue-900 text-white hover:text-white"
                     : "hover:bg-gray-300 hover:text-blue-800 text-blue-900 transition-all duration-200"
-                }`}
+                  }`}
               >
                 <span className="text-xl">{tab.icon}</span>
                 {!isSidebarCollapsed && (
@@ -187,9 +184,8 @@ const Layout: React.FC = () => {
               <button
                 key={tab.id}
                 onClick={tab.onClick}
-                className={`flex items-center w-full p-4 rounded-lg hover:bg-gray-300 transition-all duration-200 ${
-                  isSidebarCollapsed ? "justify-center" : ""
-                }`}
+                className={`flex items-center w-full p-4 rounded-lg hover:bg-gray-300 transition-all duration-200 ${isSidebarCollapsed ? "justify-center" : ""
+                  }`}
               >
                 <span className="text-xl">{tab.icon}</span>
                 {!isSidebarCollapsed && (
@@ -213,14 +209,19 @@ const Layout: React.FC = () => {
 
           <div className="flex items-center space-x-4">
             {/* User Profile */}
-            {username && (
+            {username && ( 
               <button className="flex items-center space-x-2 text-gray-700 hover:text-blue-600">
                 <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-600 text-white flex items-center justify-center rounded-full text-lg font-semibold uppercase">
                   {username[0]}
                 </div>
-                <span className="hidden md:inline-block font-semibold">
-                  {username}
-                </span>
+                <div className="w-max flex flex-col items-start">
+                  <span className="hidden md:inline-block font-semibold">
+                    {username}
+                  </span>
+                  <span className="hidden md:inline-block font-normal text-sm">
+                    {branch?.name}
+                  </span>
+                </div>
               </button>
             )}
           </div>

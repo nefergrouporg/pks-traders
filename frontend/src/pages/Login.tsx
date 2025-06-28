@@ -1,23 +1,20 @@
-import React, { useState, useEffect } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faFacebookF,
-  faGoogle,
-  faTwitter,
-  faGithub,
-  faKeycdn,
-} from "@fortawesome/free-brands-svg-icons";
-import { Toaster, toast } from "sonner";
-import axios from "axios";
+import React, { useEffect } from "react";
+import { Toaster } from "sonner";
 import { useNavigate } from "react-router-dom";
 import LoginForm from "../components/LoginForm";
+import { jwtDecode } from "jwt-decode";
+import { useAuth } from "../context/AuthContext";
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const { setBranch } = useAuth()
 
   useEffect(() => {
     // If token exists, redirect to dashboard
-    if (localStorage.getItem("token")) {
+    let token = localStorage.getItem("token");
+    if (token) {
+      const tokenDecoded = jwtDecode<{branch_name: string, branch_id: number}>(token);
+      setBranch({id:tokenDecoded.branch_id,name: tokenDecoded.branch_name as string})
       navigate("/dashboard");
     }
   }, []);

@@ -19,14 +19,8 @@ const LoginForm: React.FC = () => {
   const [password, setPassword] = useState<string>("");
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const navigate = useNavigate();
-  const { setUsername } = useAuth();
+  const { setUsername, setBranch } = useAuth();
 
-  useEffect(() => {
-    // If token exists, redirect to dashboard
-    if (localStorage.getItem("token")) {
-      navigate("/dashboard");
-    }
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,8 +33,8 @@ const LoginForm: React.FC = () => {
 
       localStorage.setItem("token", response.data.token);
       setUsername(email);
-      // Decode token to get role
-      const decodedToken = jwtDecode(response.data.token);
+      const decodedToken = jwtDecode<{ role: string, id: number, branch_name: string, branch_id: number }>(response.data.token);
+      setBranch({ id: decodedToken.branch_id, name: decodedToken.branch_name })
       const userRole = decodedToken.role;
 
       // Redirect based on role
@@ -64,7 +58,7 @@ const LoginForm: React.FC = () => {
               <FontAwesomeIcon icon={faKeycdn} className="text-sm" />
             </div>
             <h1 className="text-gray-700 text-lg sm:text-xl font-bold">
-              PKS TRADERS
+              Trade App
             </h1>
           </div>
         </div>

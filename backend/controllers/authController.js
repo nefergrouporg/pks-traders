@@ -1,6 +1,6 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const { User } = require('../models/index');
+const { User, Branch } = require('../models/index');
 const { JWT_SECRET } = require('../config/env')
 
 // Register a new user
@@ -31,7 +31,7 @@ exports.login = async (req, res) => {
     const { username, password } = req.body;
     
     // Find the user
-    const user = await User.findOne({ where: { username } });
+    const user = await User.findOne({ where: { username }, include: [{model: Branch, attribute: ["id", "name"]}] });
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -44,7 +44,7 @@ exports.login = async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role },
+      { id: user.id, username: user.username, role: user.role, branch_name:user.Branch.name, branch_id:user.Branch.id, },
       JWT_SECRET,
       { expiresIn: '7d' }
     );

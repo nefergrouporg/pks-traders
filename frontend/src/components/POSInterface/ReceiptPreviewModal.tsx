@@ -12,6 +12,7 @@ import { jsPDF } from "jspdf";
 import { toast } from "react-toastify";
 import { thermalPrinterService } from "../../../utils/ThermalPrinterService";
 import moment from "moment";
+import { useAuth } from "../../context/AuthContext";
 
 // Enhanced CSS for thermal receipt styling - optimized for printing
 const THERMAL_RECEIPT_STYLES = `
@@ -143,6 +144,7 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
   saleDate,
   autoDownloadPDF = false,
 }) => {
+  const { branch } = useAuth()
   const receiptRef = useRef<HTMLDivElement>(null);
   const printStylesRef = useRef<HTMLStyleElement | null>(null);
   const hasAutoDownloaded = useRef(false);
@@ -357,18 +359,16 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
           </head>
           <body>
             <div class="receipt-content">
-              <div class="section text-center text-bold">PKS TRADERS</div>
+              <div class="section text-center text-bold">${branch?.name || "Trade App"}</div>
               <div class="section-header flex">
                 <span>Bill No: ${saleId}</span>
                 <span>Date: ${formattedDate}</span>
               </div>
-              ${
-                customer
-                  ? `<div class="section-header">Customer: ${
-                      customer.name || "No Name"
-                    }</div>`
-                  : ""
-              }
+              ${customer
+          ? `<div class="section-header">Customer: ${customer.name || "No Name"
+          }</div>`
+          : ""
+        }
               <div class="divider"></div>
 
               <div class="table-header" style="grid-template-columns: ${gridColumns};">
@@ -380,27 +380,26 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
               </div>
               
               ${cart
-                .map((item, idx) => {
-                  const originalPrice = item.price;
-                  const formattedName =
-                    item.name.length > 15
-                      ? `${item.name.substring(0, 15)}...`
-                      : item.name;
-                  return `
+          .map((item, idx) => {
+            const originalPrice = item.price;
+            const formattedName =
+              item.name.length > 15
+                ? `${item.name.substring(0, 15)}...`
+                : item.name;
+            return `
                     <div class="table-row" style="grid-template-columns: ${gridColumns};">
                       <div>${idx + 1}</div>
                       <div>${formattedName.toUpperCase()}</div>
                       <div>${item.quantity}</div>
-                      ${
-                        saleType !== "hotel"
-                          ? `<div>${originalPrice.toFixed(2)}</div>`
-                          : ""
-                      }
+                      ${saleType !== "hotel"
+                ? `<div>${originalPrice.toFixed(2)}</div>`
+                : ""
+              }
                       <div>${(originalPrice * item.quantity).toFixed(2)}</div>
                     </div>
                   `;
-                })
-                .join("")}
+          })
+          .join("")}
               
               <div class="total-section">
                 <div class="flex text-lg text-bold">
@@ -410,9 +409,8 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
               </div>
 
               <div class="section">
-                ${
-                  customer
-                    ? `
+                ${customer
+          ? `
                   <div class="flex">
                     <span>PREVIOUS:</span>
                     <span>${previousDebt.toFixed(2)}</span>
@@ -422,22 +420,21 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
                     <span>${netAmount.toFixed(2)}</span>
                   </div>
                 `
-                    : ""
-                }
+          : ""
+        }
                 <div class="flex">
                   <span>REC AMOUNT:</span>
                   <span>${received.toFixed(2)}</span>
                 </div>
-                ${
-                  customer
-                    ? `
+                ${customer
+          ? `
                   <div class="flex">
                     <span>BALANCE:</span>
                     <span>${updatedDebt.toFixed(2)}</span>
                   </div>
                 `
-                    : ""
-                }
+          : ""
+        }
               </div>
 
               <div class="divider"></div>
@@ -567,6 +564,7 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
             saleType={saleType}
             customTotalPrice={customTotalPrice}
             saleDate={saleDate}
+            branch={branch?.name || "Trade App"}
           />
         </div>
 
@@ -574,9 +572,8 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
           <button
             ref={downloadRef}
             onClick={downloadReceiptAsPDF}
-            className={`px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 ${
-              focusedButtonIndex === 0 ? "ring-2 ring-blue-500" : ""
-            }`}
+            className={`px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 ${focusedButtonIndex === 0 ? "ring-2 ring-blue-500" : ""
+              }`}
             tabIndex={-1}
           >
             Download PDF
@@ -584,9 +581,8 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
           <button
             ref={printRef}
             onClick={handleBrowserPrint}
-            className={`px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 ${
-              focusedButtonIndex === 1 ? "ring-2 ring-blue-500" : ""
-            }`}
+            className={`px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 ${focusedButtonIndex === 1 ? "ring-2 ring-blue-500" : ""
+              }`}
             tabIndex={-1}
           >
             Thermal Print

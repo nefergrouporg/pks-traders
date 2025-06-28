@@ -1,10 +1,16 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getUpiId, setUpiId } from '../../utils/services';
+import { jwtDecode } from 'jwt-decode';
 
 type AuthContextType = {
   role: string | null;
   username: string | null;
   upiId: string | null;
+  branch: null | {
+    id: number,
+    name: string
+  };
+  setBranch: (data: { id: number, name: string } | null) => void;
   setRole: (role: string | null) => void;
   setUsername: (username: string | null) => void;
   setUpiId: (upiId: string | null) => Promise<void>;
@@ -13,12 +19,14 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType>({
   role: null,
+  branch: null,
   username: null,
   upiId: null,
-  setRole: () => {},
-  setUsername: () => {},
-  setUpiId: async () => {},
-  fetchUpiId: async () => {}
+  setBranch: () => { },
+  setRole: () => { },
+  setUsername: () => { },
+  setUpiId: async () => { },
+  fetchUpiId: async () => { }
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -27,6 +35,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [role, setRole] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
   const [upiId, setUpiIdState] = useState<string | null>(null);
+  const [branch, setBranch] = useState<AuthContextType["branch"]>(null);
+
+  const token = localStorage.getItem("token");
+
+  if(token && !branch){
+    const decodedToken = jwtDecode<{ role: string, id: number, branch_name: string, branch_id: number }>(token);
+    setBranch({ id: decodedToken.branch_id, name: decodedToken.branch_name })
+  }
+
+  useEffect(()=>{
+    if(branch){
+      document.title = branch.name
+    }else{
+      document.title = "Trade App"
+    }
+  },[branch])
 
   // Function to fetch UPI ID from backend
   const fetchUpiId = async () => {
@@ -58,14 +82,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   return (
-    <AuthContext.Provider value={{ 
-      role, 
-      setRole, 
-      username, 
-      setUsername, 
-      upiId, 
+    <AuthContext.Provider value={{
+      role,
+      branch,
+      setBranch,
+      setRole,
+      username,
+      setUsername,
+      upiId,
       setUpiId: updateUpiId,
-      fetchUpiId 
+      fetchUpiId
     }}>
       {children}
     </AuthContext.Provider>
