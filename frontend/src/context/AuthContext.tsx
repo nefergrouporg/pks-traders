@@ -44,14 +44,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setBranch({ id: decodedToken.branch_id, name: decodedToken.branch_name })
   }
 
-  useEffect(()=>{
-    if(branch){
-      document.title = branch.name
-    }else{
-      document.title = "Trade App"
-    }
-  },[branch])
-
   // Function to fetch UPI ID from backend
   const fetchUpiId = async () => {
     try {
