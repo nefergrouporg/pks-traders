@@ -4,9 +4,11 @@ import Card from "../components/Dashboard/Card";
 import SalesChart from "../components/Dashboard/SalesChart";
 import RecentTransactions from "../components/Dashboard/RecentTransactions";
 import DownloadReport from "../components/Dashboard/DownloadReport";
+import BranchSelector from "../components/Dashboard/BranchSelector";
 import { baseUrl } from "../../utils/services";
 import UpiIdComponent from "../components/UpiIdSetup";
 import BranchAddress from "../components/BranchAddress";
+import { useAuth } from "../context/AuthContext";
 
 interface LowStockProduct {
   name: string;
@@ -33,24 +35,45 @@ const Dashboard: React.FC = () => {
     pendingPayments: 0,
     lowStockProducts: [],
   });
+  const [selectedBranchId, setSelectedBranchId] = useState<number | null>(null);
+  const { role, branch } = useAuth();
+
+  // Set default branch for non-admin users
+  useEffect(() => {
+    if (role !== "admin" && branch) {
+      setSelectedBranchId(branch.id);
+    }
+  }, [role, branch]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const statsRes = await axios.get<Stats>(
-          `${baseUrl}/api/dashboard/stats`
-        );
-        setStats(statsRes.data);
-      } catch (error) {
-        console.error("Error fetching dashboard stats:", error);
-      }
-    };
-
     fetchData();
-  }, []);
+  }, [selectedBranchId]);
+
+  const fetchData = async () => {
+    try {
+      const params = selectedBranchId ? { branchId: selectedBranchId } : {};
+      const statsRes = await axios.get<Stats>(
+        `${baseUrl}/api/dashboard/stats`,
+        { params }
+      );
+      setStats(statsRes.data);
+    } catch (error) {
+      console.error("Error fetching dashboard stats:", error);
+    }
+  };
+
+  const handleBranchChange = (branchId: number | null) => {
+    setSelectedBranchId(branchId);
+  };
 
   return (
     <div className="p-4 sm:p-6 bg-gray-100 min-h-screen">
+      {/* Branch Selector for Admin Users */}
+      <BranchSelector
+        selectedBranchId={selectedBranchId}
+        onBranchChange={handleBranchChange}
+      />
+
       {/* Quick Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 mb-6">
         <Card
@@ -92,15 +115,15 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Download Report Section */}
-      <DownloadReport />
+      <DownloadReport selectedBranchId={selectedBranchId} />
 
       {/* Recent Transactions & Sales Chart */}
       <div className="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
         <div className="col-span-1 sm:col-span-2">
-          <SalesChart />
+          <SalesChart selectedBranchId={selectedBranchId} />
         </div>
         <div className="col-span-1">
-          <RecentTransactions />
+          <RecentTransactions selectedBranchId={selectedBranchId} />
         </div>
       </div>
 

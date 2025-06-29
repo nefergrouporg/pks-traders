@@ -9,14 +9,20 @@ interface Transaction {
   totalAmount: number;
 }
 
-const RecentTransactions: React.FC = () => {
+interface RecentTransactionsProps {
+  selectedBranchId?: number | null;
+}
+
+const RecentTransactions: React.FC<RecentTransactionsProps> = ({ selectedBranchId }) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
+        const params = selectedBranchId ? { branchId: selectedBranchId } : {};
         const response = await axios.get<Transaction[]>(
-          `${baseUrl}/api/dashboard/recent-transactions`
+          `${baseUrl}/api/dashboard/recent-transactions`,
+          { params }
         );
         setTransactions(response.data);
       } catch (error) {
@@ -25,7 +31,7 @@ const RecentTransactions: React.FC = () => {
     };
 
     fetchData();
-  }, []);
+  }, [selectedBranchId]);
 
   return (
     <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">

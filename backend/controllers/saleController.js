@@ -197,7 +197,16 @@ exports.createSale = async (req, res) => {
 // Get all sales
 exports.getAllSales = async (req, res) => {
   try {
+    // Get user's branch from JWT token
+    const userBranchId = req.user.branch_id;
+    
+    const whereClause = {};
+    if (userBranchId) {
+      whereClause.branchId = userBranchId;
+    }
+
     const sales = await Sale.findAll({
+      where: whereClause,
       order: [["createdAt", "DESC"]],
       include: [
         {

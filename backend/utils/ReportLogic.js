@@ -3,7 +3,7 @@ const { sequelize, SaleItem, Payment, Sale } = require("../models/index");
 const { formatISO } = require("date-fns");
 const { toZonedTime, format } = require("date-fns-tz");
 
-exports.getReportDataLogic = async (startDate, endDate) => {
+exports.getReportDataLogic = async (startDate, endDate, branchId) => {
   const start = new Date(startDate);
   const end = new Date(endDate);
   start.setHours(0, 0, 0, 0);
@@ -22,6 +22,11 @@ exports.getReportDataLogic = async (startDate, endDate) => {
   const whereConditions = {
     createdAt: { [Op.between]: [start, end] },
   };
+
+  // Add branch filtering if branchId is provided
+  if (branchId) {
+    whereConditions.branchId = branchId;
+  }
 
   // 1. Get Sales Aggregated Data
   const salesData = await Sale.findAll({
@@ -142,6 +147,7 @@ exports.getReportDataLogic = async (startDate, endDate) => {
         as: "sale", // Correct alias usage here
         attributes: [],
         required: true,
+        where: whereConditions,
       },
     ],
     raw: true,

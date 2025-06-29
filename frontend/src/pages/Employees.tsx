@@ -120,7 +120,7 @@ const Employees: React.FC = () => {
   const fetchStaffs = async () => {
     try {
       const response = await axios.get(`${baseUrl}/api/users`, {
-        params: { role: "staff" },
+        // params: { role: "staff" },
         headers: { Authorization: `Bearer ${token}` },
       });
       setStaffs(response.data?.users);

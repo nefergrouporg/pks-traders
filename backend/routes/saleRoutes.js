@@ -5,6 +5,6 @@ const { auth } = require('../middleware/authMiddleware');
 
 router.post('/', auth, saleController.createSale);
 router.put("/:id", auth, saleController.editSale);
-router.get("/", saleController.getAllSales);
+router.get("/", auth, saleController.getAllSales);
 
 module.exports = router;

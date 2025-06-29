@@ -9,7 +9,7 @@ const { Op } = require("sequelize");
 exports.getAllUsers = async (req, res) => {
   try {
     const users = await User.findAll({
-      where: { role: req.query.role },
+    //   where: { role: req.query.role },
       include: [
         {
           model: Branch,

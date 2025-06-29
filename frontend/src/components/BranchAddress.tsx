@@ -36,7 +36,7 @@ const BranchAddress: React.FC = () => {
     setIsLoading(true);
     try {
       const response = await axios.get(`${baseUrl}/api/branches`);
-      setBranches(response.data.branches.filter((branch) => !branch.isDeleted));
+      setBranches(response.data.branches);
     } catch (error) {
       console.error("Failed to fetch branches:", error);
       toast.error("Failed to fetch branches");

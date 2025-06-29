@@ -15,6 +15,10 @@ interface SalesDataPoint {
   sales: number;
 }
 
+interface SalesChartProps {
+  selectedBranchId?: number | null;
+}
+
 const periods = [
   { value: "daily", label: "Daily" },
   { value: "weekly", label: "Weekly" },
@@ -29,7 +33,7 @@ const paymentMethods = [
   { value: "upi", label: "UPI" },
 ];
 
-const SalesChart: React.FC = () => {
+const SalesChart: React.FC<SalesChartProps> = ({ selectedBranchId }) => {
   const [data, setData] = useState<SalesDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -43,6 +47,11 @@ const SalesChart: React.FC = () => {
           period: selectedPeriod,
           paymentMethod: selectedPayment,
         });
+
+        // Add branchId to params if selected
+        if (selectedBranchId) {
+          params.append("branchId", selectedBranchId.toString());
+        }
 
         const response = await fetch(
           `${baseUrl}/api/dashboard/sales-data?${params}`
@@ -58,7 +67,7 @@ const SalesChart: React.FC = () => {
     };
 
     fetchSalesData();
-  }, [selectedPeriod, selectedPayment]);
+  }, [selectedPeriod, selectedPayment, selectedBranchId]);
 
   const getChartTitle = () => {
     const periodLabel = periods.find((p) => p.value === selectedPeriod)?.label;

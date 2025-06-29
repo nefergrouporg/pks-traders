@@ -58,7 +58,10 @@ const SalesList = () => {
 
   const fetchSales = async () => {
     try {
-      const response = await axios.get<Sale[]>(`${baseUrl}/api/sales`);
+      const token = localStorage.getItem("token");
+      const response = await axios.get<Sale[]>(`${baseUrl}/api/sales`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       console.log(response.data[0]);
       setSales(response.data);
       setLoading(false);
@@ -72,7 +75,10 @@ const SalesList = () => {
   useEffect(() => {
     const fetchSales = async () => {
       try {
-        const response = await axios.get<Sale[]>(`${baseUrl}/api/sales`);
+        const token = localStorage.getItem("token");
+        const response = await axios.get<Sale[]>(`${baseUrl}/api/sales`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         console.log(response.data[0]);
         setSales(response.data);
         setLoading(false);
@@ -186,6 +192,13 @@ const SalesList = () => {
           <option value={20}>20 per page</option>
           <option value={50}>50 per page</option>
         </select>
+      </div>
+
+      {/* Branch Filter Notice */}
+      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+        <p className="text-sm text-blue-700">
+          📍 Showing sales from your assigned branch only
+        </p>
       </div>
 
       {/* No Sales Message */}

@@ -2,7 +2,7 @@ const { Op } = require("sequelize");
 const { sequelize, Sale, Payment } = require("../models/index");
 const { toZonedTime, format } = require("date-fns-tz");
 
-exports.getSalesChartDataLogic = async (period, paymentMethod) => {
+exports.getSalesChartDataLogic = async (period, paymentMethod, branchId) => {
   const endDate = new Date();
   let startDate = new Date();
   let groupByFormat,
@@ -72,6 +72,9 @@ exports.getSalesChartDataLogic = async (period, paymentMethod) => {
   if (paymentMethod && paymentMethod !== "all") {
     whereConditions.paymentMethod = paymentMethod;
   }
+  if (branchId) {
+    whereConditions.branchId = branchId;
+  }
 
   const salesData = await Sale.findAll({
     attributes: [
@@ -97,9 +100,7 @@ exports.getSalesChartDataLogic = async (period, paymentMethod) => {
         required: paymentMethod && paymentMethod !== "all" ? true : false,
       },
     ],
-    where: {
-      createdAt: { [Op.between]: [startDate, endDate] },
-    },
+    where: whereConditions,
     group: ["period"],
     order: [[sequelize.literal("period"), "ASC"]],
     raw: true,

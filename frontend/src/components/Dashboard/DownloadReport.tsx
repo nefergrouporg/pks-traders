@@ -3,7 +3,11 @@ import React, { useState } from "react";
 import { baseUrl } from "../../../utils/services";
 import { toast } from "sonner";
 
-const DownloadReportButton = () => {
+interface DownloadReportProps {
+  selectedBranchId?: number | null;
+}
+
+const DownloadReportButton: React.FC<DownloadReportProps> = ({ selectedBranchId }) => {
   const [selectedFormat, setSelectedFormat] = useState("csv");
   const [selectedStartDate, setSelectedStartDate] = useState("");
   const [selectedEndDate, setSelectedEndDate] = useState("");
@@ -22,14 +26,21 @@ const DownloadReportButton = () => {
       return;
     }
     try {
+      const params: any = {
+        startDate: selectedStartDate,
+        endDate: selectedEndDate,
+        format: format,
+      };
+
+      // Add branchId to params if selected
+      if (selectedBranchId) {
+        params.branchId = selectedBranchId;
+      }
+
       const response = await axios.get(
         `${baseUrl}/api/dashboard/export-sales-data`,
         {
-          params: {
-            startDate: selectedStartDate,
-            endDate: selectedEndDate,
-            format: format,
-          },
+          params,
           responseType: "blob",
         }
       );
