@@ -58,7 +58,7 @@ const LoginForm: React.FC = () => {
               <FontAwesomeIcon icon={faKeycdn} className="text-sm" />
             </div>
             <h1 className="text-gray-700 text-lg sm:text-xl font-bold">
-              Trade App
+              PKS Traders
             </h1>
           </div>
         </div>
