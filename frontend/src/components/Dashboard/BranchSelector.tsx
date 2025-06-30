@@ -7,6 +7,7 @@ interface Branch {
   id: number;
   name: string;
   status: boolean;
+  isDeleted: boolean;
 }
 
 interface BranchSelectorProps {
@@ -30,7 +31,7 @@ const BranchSelector: React.FC<BranchSelectorProps> = ({
     setIsLoading(true);
     try {
       const response = await axios.get(`${baseUrl}/api/branches`);
-      setBranches(response.data.branches);
+      setBranches(response.data.branches.filter((b: Branch) => b.status && !b.isDeleted));
       
     } catch (error) {
       console.error("Failed to fetch branches:", error);

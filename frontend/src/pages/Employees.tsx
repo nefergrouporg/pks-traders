@@ -107,9 +107,10 @@ const Employees: React.FC = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       setBranches(
-        Array.isArray(response.data)
+        (Array.isArray(response.data)
           ? response.data
           : response.data.branches || []
+        ).filter((b: Branch & { status?: boolean; isDeleted?: boolean }) => b.status && !b.isDeleted)
       );
     } catch (error) {
       console.error("Error fetching branches:", error);

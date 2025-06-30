@@ -69,9 +69,9 @@ exports.getSalesChartDataLogic = async (period, paymentMethod, branchId) => {
   const whereConditions = {
     createdAt: { [Op.between]: [startDate, endDate] },
   };
-  if (paymentMethod && paymentMethod !== "all") {
-    whereConditions.paymentMethod = paymentMethod;
-  }
+//   if (paymentMethod && paymentMethod !== "all") {
+//     whereConditions.paymentMethod = paymentMethod;
+//   }
   if (branchId) {
     whereConditions.branchId = branchId;
   }

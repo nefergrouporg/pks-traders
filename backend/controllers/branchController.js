@@ -3,11 +3,11 @@ const { Branch } = require("../models");
 // Get all branches
 exports.getBranches = async (req, res) => {
   try {
-    const branches = await Branch.findAll();
+    const branches = await Branch.findAll({ where: { isDeleted: false } });
     // Return the branches in a consistent format
-    res.json({ branches: branches });
+    res.json({ branches });
   } catch (error) {
-    console.log(error )
+    console.log(error)
     res.status(500).json({ error: "Error fetching branches" });
   }
 };
