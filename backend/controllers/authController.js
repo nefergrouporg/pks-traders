@@ -31,7 +31,7 @@ exports.login = async (req, res) => {
     const { username, password } = req.body;
     
     // Find the user
-    const user = await User.findOne({ where: { username }, include: [{model: Branch, attribute: ["id", "name"]}] });
+    const user = await User.findOne({ where: { username }, include: [{model: Branch, attributes: ["id", "name", "address", "phone"]}] });
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -44,7 +44,15 @@ exports.login = async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role, branch_name:user.Branch.name, branch_id:user.Branch.id, },
+      { 
+        id: user.id, 
+        username: user.username, 
+        role: user.role, 
+        branch_name: user.Branch.name, 
+        branch_id: user.Branch.id,
+        branch_address: user.Branch.address,
+        branch_phone: user.Branch.phone
+      },
       JWT_SECRET,
       { expiresIn: '7d' }
     );

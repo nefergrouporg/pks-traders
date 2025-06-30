@@ -31,7 +31,11 @@ interface ReceiptProps {
   saleType: "retail" | "wholeSale" | "hotel"; // Updated to include "hotel"
   customTotalPrice?: number;
   saleDate: string;
-  branch: string
+  branch: {
+    name: string;
+    address: string;
+    phone: string;
+  }
 }
 
 const Receipt: React.FC<ReceiptProps> = ({
@@ -75,8 +79,10 @@ const Receipt: React.FC<ReceiptProps> = ({
     <div className="min-w-[300px] max-w-[400px] mx-auto p-4 bg-white text-black font-mono">
       {/* Store name and header */}
       <div className="text-center mb-2">
-        <h1 className="text-xl font-bold tracking-wider">{branch}</h1>
+        <h1 className="text-xl font-bold tracking-wider">{branch.name}</h1>
         <div className="text-xs">
+          <div>{branch.address}</div>
+          <div>{branch.phone}</div>
           <div className="border-t border-b border-dashed my-1 py-1">
             <p>Bill No: {saleId}</p>
             <p>Date: {moment(saleDate).format("DD/MM/YYYY")}</p>

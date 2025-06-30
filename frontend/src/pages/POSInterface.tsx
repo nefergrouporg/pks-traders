@@ -10,6 +10,7 @@ import moneyClipart from "../assets/cards_clipart.png";
 import cardsClipart from "../assets/cards_clipart.png";
 import { TrendingDown } from "lucide-react";
 import customer from "../../../backend/models/customer";
+import { useAuth } from "../context/AuthContext";
 
 interface Product {
   id: number;
@@ -129,6 +130,7 @@ const POSInterface: React.FC = () => {
   const [customerSelectedIndex, setCustomerSelectedIndex] =
     useState<number>(-1);
   const token = localStorage.getItem("token");
+  const { branch } = useAuth();
 
   const paymentOptions = [
     {
@@ -911,6 +913,7 @@ const POSInterface: React.FC = () => {
             customer={selectedCustomer}
             saleType={saleType}
             saleDate={saleDate}
+            branch={branch || { name: "Trade App", address: "", phone: "" }}
           />
         </div>
       </div>

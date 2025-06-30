@@ -8,9 +8,11 @@ type AuthContextType = {
   upiId: string | null;
   branch: null | {
     id: number,
-    name: string
+    name: string,
+    address: string,
+    phone: string
   };
-  setBranch: (data: { id: number, name: string } | null) => void;
+  setBranch: (data: { id: number, name: string, address: string, phone: string } | null) => void;
   setRole: (role: string | null) => void;
   setUsername: (username: string | null) => void;
   setUpiId: (upiId: string | null) => Promise<void>;
@@ -40,8 +42,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const token = localStorage.getItem("token");
 
   if(token && !branch){
-    const decodedToken = jwtDecode<{ role: string, id: number, branch_name: string, branch_id: number }>(token);
-    setBranch({ id: decodedToken.branch_id, name: decodedToken.branch_name })
+    const decodedToken = jwtDecode<{ role: string, id: number, branch_name: string, branch_id: number, branch_address: string, branch_phone: string }>(token);
+    setBranch({ 
+      id: decodedToken.branch_id, 
+      name: decodedToken.branch_name,
+      address: decodedToken.branch_address,
+      phone: decodedToken.branch_phone
+    })
   }
 
   // Function to fetch UPI ID from backend

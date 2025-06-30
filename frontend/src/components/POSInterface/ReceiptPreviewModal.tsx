@@ -14,6 +14,15 @@ import { thermalPrinterService } from "../../../utils/ThermalPrinterService";
 import moment from "moment";
 import { useAuth } from "../../context/AuthContext";
 
+// Define Payment interface
+interface Payment {
+  method: "cash" | "card" | "upi" | "debt";
+  amount: number;
+  status?: "pending" | "completed" | "failed";
+  qr?: string;
+  id?: number;
+}
+
 // Enhanced CSS for thermal receipt styling - optimized for printing
 const THERMAL_RECEIPT_STYLES = `
   @media print {
@@ -360,6 +369,8 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
           <body>
             <div class="receipt-content">
               <div class="section text-center text-bold">${branch?.name || "Trade App"}</div>
+              <div class="text-center">${branch?.address || ""}</div>
+              <div class="text-center">${branch?.phone || ""}</div>
               <div class="section-header flex">
                 <span>Bill No: ${saleId}</span>
                 <span>Date: ${formattedDate}</span>
@@ -564,7 +575,7 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
             saleType={saleType}
             customTotalPrice={customTotalPrice}
             saleDate={saleDate}
-            branch={branch?.name || "Trade App"}
+            branch={branch || { name: "Trade App", address: "", phone: "" }}
           />
         </div>
 
