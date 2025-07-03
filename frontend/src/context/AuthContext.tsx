@@ -41,20 +41,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Set branch information from token when component mounts
   useEffect(() => {
-    const token = localStorage.getItem("token");
+  const token = localStorage.getItem("token");
     if (token && !branch) {
       try {
-        const decodedToken = jwtDecode<{ role: string, id: number, branch_name: string, branch_id: number, branch_address: string, branch_phone: string }>(token);
-        setBranch({ 
-          id: decodedToken.branch_id, 
-          name: decodedToken.branch_name,
-          address: decodedToken.branch_address,
-          phone: decodedToken.branch_phone
+    const decodedToken = jwtDecode<{ role: string, id: number, branch_name: string, branch_id: number, branch_address: string, branch_phone: string }>(token);
+    setBranch({ 
+      id: decodedToken.branch_id, 
+      name: decodedToken.branch_name,
+      address: decodedToken.branch_address,
+      phone: decodedToken.branch_phone
         });
       } catch (error) {
         console.error("Failed to decode token:", error);
       }
-    }
+  }
   }, [branch]);
 
   // Function to fetch UPI ID from backend
