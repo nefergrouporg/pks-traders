@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEye, faMoneyBill, faEdit } from "@fortawesome/free-solid-svg-icons";
+import { faEye, faMoneyBill, faEdit, faBan } from "@fortawesome/free-solid-svg-icons";
 import { baseUrl } from "../../utils/services";
 import Modal from "../components/POSInterface/Modal";
 import ConfirmationModal from "../components/Dashboard/ConfirmationModal";
@@ -41,23 +41,20 @@ interface NewCustomer {
   name: string;
   phone: string;
   address?: string;
-  debtAmount?: number;
+  debtAmount: number;
 }
 
-const UserManagement: React.FC = () => {
+const CustomerManagement: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [customersDetails, setCustomersDetails] = useState([]);
   const [isAddCustomerModalOpen, setIsAddCustomerModalOpen] = useState(false);
   const [isEditCustomerModalOpen, setIsEditCustomerModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState(false);
   const [isDebtModalOpen, setIsDebtModalOpen] = useState(false);
   const [customerToToggle, setCustomerToToggle] = useState<number | null>(null);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
-    null
-  );
-  
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(8);
@@ -82,16 +79,22 @@ const UserManagement: React.FC = () => {
   const token = localStorage.getItem("token");
 
   useEffect(() => {
+    if (!token) {
+      toast.error("No authentication token found");
+      return;
+    }
     fetchCustomers();
-  }, [currentPage, searchQuery]);
+  }, [currentPage, searchQuery, token]);
 
   const fetchCustomers = async () => {
     setIsLoading(true);
     try {
       const response = await axios.get(
-        ${baseUrl}/api/customers?page=${currentPage}&limit=${itemsPerPage}&search=${encodeURIComponent(searchQuery)},
+        `${baseUrl}/api/customers?page=${currentPage}&limit=${itemsPerPage}&search=${encodeURIComponent(
+          searchQuery
+        )}`,
         {
-          headers: { Authorization: Bearer ${token} },
+          headers: { Authorization: `Bearer ${token}` },
         }
       );
 
@@ -113,14 +116,14 @@ const UserManagement: React.FC = () => {
 
   const handleAddCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isNaN(newCustomer.debtAmount) || newCustomer.debtAmount < 0) {
+      toast.error("Debt amount must be a valid non-negative number");
+      return;
+    }
     try {
-      const response = await axios.post(
-        ${baseUrl}/api/customers,
-        newCustomer,
-        {
-          headers: { Authorization: Bearer ${token} },
-        }
-      );
+      const response = await axios.post(`${baseUrl}/api/customers`, newCustomer, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       if (response.status === 201) {
         toast.success("Customer created successfully");
@@ -135,7 +138,7 @@ const UserManagement: React.FC = () => {
       }
     } catch (error: any) {
       console.error("Error creating customer:", error);
-      toast.error(error.response?.data?.message || "Failed to create customer");
+      // toast.error(error.response?.data?.message || "Failed to create customer");
     }
   };
 
@@ -153,16 +156,20 @@ const UserManagement: React.FC = () => {
   const handleEditCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCustomer) return;
+    if (isNaN(editCustomer.debtAmount) || editCustomer.debtAmount < 0) {
+      toast.error("Debt amount must be a valid non-negative number");
+      return;
+    }
     const customer = {
       id: selectedCustomer.id,
       ...editCustomer,
     };
     try {
       const response = await axios.put(
-        ${baseUrl}/api/customers/update,
+        `${baseUrl}/api/customers/update`,
         customer,
         {
-          headers: { Authorization: Bearer ${token} },
+          headers: { Authorization: `Bearer ${token}` },
         }
       );
 
@@ -181,9 +188,9 @@ const UserManagement: React.FC = () => {
     if (!customerToToggle) return;
     try {
       const response = await axios.put(
-        ${baseUrl}/api/customers/toggle-block/${customerToToggle},
+        `${baseUrl}/api/customers/toggle-block/${customerToToggle}`,
         {},
-        { headers: { Authorization: Bearer ${token} } }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
       if (response.status === 200) {
@@ -207,14 +214,9 @@ const UserManagement: React.FC = () => {
     fetchCustomers();
   };
 
-  const openCustomerDetails = async (customer: Customer) => {
-    try {
-      setSelectedCustomer(customer);
-      setIsDetailsModalOpen(true);
-    } catch (error) {
-      console.error("Error fetching customer details:", error);
-      toast.error("Failed to fetch customer details");
-    }
+  const openCustomerDetails = (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setIsDetailsModalOpen(true);
   };
 
   const openDebtModal = (customer: Customer) => {
@@ -224,24 +226,25 @@ const UserManagement: React.FC = () => {
 
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
-  // Generate page numbers for pagination with limits
   const getPageNumbers = () => {
     const pages = [];
     const maxVisiblePages = 5;
-    
+
     let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
     let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-    
+
     if (endPage - startPage + 1 < maxVisiblePages) {
       startPage = Math.max(1, endPage - maxVisiblePages + 1);
     }
-    
+
     for (let i = startPage; i <= endPage; i++) {
       pages.push(i);
     }
-    
+
     return pages;
   };
+
+  const CURRENCY_SYMBOL = "₹"; // Using Unicode for Indian Rupee
 
   return (
     <div className="p-4 sm:p-6 bg-gray-100 min-h-screen">
@@ -288,7 +291,9 @@ const UserManagement: React.FC = () => {
               ) : customers.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="p-8 text-center text-gray-500">
-                    {searchQuery ? 'No customers found matching your search' : 'No customers found'}
+                    {searchQuery
+                      ? "No customers found matching your search"
+                      : "No customers found"}
                   </td>
                 </tr>
               ) : (
@@ -298,27 +303,29 @@ const UserManagement: React.FC = () => {
                     <td className="p-3">{customer.phone}</td>
                     <td className="p-3">{customer.address || "N/A"}</td>
                     <td className="p-3">
-                      {customer.lastPurchaseDate
+                      {customer.lastPurchaseDate && customer.lastPurchaseAmount != null
                         ? `${new Date(
                             customer.lastPurchaseDate
-                          ).toLocaleDateString()} - ₹${customer.lastPurchaseAmount?.toFixed(
+                          ).toLocaleDateString()} - ${CURRENCY_SYMBOL}${customer.lastPurchaseAmount.toFixed(
                             2
                           )}`
                         : "No purchases"}
                     </td>
-                    <td className="p-3">₹{customer.debtAmount.toFixed(2)}</td>
+                    <td className="p-3">
+                      {CURRENCY_SYMBOL}
+                      {customer.debtAmount.toFixed(2)}
+                    </td>
                     <td>
                       <button
                         onClick={() => openDebtModal(customer)}
-                        className={`
-                          ${
-                            customer.isBlocked || customer.debtAmount <= 0
-                              ? "text-gray-600 cursor-not-allowed"
-                              : "text-red-600 hover:text-red-800"
-                          }
-                        `}
+                        className={
+                          customer.isBlocked || customer.debtAmount <= 0
+                            ? "text-gray-600 cursor-not-allowed"
+                            : "text-red-600 hover:text-red-800"
+                        }
                         disabled={customer.isBlocked || customer.debtAmount <= 0}
                         title="Process Debt Payment"
+                        aria-label="Process Debt Payment"
                       >
                         <FontAwesomeIcon icon={faMoneyBill} />
                       </button>
@@ -328,6 +335,7 @@ const UserManagement: React.FC = () => {
                         onClick={() => openCustomerDetails(customer)}
                         className="text-blue-600 hover:text-blue-800"
                         title="View Details"
+                        aria-label="View Customer Details"
                       >
                         <FontAwesomeIcon icon={faEye} />
                       </button>
@@ -335,8 +343,24 @@ const UserManagement: React.FC = () => {
                         onClick={() => openEditCustomerModal(customer)}
                         className="text-green-600 hover:text-green-800"
                         title="Edit Customer"
+                        aria-label="Edit Customer"
                       >
                         <FontAwesomeIcon icon={faEdit} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setCustomerToToggle(customer.id);
+                          setIsConfirmationModalOpen(true);
+                        }}
+                        className={
+                          customer.isBlocked
+                            ? "text-green-600 hover:text-green-800"
+                            : "text-red-600 hover:text-red-800"
+                        }
+                        title={customer.isBlocked ? "Unblock Customer" : "Block Customer"}
+                        aria-label={customer.isBlocked ? "Unblock Customer" : "Block Customer"}
+                      >
+                        <FontAwesomeIcon icon={faBan} />
                       </button>
                     </td>
                   </tr>
@@ -347,7 +371,6 @@ const UserManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* Enhanced Pagination Controls */}
       {totalPages > 1 && (
         <div className="flex justify-center mt-6 items-center flex-wrap gap-2">
           <button
@@ -357,7 +380,7 @@ const UserManagement: React.FC = () => {
           >
             Previous
           </button>
-          
+
           {currentPage > 3 && (
             <>
               <button
@@ -369,22 +392,22 @@ const UserManagement: React.FC = () => {
               {currentPage > 4 && <span className="px-2">...</span>}
             </>
           )}
-          
-          {getPageNumbers().map(number => (
+
+          {getPageNumbers().map((number) => (
             <button
               key={number}
               onClick={() => paginate(number)}
               disabled={isLoading}
               className={`px-3 py-1 rounded-lg transition ${
-                currentPage === number 
-                  ? 'bg-blue-500 text-white' 
-                  : 'bg-gray-300 hover:bg-gray-400'
+                currentPage === number
+                  ? "bg-blue-500 text-white"
+                  : "bg-gray-300 hover:bg-gray-400"
               }`}
             >
               {number}
             </button>
           ))}
-          
+
           {currentPage < totalPages - 2 && (
             <>
               {currentPage < totalPages - 3 && <span className="px-2">...</span>}
@@ -396,7 +419,7 @@ const UserManagement: React.FC = () => {
               </button>
             </>
           )}
-          
+
           <button
             onClick={() => paginate(currentPage + 1)}
             disabled={currentPage === totalPages || isLoading}
@@ -404,14 +427,20 @@ const UserManagement: React.FC = () => {
           >
             Next
           </button>
-          
+
           <span className="ml-4 text-sm text-gray-600">
-            Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalCustomers)} of {totalCustomers} customers
+            Showing{" "}
+            {totalCustomers === 0
+              ? "0"
+              : `${(currentPage - 1) * itemsPerPage + 1} to ${Math.min(
+                  currentPage * itemsPerPage,
+                  totalCustomers
+                )}`}{" "}
+            of {totalCustomers} customers
           </span>
         </div>
       )}
 
-      {/* Add Customer Modal */}
       <Modal
         isOpen={isAddCustomerModalOpen}
         onClose={() => setIsAddCustomerModalOpen(false)}
@@ -443,14 +472,13 @@ const UserManagement: React.FC = () => {
                   }
                 />
               </div>
-
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  debt Amount*
-                </label>
+                <label className="block text-sm font-medium mb-1">Debt Amount*</label>
                 <input
                   type="number"
                   required
+                  min="0"
+                  step="0.01"
                   className="w-full border rounded-lg px-4 py-2 bg-white text-black"
                   value={newCustomer.debtAmount}
                   onChange={(e) =>
@@ -462,9 +490,7 @@ const UserManagement: React.FC = () => {
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1">
-                  Address
-                </label>
+                <label className="block text-sm font-medium mb-1">Address</label>
                 <textarea
                   className="w-full border rounded-lg px-4 py-2 bg-white text-black"
                   rows={3}
@@ -475,7 +501,6 @@ const UserManagement: React.FC = () => {
                 />
               </div>
             </div>
-
             <div className="flex justify-end gap-3 mt-6">
               <button
                 type="button"
@@ -495,7 +520,6 @@ const UserManagement: React.FC = () => {
         </div>
       </Modal>
 
-      {/* Edit Customer Modal */}
       <Modal
         isOpen={isEditCustomerModalOpen}
         onClose={() => setIsEditCustomerModalOpen(false)}
@@ -527,14 +551,13 @@ const UserManagement: React.FC = () => {
                   }
                 />
               </div>
-
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Debt Amount*
-                </label>
+                <label className="block text-sm font-medium mb-1">Debt Amount*</label>
                 <input
                   type="number"
                   required
+                  min="0"
+                  step="0.01"
                   className="w-full border rounded-lg px-4 py-2 bg-white text-black"
                   value={editCustomer.debtAmount}
                   onChange={(e) =>
@@ -546,23 +569,17 @@ const UserManagement: React.FC = () => {
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1">
-                  Address
-                </label>
+                <label className="block text-sm font-medium mb-1">Address</label>
                 <textarea
                   className="w-full border rounded-lg px-4 py-2 bg-white text-black"
                   rows={3}
                   value={editCustomer.address}
                   onChange={(e) =>
-                    setEditCustomer({
-                      ...editCustomer,
-                      address: e.target.value,
-                    })
+                    setEditCustomer({ ...editCustomer, address: e.target.value })
                   }
                 />
               </div>
             </div>
-
             <div className="flex justify-end gap-3 mt-6">
               <button
                 type="button"
@@ -582,7 +599,6 @@ const UserManagement: React.FC = () => {
         </div>
       </Modal>
 
-      {/* Confirmation Modal for Block/Unblock */}
       <ConfirmationModal
         isOpen={isConfirmationModalOpen}
         onClose={() => setIsConfirmationModalOpen(false)}
@@ -598,7 +614,6 @@ const UserManagement: React.FC = () => {
         } this customer?`}
       />
 
-      {/* Customer Details Modal */}
       {selectedCustomer && (
         <CustomerDetailsModal
           isOpen={isDetailsModalOpen}
@@ -607,7 +622,6 @@ const UserManagement: React.FC = () => {
         />
       )}
 
-      {/* Debt Payment Modal */}
       {selectedCustomer && (
         <DebtPaymentModal
           isOpen={isDebtModalOpen}
@@ -620,4 +634,4 @@ const UserManagement: React.FC = () => {
   );
 };
 
-export default UserManagement;
+export default CustomerManagement;
