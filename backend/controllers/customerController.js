@@ -66,8 +66,8 @@ exports.updateCustomer = async (req, res) => {
 
 
 
-const { Customer, Sale, SaleItem, Product, Payment } = require("../models");
-const { Op } = require('sequelize');
+// const { Customer, Sale, SaleItem, Product, Payment } = require("../models");
+// const { Op } = require('sequelize');
 
 exports.createCustomer = async (req, res) => {
   try {
