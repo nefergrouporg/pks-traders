@@ -57,8 +57,13 @@ const UserManagement: React.FC = () => {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
     null
   );
+  
+  // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(8);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCustomers, setTotalCustomers] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
 
   const [newCustomer, setNewCustomer] = useState<NewCustomer>({
     name: "",
@@ -78,29 +83,42 @@ const UserManagement: React.FC = () => {
 
   useEffect(() => {
     fetchCustomers();
-  }, []);
+  }, [currentPage, searchQuery]);
 
   const fetchCustomers = async () => {
+    setIsLoading(true);
     try {
-      const response = await axios.get(`${baseUrl}/api/customers`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await axios.get(
+        ${baseUrl}/api/customers?page=${currentPage}&limit=${itemsPerPage}&search=${encodeURIComponent(searchQuery)},
+        {
+          headers: { Authorization: Bearer ${token} },
+        }
+      );
 
-      setCustomers(response.data?.customers.filter((user) => !user.isDeleted));
+      setCustomers(response.data.customers || []);
+      setTotalPages(response.data.totalPages || 1);
+      setTotalCustomers(response.data.totalCustomers || 0);
     } catch (error) {
       console.error("Error fetching customers:", error);
       toast.error("Failed to fetch customers");
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+    setCurrentPage(1);
   };
 
   const handleAddCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const response = await axios.post(
-        `${baseUrl}/api/customers`,
+        ${baseUrl}/api/customers,
         newCustomer,
         {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { Authorization: Bearer ${token} },
         }
       );
 
@@ -141,10 +159,10 @@ const UserManagement: React.FC = () => {
     };
     try {
       const response = await axios.put(
-        `${baseUrl}/api/customers/update`,
+        ${baseUrl}/api/customers/update,
         customer,
         {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { Authorization: Bearer ${token} },
         }
       );
 
@@ -163,9 +181,9 @@ const UserManagement: React.FC = () => {
     if (!customerToToggle) return;
     try {
       const response = await axios.put(
-        `${baseUrl}/api/customers/toggle-block/${customerToToggle}`,
+        ${baseUrl}/api/customers/toggle-block/${customerToToggle},
         {},
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: Bearer ${token} } }
       );
 
       if (response.status === 200) {
@@ -186,7 +204,7 @@ const UserManagement: React.FC = () => {
   };
 
   const handleDebtPaymentSuccess = () => {
-    fetchCustomers(); // Refresh data after payment
+    fetchCustomers();
   };
 
   const openCustomerDetails = async (customer: Customer) => {
@@ -204,24 +222,27 @@ const UserManagement: React.FC = () => {
     setIsDebtModalOpen(true);
   };
 
-  const filteredCustomers = customers.filter(
-    (customer) =>
-      (customer.name &&
-        customer.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (customer.phone &&
-        customer.phone.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (customer.address &&
-        customer.address.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
-
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredCustomers.slice(
-    indexOfFirstItem,
-    indexOfLastItem
-  );
-
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
+
+  // Generate page numbers for pagination with limits
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+    
+    return pages;
+  };
+
   return (
     <div className="p-4 sm:p-6 bg-gray-100 min-h-screen">
       <div className="mb-6 flex flex-col sm:flex-row gap-4">
@@ -229,7 +250,7 @@ const UserManagement: React.FC = () => {
           type="text"
           placeholder="Search customers by name, phone, or address..."
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={handleSearchChange}
           className="p-2 border border-gray-400 bg-white rounded-lg flex-1 text-sm sm:text-base text-black"
         />
         <button
@@ -255,79 +276,140 @@ const UserManagement: React.FC = () => {
               </tr>
             </thead>
             <tbody className="text-black">
-              {currentItems.map((customer) => (
-                <tr key={customer.id} className="border-t hover:bg-gray-50">
-                  <td className="p-3">{customer.name || "N/A"}</td>
-                  <td className="p-3">{customer.phone}</td>
-                  <td className="p-3">{customer.address || "N/A"}</td>
-                  <td className="p-3">
-                    {customer.lastPurchaseDate
-                      ? `${new Date(
-                          customer.lastPurchaseDate
-                        ).toLocaleDateString()} - ₹${customer.lastPurchaseAmount?.toFixed(
-                          2
-                        )}`
-                      : "No purchases"}
-                  </td>
-                  <td className="p-3">₹{customer.debtAmount.toFixed(2)}</td>
-                  <td>
-                    <button
-                      onClick={() => openDebtModal(customer)}
-                      className={`
-                        ${
-                          customer.isBlocked || customer.debtAmount <= 0
-                            ? "text-gray-600 cursor-not-allowed"
-                            : "text-red-600 hover:text-red-800"
-                        }
-                      `}
-                      disabled={customer.isBlocked || customer.debtAmount <= 0}
-                      title="Process Debt Payment"
-                    >
-                      <FontAwesomeIcon icon={faMoneyBill} />
-                    </button>
-                  </td>
-                  <td className="p-3 flex gap-2">
-                    <button
-                      onClick={() => openCustomerDetails(customer)}
-                      className="text-blue-600 hover:text-blue-800"
-                      title="View Details"
-                    >
-                      <FontAwesomeIcon icon={faEye} />
-                    </button>
-                    <button
-                      onClick={() => openEditCustomerModal(customer)}
-                      className="text-green-600 hover:text-green-800"
-                      title="Edit Customer"
-                    >
-                      <FontAwesomeIcon icon={faEdit} />
-                    </button>
+              {isLoading ? (
+                <tr>
+                  <td colSpan={7} className="p-8 text-center">
+                    <div className="flex justify-center items-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                      <span className="ml-3">Loading customers...</span>
+                    </div>
                   </td>
                 </tr>
-              ))}
+              ) : customers.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="p-8 text-center text-gray-500">
+                    {searchQuery ? 'No customers found matching your search' : 'No customers found'}
+                  </td>
+                </tr>
+              ) : (
+                customers.map((customer) => (
+                  <tr key={customer.id} className="border-t hover:bg-gray-50">
+                    <td className="p-3">{customer.name || "N/A"}</td>
+                    <td className="p-3">{customer.phone}</td>
+                    <td className="p-3">{customer.address || "N/A"}</td>
+                    <td className="p-3">
+                      {customer.lastPurchaseDate
+                        ? `${new Date(
+                            customer.lastPurchaseDate
+                          ).toLocaleDateString()} - ₹${customer.lastPurchaseAmount?.toFixed(
+                            2
+                          )}`
+                        : "No purchases"}
+                    </td>
+                    <td className="p-3">₹{customer.debtAmount.toFixed(2)}</td>
+                    <td>
+                      <button
+                        onClick={() => openDebtModal(customer)}
+                        className={`
+                          ${
+                            customer.isBlocked || customer.debtAmount <= 0
+                              ? "text-gray-600 cursor-not-allowed"
+                              : "text-red-600 hover:text-red-800"
+                          }
+                        `}
+                        disabled={customer.isBlocked || customer.debtAmount <= 0}
+                        title="Process Debt Payment"
+                      >
+                        <FontAwesomeIcon icon={faMoneyBill} />
+                      </button>
+                    </td>
+                    <td className="p-3 flex gap-2">
+                      <button
+                        onClick={() => openCustomerDetails(customer)}
+                        className="text-blue-600 hover:text-blue-800"
+                        title="View Details"
+                      >
+                        <FontAwesomeIcon icon={faEye} />
+                      </button>
+                      <button
+                        onClick={() => openEditCustomerModal(customer)}
+                        className="text-green-600 hover:text-green-800"
+                        title="Edit Customer"
+                      >
+                        <FontAwesomeIcon icon={faEdit} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      <div className="flex justify-center mt-6">
-        <button
-          onClick={() => paginate(currentPage - 1)}
-          disabled={currentPage === 1}
-          className="px-4 py-2 bg-gray-300 rounded-lg disabled:opacity-50"
-        >
-          Previous
-        </button>
-        <span className="mx-2 px-4 py-2 bg-gray-300 rounded-lg">
-          {currentPage}
-        </span>
-        <button
-          onClick={() => paginate(currentPage + 1)}
-          disabled={indexOfLastItem >= filteredCustomers.length}
-          className="px-4 py-2 bg-gray-300 rounded-lg disabled:opacity-50"
-        >
-          Next
-        </button>
-      </div>
+      {/* Enhanced Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex justify-center mt-6 items-center flex-wrap gap-2">
+          <button
+            onClick={() => paginate(currentPage - 1)}
+            disabled={currentPage === 1 || isLoading}
+            className="px-4 py-2 bg-gray-300 rounded-lg disabled:opacity-50 hover:bg-gray-400 transition"
+          >
+            Previous
+          </button>
+          
+          {currentPage > 3 && (
+            <>
+              <button
+                onClick={() => paginate(1)}
+                className="px-3 py-1 bg-gray-300 rounded-lg hover:bg-gray-400 transition"
+              >
+                1
+              </button>
+              {currentPage > 4 && <span className="px-2">...</span>}
+            </>
+          )}
+          
+          {getPageNumbers().map(number => (
+            <button
+              key={number}
+              onClick={() => paginate(number)}
+              disabled={isLoading}
+              className={`px-3 py-1 rounded-lg transition ${
+                currentPage === number 
+                  ? 'bg-blue-500 text-white' 
+                  : 'bg-gray-300 hover:bg-gray-400'
+              }`}
+            >
+              {number}
+            </button>
+          ))}
+          
+          {currentPage < totalPages - 2 && (
+            <>
+              {currentPage < totalPages - 3 && <span className="px-2">...</span>}
+              <button
+                onClick={() => paginate(totalPages)}
+                className="px-3 py-1 bg-gray-300 rounded-lg hover:bg-gray-400 transition"
+              >
+                {totalPages}
+              </button>
+            </>
+          )}
+          
+          <button
+            onClick={() => paginate(currentPage + 1)}
+            disabled={currentPage === totalPages || isLoading}
+            className="px-4 py-2 bg-gray-300 rounded-lg disabled:opacity-50 hover:bg-gray-400 transition"
+          >
+            Next
+          </button>
+          
+          <span className="ml-4 text-sm text-gray-600">
+            Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalCustomers)} of {totalCustomers} customers
+          </span>
+        </div>
+      )}
 
       {/* Add Customer Modal */}
       <Modal
