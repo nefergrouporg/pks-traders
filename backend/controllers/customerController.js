@@ -1,4 +1,5 @@
 const { Customer, Sale, SaleItem, Product, Payment } = require("../models");
+const { Op } = require('sequelize');
 
 exports.createCustomer = async (req, res) => {
   try {
@@ -63,22 +64,28 @@ exports.updateCustomer = async (req, res) => {
   }
 };
 
+
+
 exports.getCustomers = async (req, res) => {
   try {
-    const customers = await Customer.findAll({
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+
+    const { count, rows: customers } = await Customer.findAndCountAll({
       order: [["name", "ASC"]],
       include: [
         {
           model: Sale,
-          as: "Sales", // Alias for Sale
+          as: "Sales",
           include: [
             {
               model: SaleItem,
-              as: "items", // Alias for SaleItem
+              as: "items",
               include: [
                 {
                   model: Product,
-                  as: "product", // Alias for Product
+                  as: "product",
                   attributes: ["id", "name", "retailPrice", "wholeSalePrice"],
                 },
               ],
@@ -92,19 +99,20 @@ exports.getCustomers = async (req, res) => {
           order: [["createdAt", "DESC"]],
         },
       ],
+      limit,
+      offset,
     });
 
     const transformed = customers.map((customer) => ({
       ...customer.toJSON(),
       Sales: customer.Sales.map((sale) => ({
-        // Notice: sales, not Sale
         id: sale.id,
         date: sale.createdAt,
         totalAmount: parseFloat(sale.totalAmount),
         paymentMethod: sale.payment?.paymentMethod || sale.paymentMethod,
         products: sale.items.map((item) => ({
           id: item.productId,
-          name: item.product.name, // Access via alias 'product'
+          name: item.product.name,
           quantity: item.quantity,
           price: parseFloat(item.price),
           subtotal: item.quantity * item.price,
@@ -112,13 +120,17 @@ exports.getCustomers = async (req, res) => {
       })),
     }));
 
-    return res.status(200).json({ customers: transformed });
+    return res.status(200).json({
+      customers: transformed,
+      totalPages: Math.ceil(count / limit),
+      currentPage: page,
+      totalCustomers: count
+    });
   } catch (error) {
     console.error("Error fetching customers:", error);
     return res.status(500).json({ error: "Server error" });
   }
 };
-
 exports.editCustomer = async (req, res) => {
   try {
     const { id, name, phone, address, debtAmount } = req.body;
