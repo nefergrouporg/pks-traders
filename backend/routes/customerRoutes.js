@@ -5,6 +5,7 @@ const { auth } = require('../middleware/authMiddleware');
 
 router.post('/', auth, customerController.createCustomer)
 router.get('/', auth, customerController.getCustomers)
+router.get('/search', auth, customerController.getCustomerssearch)
 // Customer details with full sales history
 router.get('/:id/details', auth, customerController.getCustomerDetails);
 

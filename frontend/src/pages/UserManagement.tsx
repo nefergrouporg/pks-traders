@@ -21,6 +21,12 @@ interface Customer {
   Sales?: Sale[];
 }
 
+interface CustomerDetails extends Customer {
+  Sales: Sale[];
+  totalPurchases: number;
+  totalSpent: number;
+}
+
 interface Sale {
   id: number;
   date: string;
@@ -44,7 +50,7 @@ interface NewCustomer {
   debtAmount: number;
 }
 
-const CustomerManagement: React.FC = () => {
+const UserManagement: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isAddCustomerModalOpen, setIsAddCustomerModalOpen] = useState(false);
@@ -54,6 +60,8 @@ const CustomerManagement: React.FC = () => {
   const [isDebtModalOpen, setIsDebtModalOpen] = useState(false);
   const [customerToToggle, setCustomerToToggle] = useState<number | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [customerDetails, setCustomerDetails] = useState<CustomerDetails | null>(null);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -109,6 +117,25 @@ const CustomerManagement: React.FC = () => {
     }
   };
 
+  const fetchCustomerDetails = async (customerId: number) => {
+    setIsLoadingDetails(true);
+    try {
+      const response = await axios.get(
+        `${baseUrl}/api/customers/${customerId}/details`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      setCustomerDetails(response.data.customer);
+    } catch (error) {
+      console.error("Error fetching customer details:", error);
+      toast.error("Failed to fetch customer details");
+    } finally {
+      setIsLoadingDetails(false);
+    }
+  };
+
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
     setCurrentPage(1);
@@ -138,7 +165,7 @@ const CustomerManagement: React.FC = () => {
       }
     } catch (error: any) {
       console.error("Error creating customer:", error);
-      // toast.error(error.response?.data?.message || "Failed to create customer");
+      toast.error(error.response?.data?.message || "Failed to create customer");
     }
   };
 
@@ -214,8 +241,9 @@ const CustomerManagement: React.FC = () => {
     fetchCustomers();
   };
 
-  const openCustomerDetails = (customer: Customer) => {
+  const openCustomerDetails = async (customer: Customer) => {
     setSelectedCustomer(customer);
+    await fetchCustomerDetails(customer.id);
     setIsDetailsModalOpen(true);
   };
 
@@ -244,7 +272,7 @@ const CustomerManagement: React.FC = () => {
     return pages;
   };
 
-  const CURRENCY_SYMBOL = "₹"; // Using Unicode for Indian Rupee
+  const CURRENCY_SYMBOL = "₹";
 
   return (
     <div className="p-4 sm:p-6 bg-gray-100 min-h-screen">
@@ -618,7 +646,8 @@ const CustomerManagement: React.FC = () => {
         <CustomerDetailsModal
           isOpen={isDetailsModalOpen}
           onClose={() => setIsDetailsModalOpen(false)}
-          customer={selectedCustomer}
+          customer={customerDetails || selectedCustomer}
+          isLoading={isLoadingDetails}
         />
       )}
 
@@ -634,4 +663,4 @@ const CustomerManagement: React.FC = () => {
   );
 };
 
-export default CustomerManagement;
+export default UserManagement;
