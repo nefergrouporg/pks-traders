@@ -425,82 +425,77 @@ exports.editCustomer = async (req, res) => {
 
 
 
-
 exports.getCustomerssearch = async (req, res) => {
   try {
+    // Validate authentication
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ error: 'Unauthorized: No token provided' });
+    }
+
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const offset = (page - 1) * limit;
-    const searchTerm = req.query.search || ''; // Add search parameter
+    const searchTerm = req.query.search || '';
 
-    // Build where clause for search
+    // Validate query parameters
+    if (isNaN(page) || page < 1 || isNaN(limit) || limit < 1) {
+      return res.status(400).json({ error: 'Invalid page or limit parameters' });
+    }
+
+    // Normalize search term
+    const normalizedTerm = searchTerm.trim().toLowerCase();
+    const numberMatch = normalizedTerm.match(/\d+/);
+    const searchValues = [normalizedTerm];
+    if (numberMatch) {
+      searchValues.push(numberMatch[0]); // Add extracted number
+    }
+
+    // Build where clause
     let whereClause = {};
-    if (searchTerm) {
+    if (searchValues.length > 0) {
       whereClause = {
-        [Op.or]: [
-          { name: { [Op.iLike]: `%${searchTerm}%` } }, // Case-insensitive search
-          { phone: { [Op.iLike]: `%${searchTerm}%` } }
-        ]
+        [Op.or]: searchValues.map(value => ({
+          [Op.or]: [
+            { name: { [Op.iLike]: `%${value}%` } },
+            { phone: { [Op.iLike]: `%${value}%` } },
+          ],
+        })),
       };
     }
 
+    // Fetch only necessary fields
     const { count, rows: customers } = await Customer.findAndCountAll({
-      where: whereClause, // Add the search filter
-      order: [["name", "ASC"]],
-      include: [
-        {
-          model: Sale,
-          as: "Sales",
-          include: [
-            {
-              model: SaleItem,
-              as: "items",
-              include: [
-                {
-                  model: Product,
-                  as: "product",
-                  attributes: ["id", "name", "retailPrice", "wholeSalePrice"],
-                },
-              ],
-            },
-            {
-              model: Payment,
-              as: "payments",
-              attributes: ["paymentMethod"],
-            },
-          ],
-          order: [["createdAt", "DESC"]],
-        },
-      ],
+      where: whereClause,
+      attributes: ['id', 'name', 'phone', 'address', 'debtAmount'],
+      order: [['name', 'ASC']],
       limit,
       offset,
     });
 
-    const transformed = customers.map((customer) => ({
-      ...customer.toJSON(),
-      Sales: customer.Sales.map((sale) => ({
-        id: sale.id,
-        date: sale.createdAt,
-        totalAmount: parseFloat(sale.totalAmount),
-        paymentMethod: sale.payment?.paymentMethod || sale.paymentMethod,
-        products: sale.items.map((item) => ({
-          id: item.productId,
-          name: item.product.name,
-          quantity: item.quantity,
-          price: parseFloat(item.price),
-          subtotal: item.quantity * item.price,
-        })),
-      })),
+    // Transform response
+    const transformed = customers.map(customer => ({
+      id: customer.id,
+      name: customer.name,
+      phone: customer.phone,
+      address: customer.address,
+      debtAmount: parseFloat(customer.debtAmount || 0),
     }));
+
+    // 👇 Print to console
+    console.log("Fetched customers:", JSON.stringify(transformed, null, 2));
 
     return res.status(200).json({
       customers: transformed,
       totalPages: Math.ceil(count / limit),
       currentPage: page,
-      totalCustomers: count
+      totalCustomers: count,
     });
   } catch (error) {
-    console.error("Error fetching customers:", error);
-    return res.status(500).json({ error: "Server error" });
+    console.error('Error fetching customers:', error);
+    if (error.name === 'SequelizeDatabaseError') {
+      return res.status(500).json({ error: 'Database error occurred' });
+    }
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };
